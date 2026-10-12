@@ -480,8 +480,21 @@ Each top-3 goal from §1 is expanded into a full scenario. QG-4 is the performan
      📋 Write: a term / meaning table. Business + technical terms mixed.
      📌 e.g. «Lesson | a unit inside a course made of blocks (text, video)». -->
 
+Terms from [project CONTEXT](../../../CONTEXT.md) and [feature CONTEXT](./CONTEXT.md) are canonical, and the definitions below are short reminders. Terms marked **(new)** were introduced by this SAD and are not yet in CONTEXT, so they are candidates for `/sdd:glossary exchange-adapter`.
+
 | Term | Meaning |
 |---|---|
-| <e.g. domain object A> | <its meaning in this domain> |
-| <e.g. domain object B> | <its meaning> |
-| <e.g. domain invariant name> | <the rule, in plain language> |
+| Operator | A signed-in platform user who configures, starts, stops and supervises their own bots on their own exchange accounts. Not the exchange account, and not another platform user |
+| Venue | Exchange + environment a bot trades on (Bybit emulator, demo, testnet, live). Exactly one exchange adapter per venue, or a refusal. Derived from `trading_bots.exchange` + `environment` (ADR-0004). Not the market type |
+| Market type | Spot, linear (USDT-M) or inverse, chosen per bot inside a venue (`trading_bots.category`). Capabilities are declared per market type |
+| Exchange adapter | The one place through which bots talk to a given exchange, in platform terms (ADR-0001). Not the exchange's client library, and not the exchange emulator |
+| Error class | The exchange-neutral category of a failed exchange request, which alone decides the bot's reaction. Not the raw exchange code (kept for diagnosis), and not the stored error type (ADR-0005) |
+| Capability | Something an exchange adapter declares it can do on a market type, consulted instead of the exchange's name (ADR-0006, §5 catalogue). Not a strategy mode compatibility rule (D2) |
+| Cycle | One round trip of a bot from its first entry order until exits bring the position back to zero. Mid-cycle = anywhere in between |
+| Golden run | A reference run of one strategy on the emulator from a fixed price scenario and starting state (fresh, or mid-cycle), recorded before the refactor and reproduced after each migration step (ADR-0007) |
+| Trading equivalence | Same orders, same bot state, same reaction (action + severity) to every error class. Event wording may differ, and event category + raw code must not |
+| **(new)** Guard | `exchange_for(bot, needs)`: the single entry to an adapter. It refuses when the venue has no adapter or a required capability is missing, before any exchange request (ADR-0004) |
+| **(new)** Stored vocabulary | The order statuses, error types and client-tag format already persisted in the database. Frozen and adopted as the platform vocabulary (ADR-0003). Distinct from error classes |
+| **(new)** Reference failure table | The pre-refactor record of one real Bybit failure per error type distinguished today, plus the retry-limit-exhausted row, each with the action and severity the bot took (spec AC-06) |
+| **(new)** Stand-in exchange adapter | A test adapter for a test venue that declares the same capabilities as the Bybit adapter, used to prove strategies need no change (spec AC-17) |
+| **(new)** Order lookup | The adapter's by-tag answer about one order: open, final (with its state) or not found. The basis of the AC-08 rule (SAD §8) |
