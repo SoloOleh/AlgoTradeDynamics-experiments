@@ -15,7 +15,7 @@ ticket: "roadmap step 0 — exchange-adapter"
 
 ## Context
 
-`str(exc)` flows unfiltered into `bot.last_error`, the `bot_error` event, the operations log, bot incidents (`error_handling.py:206-262`) and Telegram, and the connection check returns `str(exc)` to the caller (`BE/app/api/bybit.py:28`). The emulator account key travels inside the WS URL query string (`exchange_streams.py`, `?api_key=…`), so a connection error can echo it. Moving error handling into the adapter is a new place where secrets meet error text (spec US-07, §6.1 «Key leak through exchange error text») (SAD §4 pillar 8).
+`str(exc)` flows unfiltered into `bot.last_error`, the `bot_error` event, the operations log, bot incidents (`error_handling.py:206-262`) and Telegram, and the connection check returns `str(exc)` to the caller (`BE/app/api/bybit.py:30`). The emulator account key travels inside the WS URL query string (`exchange_streams.py`, `?api_key=…`), so a connection error can echo it. Moving error handling into the adapter is a new place where secrets meet error text (spec US-07, §6.1 «Key leak through exchange error text») (SAD §4 pillar 8).
 
 ## Decision drivers
 

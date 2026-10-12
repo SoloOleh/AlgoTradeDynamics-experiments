@@ -15,7 +15,7 @@ ticket: "roadmap step 0 — exchange-adapter"
 
 ## Context
 
-Spec §6 requires «0 places in strategies or runtimes that reach an exchange other than through an exchange adapter», checked by a static search over the bot engine, the backtest service and the connection check, with no exemptions. The backtest service uses `BacktestEmulatorClient` (`BE/app/services/backtest_emulator.py`) for two kinds of call. One is the exchange's trading/market dialect: `instrument_info` → `/v5/market/instruments-info`, used at `backtest_service.py:208`. The other is the emulator's admin plane: datasets, candles, accounts, `set_price`, dashboard, orders and executions under `/api/admin/…`. Real exchanges have no admin plane. The search needs a precise definition of «reaching an exchange» (SAD §10 QG-3).
+Spec §6 requires «0 places in strategies or runtimes that reach an exchange other than through an exchange adapter», checked by a static search over the bot engine, the backtest service and the connection check, with no exemptions. The backtest services use `BacktestEmulatorClient` (`BE/app/services/backtest_emulator.py`) for two kinds of call. One is the exchange's trading/market dialect: `instrument_info` → `/v5/market/instruments-info`, used at `backtest_service.py:208`, `fast_momentum_backtest.py:832` and `fast_scalper_backtest.py:1010`. The UI live stream (`BE/app/api/websockets.py:247-261`) also opens `/v5/` WS connections itself. The other is the emulator's admin plane: datasets, candles, accounts, `set_price`, dashboard, orders and executions under `/api/admin/…`. Real exchanges have no admin plane. The search needs a precise definition of «reaching an exchange» (SAD §10 QG-3).
 
 ## Decision drivers
 
@@ -25,22 +25,22 @@ Spec §6 requires «0 places in strategies or runtimes that reach an exchange ot
 
 ## Considered options
 
-1. **The trading dialect is in scope and the admin plane is not.** The search flags, outside `bot_engine/exchange/`: `pybit` / `EmulatorHTTP` imports, `get_bybit_session` / `get_bybit_credentials`, `/v5/` exchange paths and exchange WS endpoints, and Bybit field names. The emulator admin plane (`/api/admin/…`) is simulator control, not exchange access.
+1. **The trading dialect is in scope and the admin plane is not.** Scope: `bot_engine/`, every backtest service (`backtest_*.py`, `fast_*_backtest.py`), the connection check and the UI live stream (`api/websockets.py`). Outside `bot_engine/exchange/` the search flags `pybit` / `EmulatorHTTP` imports, `get_bybit_session` / `get_bybit_credentials`, and `/v5/` exchange paths and exchange WS endpoints. Bybit field names are flagged in the bot engine, the connection check and the UI stream. Backtest code parsing the emulator's admin-plane payloads (Bybit-shaped by design) is exempt from the field-name rule only. The emulator admin plane (`/api/admin/…`) is simulator control, not exchange access.
 2. **All emulator traffic goes through the adapter.** Admin calls count as exchange access too, so the port gains simulator-control methods.
 
 ## Decision outcome
 
-**Chosen:** Option 1. «Exchange» means the trading and market-data surface a real venue offers. Simulator control (datasets, accounts, prices) has no counterpart on Bybit or Binance and would pollute the port with emulator-only concepts (against ADR-0001). The backtest's one real exchange call, `instrument_info`, moves to the Bybit emulator adapter's `instrument_rules`, so the backtest reaches the exchange like any other emulator bot, as spec §3 states.
+**Chosen:** Option 1. «Exchange» means the trading and market-data surface a real venue offers. Simulator control (datasets, accounts, prices) has no counterpart on Bybit or Binance and would pollute the port with emulator-only concepts (against ADR-0001). The backtests' real exchange calls (the three `instrument_info` reads) move to the Bybit emulator adapter's `instrument_rules`, and the UI live stream takes its endpoints from the adapter, so the backtest reaches the exchange like any other emulator bot, as spec §3 states.
 
 ## Consequences
 
 **Positive**
-- The search is a mechanical check (imports, path prefixes, field-name tokens) that runs in seconds pre-merge.
+- The search is a mechanical check (imports, path prefixes, field-name tokens) that runs in seconds pre-merge and can actually reach 0, since admin-plane parsing is not counted as exchange access.
 - The port stays implementable by real exchanges only. The emulator's control plane stays a test and backtest concern.
 
 **Negative**
 - `BacktestEmulatorClient` keeps one HTTP client that talks to the emulator for admin calls. A future edit could slip a `/v5/` call back in, which the search catches by path prefix.
-- `backtest_service.py` must change its instrument-info read. Results must stay identical (spec §3), and the existing backtest tests guard this.
+- `backtest_service.py`, `fast_momentum_backtest.py` and `fast_scalper_backtest.py` must change their instrument-info reads. Results must stay identical (spec §3), and the existing backtest tests guard this.
 
 **Neutral**
 - If an admin-plane call is ever needed on a real venue (for example account provisioning), it becomes a port method in its own decision.

@@ -22,7 +22,7 @@ Today `get_bybit_session(bot)` keys only on `bot.environment`. An emulator bot g
 - SAD §1 QG-2: fail-closed safety. Never routed to a default exchange (spec §6.1 «Misrouted orders»).
 - Spec AC-09, AC-10, AC-15, AC-15b: name the venue or the capability, send nothing to any exchange, and leave existing orders untouched.
 - Spec AC-11 / §6.1: ownership checks run before any venue routing.
-- ADR-0003: no schema change in this step.
+- Preference: avoid migrations that run during a deploy with bots mid-cycle (Alembic auto-applies on backend start, `README.md`). ADR-0003 needs no schema change, so one here would be the only one.
 
 ## Considered options
 
@@ -39,6 +39,7 @@ Today `get_bybit_session(bot)` keys only on `bot.environment`. An emulator bot g
 **Positive**
 - One place enforces AC-09, AC-10, AC-15 and AC-15b, and the static search can assert that nothing else constructs an adapter.
 - The guard raises typed exceptions (`VenueNotSupported`, `CapabilityMissing`). A start is refused with the venue or capability named. A running bot is moved to `paused` with the reason recorded as a bot event and a notification, without entering the retry path.
+- Stop is guarded too: when the venue has no adapter, stop moves the bot to `stopped` without cancelling or closing anything on the exchange, and states why (consistent with AC-10, where orders are left for the Operator).
 - Venues for this step: `bybit` × {`emulator`, `demo`, `testnet`, `live`}, which covers every bot that runs today.
 
 **Negative**

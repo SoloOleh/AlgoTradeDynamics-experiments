@@ -30,12 +30,12 @@ Bybit demo, testnet and live are reached through `pybit` 5.17 (`pybit.unified_tr
 
 ## Decision outcome
 
-**Chosen:** Option 1, wrapping the existing clients. Request bytes stay identical to today, so the equivalence risk is confined to response translation. No new dependency and no new rounding or parameter defaults. Option 2 would put two refactorings in one step: a different request shape and different defaults are exactly what the golden runs would flag as non-equivalent, and the emulator's authentication would need custom work.
+**Chosen:** Option 1, wrapping the existing clients. Order-mutating request bytes (place, cancel) stay identical to today (read requests may change only where SAD §8 says so), so the equivalence risk is confined to response translation. No new dependency and no new rounding or parameter defaults. Option 2 would put two refactorings in one step: a different request shape and different defaults are exactly what the golden runs would flag as non-equivalent, and the emulator's authentication would need custom work.
 
 ## Consequences
 
 **Positive**
-- The bytes on the wire to Bybit and the emulator do not change. Golden-run failures can only come from translation or orchestration changes.
+- Place and cancel requests to Bybit and the emulator do not change on the wire. Golden-run failures can only come from translation or orchestration changes.
 - The overhead target is easy to meet: translation is in-memory work only.
 - `get_bybit_credentials` and the `EmulatorHTTP` session cache move into `exchange/bybit/` unchanged.
 

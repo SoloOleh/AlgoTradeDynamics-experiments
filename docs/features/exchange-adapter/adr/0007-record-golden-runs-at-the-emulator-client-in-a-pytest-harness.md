@@ -35,7 +35,7 @@ Trading equivalence is proven by golden runs: 8 recordings (4 strategies × {fre
 ## Consequences
 
 **Positive**
-- Equivalence is compared on canonicalised records: order requests (side, price and quantity after rounding, client tag, sequence of place and cancel), final bot state (status, cycles, positions, PnL) and event categories (event type + stored error type + raw code). Wording is ignored, per the glossary.
+- Equivalence is compared on canonicalised records: order-mutating requests only (side, price and quantity after rounding, client tag, sequence of place and cancel). Read requests are recorded for diagnosis but not compared, matching the glossary's «trading equivalence», and the AC-08 by-tag lookup therefore needs no carve-out. The other compared records are final bot state (status, cycles, positions, PnL) and event categories (event type + stored error type + raw code). Wording is ignored, per the glossary.
 - The harness doubles as the AC-17 stand-in-adapter runner.
 
 **Negative**

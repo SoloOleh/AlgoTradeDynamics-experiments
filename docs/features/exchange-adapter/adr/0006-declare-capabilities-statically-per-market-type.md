@@ -37,7 +37,7 @@ Strategies differ in what they need from an exchange. Momentum and Pattern Scalp
 
 **Positive**
 - Settles spec §8 OQ «Which capabilities does each strategy need, and which does the Bybit adapter declare»: both lists are derived from today's usage and recorded in SAD §5.
-- The maximum client-tag length is a declared capability *value* (spec §8 OQ on tags). Bybit declares 36, and step 1 decides about Binance.
+- The maximum client-tag length is a declared capability *value* (spec §8 OQ on tags). Bybit declares 36, but the guard does **not** enforce it in this step: today's Momentum tags (about 43 characters) would otherwise be refused, against AC-15. Step 1 decides the tag shape and turns enforcement on.
 
 **Negative**
 - If an exchange withdraws a feature without a deploy on our side, we learn about it from an order error (an error class), not from the guard.
