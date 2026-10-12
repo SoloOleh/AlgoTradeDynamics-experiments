@@ -255,23 +255,75 @@ The golden-run harness (`BE/tests/golden/`, ADR-0007) is test-only and not a run
      📌 e.g. «author → web: composes draft → web → content API: save». Seed the primary flow(s) here;
      the `sequences` stage then covers every §5 AC (no cap). Never N/A for M+; XS/S keeps ≥1 happy-path flow. -->
 
-**Critical flow 1: <flow name>**
+These are seed flows that use the §5 container names. The `sequences` stage adds a flow or branch for every spec §5 AC: the mid-cycle recognition after a deploy (AC-04, AC-05), the order-lookup rule (AC-08), cross-user refusal (AC-11), the connection check (AC-12, AC-13, AC-13b, AC-14) and scrubbing (AC-16).
+
+**Critical flow 1: a live event wakes a bot, which trades through its venue's adapter (US-01, US-03, US-04, US-06)**
 
 ```mermaid
 sequenceDiagram
-    actor Actor
-    participant Web
-    participant Service
-    participant Store
-    Actor->>Web: <action>
-    Web->>Service: <call>
-    Service->>Store: <write>
-    Store-->>Service: ok
-    Service-->>Web: result
-    Web-->>Actor: confirmation
+    participant EX as Exchange (Bybit or emulator)
+    participant AD as Bybit adapter
+    participant WK as Bot worker
+    participant SEAM as Exchange seam
+    participant ST as Strategies
+    participant DB as db
+    participant TG as Telegram
+    EX->>AD: live order or execution event
+    AD->>WK: neutral stream event wakes the bot
+    WK->>SEAM: exchange_for(bot, required capabilities)
+    alt venue has an adapter and every required capability is declared
+        SEAM-->>WK: adapter for the venue
+        WK->>ST: tick(bot, adapter)
+        ST->>AD: look up own orders, place or cancel in platform terms
+        AD->>EX: same v5 request as before the refactor
+        alt exchange answers
+            EX-->>AD: response
+            AD-->>ST: neutral orders, executions, positions
+            ST->>DB: save orders and bot state in the stored vocabulary
+        else exchange request fails
+            EX-->>AD: error code or timeout
+            AD-->>ST: ExchangeError with error class, raw code, scrubbed message
+            ST-->>WK: failure propagates
+            WK->>DB: stored error type, severity and action from the class table
+            WK->>TG: notification on pause or stop, scrubbed
+        end
+    else venue has no adapter or a capability is missing
+        SEAM-->>WK: refused, venue or capability and market type named
+        WK->>DB: bot paused with the stated reason, orders untouched
+        WK->>TG: pause notification with the reason
+    end
 ```
 
-**Critical flow 2: <e.g. async event propagation>** — <if applicable, otherwise N/A>.
+**Critical flow 2: Operator starts a bot and the start is checked before anything reaches an exchange (US-04, US-06)**
+
+```mermaid
+sequenceDiagram
+    actor OP as Operator
+    participant API as API routers and services
+    participant SEAM as Exchange seam
+    participant ST as Strategies
+    participant DB as db
+    OP->>API: start bot
+    API->>DB: load bot owned by the Operator
+    alt bot not owned by the Operator
+        API-->>OP: trading bot not found, nothing revealed, nothing sent
+    else own bot
+        API->>ST: required capabilities for this bot and market type
+        ST-->>API: capability set
+        API->>SEAM: exchange_for(bot, capability set)
+        alt venue has no adapter
+            SEAM-->>API: VenueNotSupported naming the venue
+            API-->>OP: start refused, venue named, nothing sent to any exchange
+        else a capability is missing on the market type
+            SEAM-->>API: CapabilityMissing naming capability and market type
+            API-->>OP: start refused, capability and market type named, nothing sent
+        else guard passes
+            SEAM-->>API: adapter
+            API->>DB: bot marked running, bot_started event
+            API-->>OP: bot Active
+        end
+    end
+```
 
 ## 7. Deployment view
 
