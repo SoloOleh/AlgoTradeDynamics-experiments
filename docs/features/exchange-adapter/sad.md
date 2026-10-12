@@ -453,12 +453,25 @@ Each top-3 goal from §1 is expanded into a full scenario. QG-4 is the performan
 
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
-| <e.g. Worker lag may reach hours during a downstream outage> | Medium | <alert >10 min, on-call playbook, retry backoff> | <DevOps> |
-| <e.g. No event-schema versioning in v1> | Medium | <ADR-NNNN planned for v2, tolerate unknown fields> | <Backend> |
-| Open architectural decision: <decision-headline> | Open question | Resolve before <stage trigger or YYYY-MM-DD>; <inline rationale from the Save-as-OQ> | <owner> |
+| Momentum and Pattern Scalper risk guards fail open when the balance or the daily result cannot be read (the daily loss stop sees zero, and sizing falls back to the maximum). Kept unchanged in this step because trading equivalence ranks above fail-closed (§1). Settles spec §8 OQ «risk guards…» | High | Accepted debt (below). Golden runs keep today's behaviour. Resolve before Binance bots run live (roadmap step 1), where balance-read failures may be more frequent, and at the latest together with the step 9 guarantees | Oleh Solomko |
+| There is no CI, so the pre-merge gate (golden runs, failure table, static search, existing suites) can be skipped and a non-equivalent PR can reach the bots | Medium | One command runs the whole gate. Each PR description records its result. Spec §8 OQ «CI vs local routine» stays with its owner, due before `/sdd:tasks` | Oleh Solomko |
+| Strategies read Bybit keys from the stored `trading_bot_orders.raw_response` (`reduceOnly` at `momentum.py:632,926`). Rows written by other adapters will not carry these keys | Medium | Neutral accessor on the order record (reduce-only, from the adapter's neutral `Order`) with a fallback that reads legacy Bybit keys. Covered by the mid-cycle golden runs (ADR-0003) | Oleh Solomko |
+| The order lookup moves from «last 50 history items» (`orders.py:39-50`) to «by client tag», which changes the request sequence a golden run records | Medium | Introduced in a single migration step together with the AC-08 deviation and recorded as the expected difference in the reference failure table. All other steps must keep the request sequence identical (SAD §8) | Oleh Solomko |
+| The emulator has no fault injection and no partial fills (`engine.py:615`), so error-reaction equivalence rests on the reference failure table, and the `PartiallyFilled` path is never exercised by golden runs | Medium | Failure-table rows are built from real recorded Bybit error payloads, driven through the Bybit adapter's classifier and the engine's class table. Faults and partial fills arrive in roadmap step 2 | Oleh Solomko |
+| A guard pause (no adapter or missing capability) could be classified as a retryable error and retried instead of pausing | Medium | Guard exceptions bypass `classify_bot_error` and take their own pause path (ADR-0004). A test asserts the bot reaches `paused` with zero exchange requests | Oleh Solomko |
+| The golden-run harness runs the backend on SQLite, while production runs PostgreSQL 18, so float and JSON round-trips may differ | Low | Matches the existing test convention. One manual mid-cycle smoke run on the `docker compose` stack before the last PR of the step | Oleh Solomko |
+| The backtest's instrument-info read (`backtest_service.py:208`) moves to the Bybit emulator adapter (ADR-0009). Backtest results must not change (spec §3) | Low | Existing backtest tests, plus one recorded backtest result compared before and after | Oleh Solomko |
+| The scrubber removes only secrets it knows. An unexpected credential (for example a new token type) inside an error text would pass | Low | Pattern masking on top of known-value masking (`api_key=…`, `X-API-Key: …`, `api_secret`). Security review of the scrubber (spec §6.1) | Oleh Solomko |
+| `docs/architecture-map.md` §Conventions goes stale: exchange clients move from `bot_engine/bybit/` to `bot_engine/exchange/<name>/` | Low | Re-run `/sdd:survey` after the last PR of the step | Oleh Solomko |
+| Open question (spec §8): which price scenarios the golden runs use, and the mid-cycle starting state for Momentum and Pattern Scalper | Open question | Resolve before `/sdd:plan-tests exchange-adapter`. Spec default: one trend-and-range scenario per strategy plus one rounding-boundary scenario. For Momentum and Pattern Scalper, mid-cycle = an open position with its take-profit and stop orders placed | Oleh Solomko |
+| Open question (spec §8): reshape Momentum and Pattern Scalper client tags longer than 36 characters now or in step 1 | Open question | Resolve before the roadmap step 1 spec. The maximum tag length is already a declared capability value (Bybit 36, ADR-0006), and tags stay unchanged in this step | Oleh Solomko |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
-- <e.g. the entity is immutable / unversioned — OK for v1, may need audit versioning in v2>
+- **Risk guards fail open** on unreadable balance or daily result (Momentum, Pattern Scalper). Preserved for trading equivalence. To be fixed before Binance bots run live, or with step 9.
+- **Bybit keeps its recovery policy:** resync and retry on inconsistent order state, with no lookup before resend and no pause on unexplained divergence. The new guarantees reach Bybit in roadmap step 9 (spec §3).
+- **The stored vocabulary looks Bybit-shaped** (`New`, `Filled`…, ADR-0003). Other adapters map into it.
+- **Floats, not Decimal**, for prices, quantities, fees and PnL (SAD §8).
+- **Bybit's capability declarations are loose** (for example `position_reads` on spot) because they mirror today's usage. To be tightened by the strategy × market × mode matrix (decision D2).
 
 ## 12. Glossary
 
