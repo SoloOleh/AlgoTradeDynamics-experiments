@@ -334,18 +334,20 @@ sequenceDiagram
      🎯 N/A allowed for XS/S that reuses an existing deployment unit with no change.
      Deployment-diagram scaffold → templates/deployment.md. -->
 
-<Topology in 2–3 sentences. Where it runs, replicas, scaling thresholds.>
+**No topology change.** The feature runs in the existing `docker compose` units: frontend, backend (FastAPI with the in-process bot worker, one process), exchange emulator and PostgreSQL 18 (`docker-compose.yml`). It adds no container, port, environment variable or volume. Bybit keys stay `BYBIT_{DEMO|TESTNET|LIVE}_API_KEY/SECRET` on the server, shared per venue (spec §3 non-goal: per-operator keys).
+
+**Deploying a migration PR.** Each migration step is deployed while bots are running. The backend restarts, the worker loop starts in the lifespan hook and forces a reconcile (`reconcile_if_due(force=True)`, `runtime.py`), and mid-cycle bots resume on the new code. Spec AC-04 and AC-05 prove this exact path with the mid-cycle golden runs before the PR merges.
+
+**Rollback.** Redeploy the previous image. Nothing in the schema, the stored vocabulary or the client tags changes (ADR-0003), so a rollback is as safe for mid-cycle bots as a forward deploy. Orders placed by the newer code are read natively by the older code.
 
 **Monitoring:**
-- <Metrics — e.g. `<metric_name>`>
-- <Alerts — e.g. «worker lag > 10 min → page on-call»>
-- <Tracing — e.g. spans on the request boundary>
+- **Metrics:** no metrics stack exists (no Prometheus, no tracing). Reaction latency and adapter overhead are measured by the golden-run harness before every merge (spec §6), not in production.
+- **Alerts:** the existing bot incidents and operations log (`create_bot_incident`, `record_operation_log`, with `exchange` and `error_type`) plus Telegram notifications. Guard pauses get their own incident type (`venue_unsupported` / `capability_missing`) so they are not mistaken for exchange errors.
+- **Tracing:** correlation id `bot:{id}` on operation-log entries, as today.
 
 **Scaling thresholds:**
-- <e.g. comfortable in one table up to N rows/year>
-- <e.g. partition by quarter above N rows/year>
-
-<!-- For XS/S with no deployment change: <!-- N/A: reuses existing deployment unit, no infra change --> -->
+- One backend process, bots serialised per bot by asyncio locks (`runtime.py:65`). The adapter adds at most 5 ms to the p95 of a single exchange request (spec §6), so worker throughput is unchanged at today's bot counts.
+- The emulator session cache (`lru_cache(maxsize=256)`, keyed by emulator account key) moves into the Bybit adapter unchanged. Above 256 distinct emulator keys, sessions are rebuilt on demand, as today.
 
 ## 8. Crosscutting concepts
 
