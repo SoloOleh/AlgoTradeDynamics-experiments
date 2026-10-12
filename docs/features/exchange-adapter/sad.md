@@ -359,13 +359,17 @@ sequenceDiagram
 
 | Concept | Convention | Where defined |
 |---|---|---|
-| Logging | <e.g. structured, fields `module=<name>`> | <convention file §X or here> |
-| Authentication | <e.g. token-based via middleware> | <convention file §X> |
-| Error handling | <e.g. domain sentinel → ports error mapping → JSON> | <convention file §X> |
-| ID strategy | <e.g. sortable time-based ID in the app layer> | <convention file §X> |
-| Internationalisation | <e.g. N/A, single language> | — |
-| Observability | <e.g. tracing on the request boundary> | — |
-| Events | <module-specific patterns, if any> | <here> |
+| Logging | Stdlib logging (`app.core.logging`). A root logging filter applies the shared scrubber, so no key or secret reaches a log line (ADR-0008) | `BE/app/core/logging.py`; `bot_engine/exchange/redaction.py` |
+| Secrets | One scrubber knows every configured key and secret of every venue plus the emulator account keys in use. It is applied by the adapter to every `ExchangeError` and again by every sink (`log_bot_event` → Telegram, `record_operation_log`, `create_bot_incident`, the connection check). Keys appear at most as `****abcd`, secrets never (AC-16). Records stored before the deploy are not rewritten | ADR-0008 |
+| Authentication / authorization | JWT via the existing API dependencies. Bot ownership is checked by `get_trading_bot(db, bot_id, user_id)` → 404 «Trading bot not found» **before** any venue routing or guard, so another user's bot reveals no venue or state (AC-11). The connection check requires a signed-in operator (AC-14) and stays under the existing per-user in-memory rate limit (`app.core.rate_limit`) | `BE/app/api/deps.py`, `BE/app/api/bots.py` |
+| Error handling | The adapter raises `ExchangeError(error_class, raw_code, scrubbed message)`. The engine maps error class → (stored error type, severity, action, retry delay) with today's values. Non-exchange failures (configuration, internal) are classified as today. Guard refusals (`VenueNotSupported`, `CapabilityMissing`) are a separate path: a refused start at the API, or a pause with the reason while running, never retried | ADR-0004, ADR-0005; `bot_engine/error_handling.py` |
+| Order lookup (AC-08) | The adapter's `lookup_order(tag)` answers `open`, `final(filled / cancelled / …)` or `not_found`, searching the exchange's open orders and order history **by client tag** (not today's «last 50 history items», `orders.py:39-50`). If a lookup fails with any class other than `unknown_order`, the order stays active, nothing tied to it is placed or cancelled, and the bot asks again up to the existing `error_max_retries` (default 5), then pauses as today. An order is gone only on `unknown_order` or `not_found`, and a `final` answer gives its final state. This is the deliberate AC-08 deviation, introduced in one migration step and recorded as such in the reference failure table | `bot_engine/exchange/port.py`; ADR-0005 |
+| ID strategy | Integer autoincrement PKs. Client order tags stay `bot-{id}-g{generation}-…` plus today's deterministic suffixes. The maximum tag length is a declared capability value (Bybit: 36) | ADR-0003, ADR-0006 |
+| Numbers | Prices, quantities, fees and PnL stay floats converted exactly as today. Rounding stays `round_to_step` (Decimal internally) over neutral `InstrumentRules` (`qty_step`, `tick_size`, `min_order_qty`, `min_notional_value`). No move to Decimal in this step (it would change AC-02 figures) | `bot_engine/orders.py:53-98` |
+| Time | `app.core.clock.utcnow` everywhere. The golden-run harness pins the simulated clock for replays and uses the wall clock for latency (spec §6) | `BE/app/core/clock.py`; ADR-0007 |
+| Events | `log_bot_event` with today's event types and stored error types. The only new categories are the guard pause reasons (venue has no adapter, capability missing on market type), which never fire for a Bybit bot that runs today | `bot_engine/events.py` |
+| Concurrency | Per-bot asyncio lock in the worker (`runtime.py:65`), unchanged. Adapter calls are synchronous and run where today's session calls run | `bot_engine/runtime.py` |
+| Internationalisation | Backend messages stay English, as today. Refusal and pause reasons are shown by the existing UI states (`ux-flows.md`) | — |
 
 ## 9. Architecture decisions
 
