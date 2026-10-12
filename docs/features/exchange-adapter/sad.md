@@ -151,40 +151,99 @@ Each tactical decision in later sections should trace to one of these seeds. Tac
      just one surface's container — swap/add per what was declared in §4. → _shared/surfaces.md
      📌 e.g. «web app, content API, media worker, datastore, object store, CDN». -->
 
-<One paragraph: layered / hexagonal / clean / event-driven, and why.>
+The backend keeps its current layering (routers → services → bot engine → models; `docs/architecture-map.md` §Module inventory). This feature applies **ports and adapters at the exchange boundary only**. Inside the bot engine, a new `exchange/` package owns the port (ADR-0001), the venue registry and guard (ADR-0004), the error-class and capability vocabularies (ADR-0005, ADR-0006), the scrubber (ADR-0008) and one sub-package per exchange. Strategies, runtimes, performance, the stream supervisor, the services and the connection check depend on `exchange/` and obtain an adapter only from `exchange_for(bot, needs)`. Only `exchange/<name>/` may import an exchange client (`pybit`, `EmulatorHTTP`) or open an exchange WS connection, and that is the rule the spec §6 static search enforces. This is the existing convention «exchange client → `bot_engine/<exchange>/`», gathered under one parent so that the rule is a single path prefix.
 
 **Internal decomposition:**
 
 ```
-<e.g. modules/<feature>/>
-├── domain/       <entities + sentinel errors>
-├── app/          <use cases / services>
-├── infra/        <repository + integration impl>
-├── ports/        <handlers, DTOs, error mapping>
-└── wiring        <self-wiring entry point>
+BE/app/bot_engine/
+├── exchange/                    NEW — the exchange seam
+│   ├── port.py                  ExchangeAdapter Protocol + neutral types: Order, OrderLookup
+│   │                            (open | final(filled/cancelled…) | not_found), Execution, Position,
+│   │                            Balance, InstrumentRules, Ticker, Candle, StreamEvent, ConnectionStatus
+│   ├── errors.py                ErrorClass, ExchangeError(error_class, raw_code, message),
+│   │                            VenueNotSupported, CapabilityMissing
+│   ├── capabilities.py          Capability enum, CapabilitySet, client_tag_max_length
+│   ├── registry.py              venue (exchange, environment) → adapter factory, no default;
+│   │                            exchange_for(bot, needs) — the only way to obtain an adapter
+│   ├── redaction.py             Scrubber over every configured key/secret + emulator account keys;
+│   │                            mask_key() → ****abcd
+│   └── bybit/                   Bybit adapter (moved from bot_engine/bybit/)
+│       ├── adapter.py           BybitAdapter — pybit / EmulatorHTTP transport, response → neutral types
+│       ├── client.py            session factory + get_bybit_credentials (moved, private to the package)
+│       ├── emulator_client.py   EmulatorHTTP (moved)
+│       ├── errors.py            Bybit codes / HTTP status / texts → ErrorClass (moved from error_handling.py)
+│       ├── streams.py           Bybit + emulator WS endpoints, auth, topic → StreamEvent
+│       └── capabilities.py      BYBIT_CAPABILITIES per market type
+├── error_handling.py            CHANGED — ErrorClass → (stored type, severity, action, delay); guard-pause path
+├── exchange_streams.py          CHANGED — supervisor exchange-neutral, asks the adapter for streams
+├── orders.py, positions.py,
+│   market_data.py, performance.py   CHANGED — neutral helpers over the port; rounding over InstrumentRules
+├── strategies/*.py, grid_runtime.py,
+│   dca_runtime.py               CHANGED — required_capabilities(bot); adapter received from the guard
+├── runtime.py, bot.py           CHANGED — guard before every tick/start/action
+BE/app/api/bybit.py              CHANGED → venue-parameterised connection check through the adapter, auth required
+BE/tests/golden/                 NEW — harness, 8 recordings, reference failure table, latency/overhead baseline
 ```
 
-**C4 Container (L2):** <!-- syntax → references/c4-mermaid-syntax.md. Real names, no <placeholder> stubs. ONE Container per declared target_surface (frontmatter); the web container below is one example surface. -->
+**Capability catalogue (ADR-0006; closes spec §8 OQ «which capabilities…»).** These are derived from what each strategy calls today, so no Bybit configuration that starts today is refused (AC-15).
+
+| Capability | Meaning | Required by (today's usage) | Bybit declares on |
+|---|---|---|---|
+| `limit_orders` | Place limit orders with a client tag | Grid, DCA, Momentum, Pattern Scalper | spot, linear, inverse |
+| `market_orders` | Place market orders with a client tag | DCA (market entry), Momentum, Pattern Scalper | spot, linear, inverse |
+| `reduce_only_orders` | Mark an exit as reduce-only | Grid, DCA (take-profit roles), Momentum, Pattern Scalper | spot, linear, inverse |
+| `position_reads` | Report open position size, side, entry, mark, liq price, leverage, margin mode | Grid, Momentum, Pattern Scalper | spot, linear, inverse |
+| `short_selling` | Open short exposure | Momentum when `position_side` ∈ {`both`, `short`}, Pattern Scalper | linear, inverse (not spot; Momentum already refuses spot + short at `momentum.py:811`) |
+| `execution_pnl` | Executions carry realised PnL and fee per fill | Grid, DCA (performance), Momentum, Pattern Scalper | spot, linear, inverse |
+| `wallet_balance` | Read the account's available balance | Momentum, Pattern Scalper (risk guards) | spot, linear, inverse |
+| `candles` | Closed candles by interval | Momentum, Pattern Scalper | spot, linear, inverse |
+| `order_lookup_by_tag` | Find an order by client tag in open orders and order history | Grid, DCA, Momentum, Pattern Scalper | spot, linear, inverse |
+| `private_event_stream` | Live order, execution, position and wallet events | all (worker wake-ups) | spot, linear, inverse |
+| `client_tag_max_length` (value) | Longest client tag the exchange accepts | checked against the strategy's longest tag | 36 |
+
+The Bybit declaration **mirrors today's behaviour**, including cases that are semantically loose (for example `position_reads` on spot, which Momentum calls today). Tightening is the strategy × market × mode matrix (decision D2, spec §3 non-goal). An invariant test asserts that every configuration accepted by today's `_validate_strategy_configuration` passes the guard.
+
+**Connection check.** The check takes a venue, requires a signed-in operator (AC-14) and stays under the existing per-user rate limit (spec §6.1). It goes through `exchange_for(venue)` and the adapter's `check_connection()`, and answers `connected`, `not_configured` or `failing` + error class, never with a raw exchange message or any key (AC-12, AC-13, AC-13b). It **replaces** today's unauthenticated, demo-only `/api/bybit/test` with a venue-parameterised route under an exchange-neutral name. The exact path and shape are decided by the `api` stage. Nothing in `FE/src` calls the old route (`ux-flows.md` §Platform decisions), so it is removed without a UI change. The existing connection-check test changes, which spec §6 allows for this test only. There is no default venue (ADR-0004).
+
+**C4 Container (L2):**
 
 ```mermaid
 C4Container
-    title <feature> — Containers
+    title exchange-adapter — Containers
 
-    Person(actor, "<Actor>")
+    Person(operator, "Operator", "Supervises own bots")
+    Container_Ext(fe, "frontend", "React 19 + Vite", "Unchanged. Shows refusal and pause reasons from the backend")
 
-    Container_Boundary(app, "<Our system>") {
-        Container(web, "<Web/UI>", "<technology>", "<purpose>")
-        Container(api, "<API/handler>", "<technology>", "<purpose>")
-        ContainerDb(db, "<Datastore>", "<technology>", "<purpose>")
+    Container_Boundary(backend, "backend — backend-service (FastAPI, Python 3.14)") {
+        Container(api, "API routers + services", "FastAPI", "Bot lifecycle, connection check. Ownership check before any routing")
+        Container(worker, "Bot worker", "asyncio loop in lifespan", "Ticks bots on WS wake-ups and a 15 s fallback. Stream supervisor")
+        Container(strategies, "Strategies and runtimes", "Python", "Grid, DCA, Momentum, Pattern Scalper. Declare required capabilities")
+        Container(seam, "Exchange seam", "bot_engine/exchange", "Port, venue registry and guard, error classes, capabilities, scrubber")
+        Container(bybitadapter, "Bybit adapter", "bot_engine/exchange/bybit", "pybit + EmulatorHTTP + WS, Bybit codes to error classes")
     }
 
-    System_Ext(ext, "<External>", "<purpose>")
+    ContainerDb(db, "db", "PostgreSQL 18", "Bots, orders, events, incidents. Stored vocabulary unchanged")
+    System(emulator, "Exchange emulator", "Bybit v5-compatible stand-in exchange")
+    System_Ext(bybit, "Bybit", "Demo, testnet, live")
+    System_Ext(telegram, "Telegram", "Notifications")
 
-    Rel(actor, web, "<interaction>", "<protocol>")
-    Rel(web, api, "<calls>")
-    Rel(api, db, "<reads/writes>", "<driver>")
-    Rel(api, ext, "<emits>", "<protocol>")
+    Rel(operator, fe, "Uses", "HTTPS")
+    Rel(fe, api, "Bot actions, bot page", "REST + WS")
+    Rel(api, seam, "Guard, then adapter calls", "in-process")
+    Rel(worker, seam, "Guard before each tick and wake-up", "in-process")
+    Rel(api, strategies, "start, stop, sync, cancel, close", "in-process")
+    Rel(worker, strategies, "tick", "in-process")
+    Rel(strategies, seam, "Platform-term requests", "in-process")
+    Rel(seam, bybitadapter, "Resolves venue bybit/*", "in-process")
+    Rel(bybitadapter, bybit, "v5 REST + WS", "HTTPS/WSS")
+    Rel(bybitadapter, emulator, "v5 REST + WS, X-API-Key", "HTTP/WS")
+    Rel(api, db, "Reads/writes", "SQLAlchemy")
+    Rel(worker, db, "Reads/writes", "SQLAlchemy")
+    Rel(worker, telegram, "Pause and error notifications, scrubbed", "HTTPS")
 ```
+
+The golden-run harness (`BE/tests/golden/`, ADR-0007) is test-only and not a runtime container. It runs the emulator in a subprocess and the bot engine in-process.
 
 ## 6. Runtime view
 
