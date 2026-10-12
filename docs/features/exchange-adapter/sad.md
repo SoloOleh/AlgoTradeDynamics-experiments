@@ -380,10 +380,16 @@ sequenceDiagram
 
 | # | Title | Status | Section |
 |---|---|---|---|
-| <NNNN> | <imperative — e.g. "Use a sliding-window counter for rate limiting"> | Accepted | §<N> |
-| <NNNN> | <imperative — e.g. "Co-locate the worker in the API process"> | Accepted | §<N> |
+| [0001](adr/0001-define-a-typed-exchange-neutral-adapter-port.md) | Define a typed exchange-neutral adapter port | Accepted | §4 |
+| [0002](adr/0002-implement-the-bybit-adapter-over-the-existing-clients.md) | Implement the Bybit adapter over the existing pybit and emulator clients | Accepted | §4 |
+| [0003](adr/0003-keep-stored-order-and-error-vocabulary-as-platform-vocabulary.md) | Keep the stored order and error vocabulary as the platform vocabulary | Accepted | §4 |
+| [0004](adr/0004-resolve-adapters-by-venue-through-a-fail-closed-guard.md) | Resolve adapters by venue through one fail-closed guard | Accepted | §4 |
+| [0005](adr/0005-classify-errors-in-the-adapter-and-react-in-the-engine.md) | Classify errors in the adapter and decide reactions in the engine | Accepted | §4 |
+| [0006](adr/0006-declare-capabilities-statically-per-market-type.md) | Declare capabilities statically per adapter and market type | Accepted | §4 |
+| [0007](adr/0007-record-golden-runs-at-the-emulator-client-in-a-pytest-harness.md) | Record golden runs at the emulator client in a pytest harness | Accepted | §4 |
+| [0008](adr/0008-scrub-secrets-at-the-adapter-and-at-every-sink.md) | Scrub secrets at the adapter and again at every sink | Accepted | §4 |
 
-ADR files live under `docs/features/<slug>/adr/NNNN-<title>.md`.
+ADR files live under `docs/features/exchange-adapter/adr/NNNN-<title>.md`.
 
 ## 10. Quality requirements
 
