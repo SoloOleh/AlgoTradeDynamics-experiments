@@ -388,6 +388,7 @@ sequenceDiagram
 | [0006](adr/0006-declare-capabilities-statically-per-market-type.md) | Declare capabilities statically per adapter and market type | Accepted | §4 |
 | [0007](adr/0007-record-golden-runs-at-the-emulator-client-in-a-pytest-harness.md) | Record golden runs at the emulator client in a pytest harness | Accepted | §4 |
 | [0008](adr/0008-scrub-secrets-at-the-adapter-and-at-every-sink.md) | Scrub secrets at the adapter and again at every sink | Accepted | §4 |
+| [0009](adr/0009-scope-the-static-search-to-the-exchange-trading-dialect.md) | Scope the static search to the exchange trading dialect, not the emulator admin plane | Accepted | §10 |
 
 ADR files live under `docs/features/exchange-adapter/adr/NNNN-<title>.md`.
 
@@ -400,22 +401,45 @@ ADR files live under `docs/features/exchange-adapter/adr/NNNN-<title>.md`.
      round ≤250ms to ≤300ms — that's a critic F6 hit).
      📌 e.g. «p95 ≤ 500 ms on a block update, verified by a 100 req/s load test». -->
 
-Each top-3 goal from §1 expanded into a full scenario:
+Each top-3 goal from §1 is expanded into a full scenario. QG-4 is the performance guard-rail. Numbers are quoted verbatim from spec §6. Every check runs as the local pre-merge routine (SAD §2).
 
-**QG-1. <quality attribute>**
-- **When:** <trigger condition>
-- **Then:** <expected behaviour with numbers from spec §6 NFR>
-- **How verify:** <test / chaos drill / load test / metric>
+**QG-1. Trading equivalence across every migration step**
+- **When:** any migration PR is ready to merge, including a deploy onto bots that are mid-cycle under the previous version.
+- **Then:**
+  - «100% of golden-run replays equivalent after every migration PR: 8 recordings (4 strategies × {fresh, mid-cycle}), replayed as 12 (each mid-cycle recording from both starting states of AC-04)».
+  - «0 duplicate orders and 0 unintended cancellations across the mid-cycle golden runs».
+  - «100% of reference failure table rows (one per error type distinguished today, plus the retry-limit-exhausted row, as defined in AC-06) produce the recorded action and severity (the failed-order-lookup row carries the AC-08 deviation as its expected reaction)».
+  - «100% of existing backend and emulator tests pass on every migration PR», with only mechanical test edits.
+- **How verify:**
+  - The golden-run suite (ADR-0007) diffs canonicalised records: order requests (side, rounded price and quantity, client tag, place and cancel sequence), final bot state, and event categories (event type + stored error type + raw code).
+  - The failure-table check drives each reference failure through the Bybit adapter's classifier and the engine's class table.
+  - `pytest` runs in `BE/` and `EXCHANGE_EMULATOR/`.
+  - After release, the spec §7 KPI «refactor-caused incidents … target: 0 within 14 days after the last PR» is read from bot incidents and bot events.
 
-**QG-2. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+**QG-2. Fail-closed safety**
+- **When:** a bot whose venue has no exchange adapter, or whose strategy needs a capability its adapter does not declare for the bot's market type, is started or reaches its next check or live event. Or an exchange request fails while keys are in use.
+- **Then:** the start is refused, or the running bot is paused, with the venue, or the capability and market type, named, and **no request is sent to any exchange** (AC-09, AC-10, AC-15, AC-15b). Existing orders are left untouched. No event, log, notification or connection-check answer contains a key or secret of any venue. A key appears at most as `****abcd`, and a secret never appears (AC-16).
+- **How verify:**
+  - Guard tests with a recording stand-in adapter assert zero requests on every refusal and pause path.
+  - A registry test removes a venue or a capability and runs a mid-cycle bot to its next tick.
+  - Leak tests inject the configured keys, secrets and an emulator key inside a WS URL into every error path and every sink, then assert absence.
+  - API tests cover AC-12, AC-13, AC-13b and AC-14.
+  - An invariant test checks that every Bybit configuration accepted today passes the guard (AC-15, last sentence).
 
-**QG-3. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+**QG-3. Exchange extensibility**
+- **When:** the last PR of this step merges, and later when the Binance adapter is added.
+- **Then:** «0 places in strategies or runtimes that reach an exchange other than through an exchange adapter, at the end of the step». Every strategy trades through a stand-in adapter with no change to the strategy itself (AC-17). Spec §7 KPI: strategy files changed when the Binance adapter is added, target 0.
+- **How verify:**
+  - The static search (scope fixed by ADR-0009) runs over `BE/app/bot_engine/`, `BE/app/services/backtest_service.py` + `backtest_emulator.py` and the connection check, with no exemptions. It flags, outside `BE/app/bot_engine/exchange/`: any import of `pybit` or `EmulatorHTTP`; `get_bybit_session` / `get_bybit_credentials`; any request to a `/v5/` exchange path or exchange WS endpoint; and any Bybit field name (`lotSizeFilter`, `priceFilter`, `retCode`, `closedPnl`, `tradeMode`).
+  - The emulator admin plane (`/api/admin/…`) is not exchange access.
+  - The AC-17 stand-in-adapter golden runs.
+
+**QG-4. Performance guard-rail**
+- **When:** a golden-run replay on the emulator, compared with the pre-refactor baseline taken before the first PR.
+- **Then:**
+  - Reaction latency (fill → bot reaction): «p95 ≤ pre-refactor baseline + 0.5 s on the emulator (baseline measured before the first PR), measured from the moment the emulator publishes the fill event to the moment the bot sends its next order or saves its new state, whichever comes first».
+  - Adapter overhead: «≤ 5 ms added to the p95 duration of a single exchange request, compared with the pre-refactor run on the same emulator».
+- **How verify:** wall-clock timestamps recorded by the golden-run harness (not the simulated clock), pre-refactor vs migrated (ADR-0007).
 
 ## 11. Risks and technical debt
 
