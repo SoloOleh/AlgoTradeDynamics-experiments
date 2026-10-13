@@ -19,7 +19,8 @@ except ImportError:  # pragma: no cover - Python < 3.11 fallback
 
 from app.bot_engine.events import log_bot_event
 from app.bot_engine.exchange.bybit.errors import classify_bybit_failure, extract_code
-from app.bot_engine.exchange.errors import ErrorClass
+from app.bot_engine.exchange.errors import CapabilityMissing, ErrorClass, GuardRefusal
+from app.bot_engine.exchange.redaction import scrub
 from app.core.clock import utcnow
 from app.models.trading_bot import TradingBot
 
@@ -238,6 +239,58 @@ def handle_bot_runtime_error(db, bot: TradingBot, exc: BaseException, *, source:
         code=decision.code,
         retry_after_seconds=(int((next_retry_at - now).total_seconds()) if next_retry_at else None),
     )
+
+
+def _guard_reason(refusal: GuardRefusal) -> str:
+    return "capability_missing" if isinstance(refusal, CapabilityMissing) else "venue_unsupported"
+
+
+def pause_bot_for_guard(db, bot: TradingBot, refusal: GuardRefusal, *, source: str = "worker") -> None:
+    """Pause a bot the venue guard refused (ADR-0004). Never retried, never classified.
+
+    No request reaches any exchange and the bot's orders are left as they are: the Operator
+    decides what to do with them (AC-10, AC-15b). Event shape: `bot.guard_paused.v1`.
+    """
+    reason = _guard_reason(refusal)
+    text = str(refusal)
+    message = scrub(f"Bot paused: {text[:1].lower()}{text[1:]}")[:500]
+    now = utcnow()
+
+    bot.runtime_status = "paused"
+    bot.last_run_at = now
+    bot.last_error = message
+    bot.last_error_type = BotErrorType.CONFIGURATION.value
+    bot.last_error_severity = BotErrorSeverity.ERROR.value
+    bot.last_error_action = BotErrorAction.PAUSE.value
+    bot.last_error_code = None
+    bot.last_error_at = now
+    bot.error_retry_count = 0
+    bot.next_retry_at = None
+
+    event = log_bot_event(db, bot, reason, message, {"reason": reason, **refusal.details})
+    from app.services.operations_service import create_bot_incident, record_operation_log
+    record_operation_log(
+        db,
+        level="ERROR",
+        service="BOT_WORKER",
+        message=message,
+        correlation_id=f"bot:{bot.id}",
+        user_id=bot.user_id,
+        bot_id=bot.id,
+        exchange=bot.exchange,
+        error_type=BotErrorType.CONFIGURATION.value,
+    )
+    create_bot_incident(
+        db,
+        bot=bot,
+        severity=BotErrorSeverity.ERROR.value,
+        incident_type=reason,
+        description=message,
+        action_taken=BotErrorAction.PAUSE.value,
+        source_event_id=event.id,
+    )
+    db.add(bot)
+    db.commit()
 
 
 def clear_bot_runtime_error(bot: TradingBot) -> None:

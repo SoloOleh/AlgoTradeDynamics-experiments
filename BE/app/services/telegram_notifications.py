@@ -41,7 +41,7 @@ def _telegram_payload(response: httpx.Response) -> dict:
 
 STATUS_EVENTS = {"bot_started", "bot_stopped"}
 RISK_EVENTS = {"risk_blocked"}
-ERROR_EVENTS = {"error", "bot_error", "order_rejected"}
+ERROR_EVENTS = {"error", "bot_error", "order_rejected", "venue_unsupported", "capability_missing"}
 TRADE_EVENTS = {
     "grid_entry_created",
     "grid_entry_filled",
@@ -237,6 +237,8 @@ def format_event_message(event: TradingBotEvent) -> str:
         "position_close_requested": "📤 Position close requested",
         "position_closed": "✅ Position closed",
         "risk_blocked": "🛡 Risk limit blocked action",
+        "venue_unsupported": "⏸ Bot paused",
+        "capability_missing": "⏸ Bot paused",
         "order_rejected": "⚠️ Order rejected",
         "error": "🚨 Bot error",
         "bot_error": "🚨 Bot error / recovery action",

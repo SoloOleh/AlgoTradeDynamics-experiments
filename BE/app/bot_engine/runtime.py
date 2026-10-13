@@ -4,7 +4,9 @@ from __future__ import annotations
 import asyncio
 
 from app.bot_engine.bot import tick_bot_once
-from app.bot_engine.error_handling import clear_bot_runtime_error, handle_bot_runtime_error
+from app.bot_engine.error_handling import clear_bot_runtime_error, handle_bot_runtime_error, pause_bot_for_guard
+from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.errors import GuardRefusal
 from app.bot_engine.exchange_streams import ExchangeStreamSupervisor
 from app.core.clock import utcnow
 from app.db.session import SessionLocal
@@ -71,6 +73,15 @@ async def tick_running_bots(
                     current_bot = bot_db.get(TradingBot, bot.id)
                     if current_bot is None or current_bot.runtime_status not in {"running", "retrying"}:
                         continue
+                    if current_bot.runtime_status == "retrying" and not _retry_is_due(current_bot):
+                        continue
+                    # Fail closed before any request: unknown venue or missing capability
+                    # pauses the bot and leaves its orders as they are (ADR-0004).
+                    try:
+                        adapter = registry.exchange_for(current_bot)
+                    except GuardRefusal as refusal:
+                        pause_bot_for_guard(bot_db, current_bot, refusal)
+                        continue
                     if current_bot.runtime_status == "retrying":
                         if not _retry_is_due(current_bot):
                             continue
@@ -84,6 +95,7 @@ async def tick_running_bots(
                             bot_db,
                             current_bot,
                             force=bool(force_bot_ids and bot.id in force_bot_ids),
+                            adapter=adapter,
                         )
                         # A successful tick proves the transient problem is gone.
                         current_bot = bot_db.get(TradingBot, bot.id)
@@ -112,7 +124,10 @@ async def tick_running_bots(
                         bot_db.rollback()
                         failed_bot = bot_db.get(TradingBot, bot.id)
                         if failed_bot is not None:
-                            handle_bot_runtime_error(bot_db, failed_bot, exc, source="worker")
+                            if isinstance(exc, GuardRefusal):
+                                pause_bot_for_guard(bot_db, failed_bot, exc)
+                            else:
+                                handle_bot_runtime_error(bot_db, failed_bot, exc, source="worker")
                 finally:
                     bot_ui_stream_hub.publish(bot.id, "worker.tick")
                     bot_db.close()

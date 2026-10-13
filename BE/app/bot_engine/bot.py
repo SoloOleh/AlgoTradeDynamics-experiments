@@ -70,8 +70,10 @@ def sync_bot_orders_once(db, bot: TradingBot, current_user: User) -> list[Tradin
     return orders
 
 
-def tick_bot_once(db, bot: TradingBot, *, force: bool = False) -> dict:
-    return get_strategy(bot.strategy_type).tick(db, bot, force=force)
+def tick_bot_once(db, bot: TradingBot, *, force: bool = False, adapter=None) -> dict:
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
+    return get_strategy(bot.strategy_type).tick(db, bot, force=force, adapter=adapter)
 
 
 run_grid_bot_once = run_bot_once
