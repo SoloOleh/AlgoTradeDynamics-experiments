@@ -12,7 +12,7 @@
 | T04 | Add the exchange seam core: port, error vocabulary, capabilities and the shared scrubber | domain | Oleh Solomko | M | — | done |
 | T05 | Move Bybit error classification into the adapter package and keep reactions in an engine class table | infra | Oleh Solomko | M | T02, T03, T04 | done |
 | T06 | Build the Bybit adapter over the existing pybit and EmulatorHTTP clients | infra | Oleh Solomko | L | T04, T05 | done |
-| T07 | Add the venue registry, the fail-closed guard and each strategy's required capabilities | domain | Oleh Solomko | M | T06 | todo |
+| T07 | Add the venue registry, the fail-closed guard and each strategy's required capabilities | domain | Oleh Solomko | M | T06 | done |
 | T08 | Run the guard at start and every Operator bot action, after the ownership check | ports | Oleh Solomko | M | T07 | todo |
 | T09 | Run the guard before every worker tick and pause the bot on a refusal, without retrying | app | Oleh Solomko | M | T05, T07 | todo |
 | T10 | Move the order, market-data and position helpers onto the port and add the AC-08 order-lookup rule | app | Oleh Solomko | M | T06, T07 | todo |

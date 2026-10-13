@@ -36,6 +36,8 @@ from app.bot_engine.orders import (
 )
 from app.bot_engine.positions import get_open_positions
 from app.core.clock import utcnow
+from app.bot_engine.exchange.capabilities import Capability
+from app.bot_engine.strategies.base import COMMON_CAPABILITIES
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot_order import TradingBotOrder
@@ -802,6 +804,14 @@ class MomentumStrategy:
     def get_effective_settings(self, bot: TradingBot) -> dict:
         return _settings(bot)
 
+    def required_capabilities(self, bot: TradingBot) -> frozenset[Capability]:
+        needs = COMMON_CAPABILITIES | {
+            Capability.MARKET_ORDERS, Capability.POSITION_READS, Capability.WALLET_BALANCE, Capability.CANDLES,
+        }
+        if _short_trading_supported(bot, _settings(bot)):
+            needs |= {Capability.SHORT_SELLING}
+        return needs
+
     def validate_start(self, db, bot: TradingBot) -> None:
         settings = _settings(bot)
         if settings["fast_ema_period"] >= settings["slow_ema_period"]:
@@ -830,10 +840,10 @@ class MomentumStrategy:
         if settings["risk_per_trade_percent"] <= 0:
             raise ValueError("Momentum risk per trade percent must be greater than zero")
 
-    def sync_orders(self, db, bot: TradingBot) -> list[TradingBotOrder]:
+    def sync_orders(self, db, bot: TradingBot, *, adapter=None) -> list[TradingBotOrder]:
         return [change["order"] for change in sync_bot_orders(db, bot)]
 
-    def cancel_orders(self, db, bot: TradingBot) -> list[TradingBotOrder]:
+    def cancel_orders(self, db, bot: TradingBot, *, adapter=None) -> list[TradingBotOrder]:
         return cancel_all_bot_orders(db, bot)
 
     def get_runtime_state(self, db, bot: TradingBot) -> tuple[str, str | None]:
@@ -858,7 +868,7 @@ class MomentumStrategy:
             return "risk_blocked", risk
         return "waiting_for_signal", None
 
-    def get_position(self, db, bot: TradingBot) -> dict:
+    def get_position(self, db, bot: TradingBot, *, adapter=None) -> dict:
         session = get_bybit_session(bot)
         ticker = get_ticker_snapshot(session, category=bot.category, symbol=bot.symbol)
         mark = _float(ticker.get("markPrice") or ticker.get("lastPrice"))
@@ -914,7 +924,7 @@ class MomentumStrategy:
             "take_profit": tp,
         }
 
-    def get_risk(self, db, bot: TradingBot) -> dict:
+    def get_risk(self, db, bot: TradingBot, *, adapter=None) -> dict:
         session = get_bybit_session(bot)
         settings = _settings(bot)
         position = _position(session, bot)
@@ -944,7 +954,7 @@ class MomentumStrategy:
             "reason": reason,
         }
 
-    def close_position(self, db, bot: TradingBot) -> dict:
+    def close_position(self, db, bot: TradingBot, *, adapter=None) -> dict:
         session = get_bybit_session(bot)
         position = _position(session, bot)
         if not position:
@@ -961,7 +971,7 @@ class MomentumStrategy:
         db.flush()
         return {"message": "Position close order submitted", "order": order}
 
-    def tick(self, db, bot: TradingBot, *, force: bool = False) -> dict:
+    def tick(self, db, bot: TradingBot, *, force: bool = False, adapter=None) -> dict:
         settings = _settings(bot)
         if bot.runtime_status != "running":
             return {"orders": [], "events": 0, "message": "Bot is not running"}
