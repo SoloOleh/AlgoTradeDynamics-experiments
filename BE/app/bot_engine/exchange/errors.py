@@ -43,16 +43,32 @@ class ExchangeError(Exception):
         super().__init__(message or self.error_class.value)
 
 
-class VenueNotSupported(Exception):
+class GuardRefusal(Exception):
+    """A fail-closed guard refusal: never retried, never routed elsewhere (ADR-0004)."""
+
+    code = "exchange.guard_refused"
+
+    @property
+    def details(self) -> dict:
+        return {}
+
+
+class VenueNotSupported(GuardRefusal):
     """No exchange adapter is registered for the bot's venue (ADR-0004)."""
 
     def __init__(self, exchange: str, environment: str) -> None:
         self.exchange = exchange
         self.environment = environment
-        super().__init__(f"No exchange adapter for venue {exchange}/{environment}")
+        super().__init__(f"Venue {exchange}/{environment} has no exchange adapter")
+
+    code = "exchange.venue_unsupported"
+
+    @property
+    def details(self) -> dict:
+        return {"exchange": self.exchange, "environment": self.environment}
 
 
-class CapabilityMissing(Exception):
+class CapabilityMissing(GuardRefusal):
     """The venue's adapter does not declare a capability the strategy needs (ADR-0006)."""
 
     def __init__(self, exchange: str, environment: str, capability, market_type) -> None:
@@ -61,6 +77,17 @@ class CapabilityMissing(Exception):
         self.capability = capability
         self.market_type = market_type
         super().__init__(
-            f"Venue {exchange}/{environment} does not support {getattr(capability, 'value', capability)} "
-            f"on {getattr(market_type, 'value', market_type)} markets"
+            f"Capability {getattr(capability, 'value', capability)} is not available on market type "
+            f"{getattr(market_type, 'value', market_type)} for venue {exchange}/{environment}"
         )
+
+    code = "exchange.capability_missing"
+
+    @property
+    def details(self) -> dict:
+        return {
+            "exchange": self.exchange,
+            "environment": self.environment,
+            "capability": getattr(self.capability, "value", self.capability),
+            "market_type": getattr(self.market_type, "value", self.market_type),
+        }

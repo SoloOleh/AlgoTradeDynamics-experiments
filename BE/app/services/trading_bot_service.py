@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.bot_engine.bot import run_bot_once, stop_bot_once, sync_bot_orders_once
 from app.bot_engine.grid_runtime import sync_bot_orders
 from app.bot_engine.error_handling import clear_bot_runtime_error
+from app.bot_engine.exchange import registry
 from app.bot_engine.performance import get_performance_summary
 from app.bot_engine.strategies import get_strategy
 from app.models.trading_bot import TradingBot
@@ -139,9 +140,10 @@ def sync_trading_bot_orders(db: Session, bot: TradingBot, current_user: User) ->
 def cancel_trading_bot_orders(db: Session, bot: TradingBot, current_user: User) -> list[TradingBotOrder]:
     if bot.user_id != current_user.id:
         raise PermissionError("Trading bot access denied")
+    adapter = registry.exchange_for(bot)
     bot.runtime_status = "stopped"; bot.stopped_at = _utcnow(); clear_bot_runtime_error(bot)
     db.add(bot); db.flush()
-    cancelled = get_strategy(bot.strategy_type).cancel_orders(db, bot)
+    cancelled = get_strategy(bot.strategy_type).cancel_orders(db, bot, adapter=adapter)
     db.commit()
     return cancelled
 
@@ -162,12 +164,13 @@ def clear_trading_bot_history(db: Session, bot: TradingBot, current_user: User) 
     bot.settings = settings
     db.add(bot); db.flush()
     try:
+        adapter = registry.exchange_for(bot)
         # Keep legacy reconciliation for old grid orders, then use the selected strategy.
         sync_bot_orders(db, bot, include_legacy=True)
-        cancelled = get_strategy(bot.strategy_type).cancel_orders(db, bot)
+        cancelled = get_strategy(bot.strategy_type).cancel_orders(db, bot, adapter=adapter)
         exchange_orders_cancelled = len(cancelled)
         db.flush()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - a guard refusal or exchange failure skips only the cancel
         exchange_cancel_error = str(exc)
     orders_deleted = db.query(TradingBotOrder).filter(
         TradingBotOrder.bot_id == bot.id, TradingBotOrder.user_id == current_user.id
@@ -188,13 +191,15 @@ def clear_trading_bot_history(db: Session, bot: TradingBot, current_user: User) 
 def get_trading_bot_position(db: Session, bot: TradingBot, current_user: User) -> dict:
     if bot.user_id != current_user.id:
         raise PermissionError("Trading bot access denied")
-    return get_strategy(bot.strategy_type).get_position(db, bot)
+    adapter = registry.exchange_for(bot)
+    return get_strategy(bot.strategy_type).get_position(db, bot, adapter=adapter)
 
 
 def get_trading_bot_risk(db: Session, bot: TradingBot, current_user: User) -> dict:
     if bot.user_id != current_user.id:
         raise PermissionError("Trading bot access denied")
-    return get_strategy(bot.strategy_type).get_risk(db, bot)
+    adapter = registry.exchange_for(bot)
+    return get_strategy(bot.strategy_type).get_risk(db, bot, adapter=adapter)
 
 
 def get_trading_bot_performance(
@@ -215,6 +220,8 @@ def get_trading_bot_performance(
     # reconciliation first so the summary reflects exchange state immediately.
     if refresh_exchange and bot.strategy_type in {"grid", "dca"}:
         try:
+            # A guard refusal skips the refresh; stored figures are still returned.
+            registry.exchange_for(bot)
             sync_bot_orders(db, bot)
             db.commit()
         except Exception:  # noqa: BLE001 - keep performance readable if exchange refresh fails.
@@ -228,6 +235,7 @@ def close_trading_bot_position(db: Session, bot: TradingBot, current_user: User,
         raise PermissionError("Trading bot access denied")
     if not confirm:
         raise ValueError("Position close requires confirm=true")
-    result = get_strategy(bot.strategy_type).close_position(db, bot)
+    adapter = registry.exchange_for(bot)
+    result = get_strategy(bot.strategy_type).close_position(db, bot, adapter=adapter)
     db.commit()
     return result
