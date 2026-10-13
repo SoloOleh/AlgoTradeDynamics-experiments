@@ -59,3 +59,22 @@ def test_temporary_network_failure_retries_then_pauses_past_the_limit():
     assert (first["action"], first["runtime_status"]) == ("retry_backoff", "retrying")
     exhausted = react_to_failure(exc, retry_count=5)
     assert (exhausted["action"], exhausted["severity"], exhausted["runtime_status"]) == ("pause", "error", "paused")
+
+
+@pytest.mark.parametrize("row", ROWS, ids=[row["id"] for row in ROWS])
+def test_row_passes_through_the_adapter_classifier_then_the_engine_table(row):
+    """Layer 1: Bybit failure → error class (adapter). Layer 2: error class → reaction (engine)."""
+    from app.bot_engine.error_handling import REACTION_TABLE
+    from app.bot_engine.exchange.bybit.errors import classify_bybit_failure
+
+    expected = row["expected"]
+    classified = classify_bybit_failure(build_exception(row["exception"]))
+    if expected["error_type"] in {"configuration", "internal"}:
+        assert classified is None, "non-exchange failures stay with the engine"
+        return
+    assert classified is not None
+    assert classified.raw_code == expected["code"]
+    reaction = REACTION_TABLE[classified.error_class]
+    assert reaction.error_type.value == expected["error_type"]
+    if row.get("retry_count", 0) == 0:
+        assert (reaction.severity.value, reaction.action.value) == (expected["severity"], expected["action"])

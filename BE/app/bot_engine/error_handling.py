@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-import re
 from typing import Any
 
 try:
@@ -19,6 +18,8 @@ except ImportError:  # pragma: no cover - Python < 3.11 fallback
         pass
 
 from app.bot_engine.events import log_bot_event
+from app.bot_engine.exchange.bybit.errors import classify_bybit_failure, extract_code
+from app.bot_engine.exchange.errors import ErrorClass
 from app.core.clock import utcnow
 from app.models.trading_bot import TradingBot
 
@@ -74,68 +75,31 @@ class ExchangeOperationError(RuntimeError):
         super().__init__(f"{prefix}{message}{suffix}")
 
 
-# Bybit V5 codes grouped by operational response. Keep the policy intentionally
-# conservative: money/config/auth problems never retry forever.
-_RATE_LIMIT_CODES = {"429", "10006", "10429", "20003", "30035"}
-_EXCHANGE_UNAVAILABLE_CODES = {"10000", "10016", "10019"}
-_TIME_SYNC_CODES = {"-1", "10002"}
-_AUTH_CODES = {"10003", "10004", "10007", "-2015", "33004"}
-_PERMISSION_CODES = {"10005", "10008", "10009", "10010", "10024", "10027"}
-_INSUFFICIENT_FUNDS_CODES = {
-    "110004", "110006", "110007", "110012", "110014", "110044", "110045",
-    "110051", "110052", "110053", "3777040",
+@dataclass(slots=True, frozen=True)
+class ClassReaction:
+    error_type: BotErrorType
+    severity: BotErrorSeverity
+    action: BotErrorAction
+    retry_after_seconds: int | None = None
+
+
+# Error class → reaction (ADR-0005). The values are the ones the bot took before the exchange
+# adapter existed; money/config/auth problems never retry forever.
+REACTION_TABLE: dict[ErrorClass, ClassReaction] = {
+    ErrorClass.RATE_LIMITED: ClassReaction(BotErrorType.RATE_LIMIT, BotErrorSeverity.WARNING, BotErrorAction.RETRY_BACKOFF, 15),
+    ErrorClass.EXCHANGE_UNAVAILABLE: ClassReaction(BotErrorType.EXCHANGE_UNAVAILABLE, BotErrorSeverity.ERROR, BotErrorAction.RETRY_BACKOFF, 15),
+    ErrorClass.TIME_SYNC: ClassReaction(BotErrorType.TIME_SYNC, BotErrorSeverity.WARNING, BotErrorAction.RETRY_BACKOFF, 10),
+    ErrorClass.REJECTED_CREDENTIALS: ClassReaction(BotErrorType.AUTHENTICATION, BotErrorSeverity.CRITICAL, BotErrorAction.STOP),
+    ErrorClass.PERMISSION_DENIED: ClassReaction(BotErrorType.PERMISSION, BotErrorSeverity.CRITICAL, BotErrorAction.STOP),
+    ErrorClass.INSUFFICIENT_BALANCE: ClassReaction(BotErrorType.INSUFFICIENT_FUNDS, BotErrorSeverity.ERROR, BotErrorAction.PAUSE),
+    ErrorClass.INVALID_SYMBOL: ClassReaction(BotErrorType.INVALID_SYMBOL, BotErrorSeverity.ERROR, BotErrorAction.PAUSE),
+    ErrorClass.DUPLICATE_CLIENT_TAG: ClassReaction(BotErrorType.ORDER_STATE, BotErrorSeverity.WARNING, BotErrorAction.RESYNC_AND_RETRY, 5),
+    ErrorClass.UNKNOWN_ORDER: ClassReaction(BotErrorType.ORDER_STATE, BotErrorSeverity.WARNING, BotErrorAction.RESYNC_AND_RETRY, 5),
+    ErrorClass.ORDER_STATE_CONFLICT: ClassReaction(BotErrorType.ORDER_STATE, BotErrorSeverity.WARNING, BotErrorAction.RESYNC_AND_RETRY, 5),
+    ErrorClass.RISK_LIMIT: ClassReaction(BotErrorType.RISK, BotErrorSeverity.CRITICAL, BotErrorAction.PAUSE),
+    ErrorClass.INVALID_ORDER: ClassReaction(BotErrorType.INVALID_ORDER, BotErrorSeverity.ERROR, BotErrorAction.PAUSE),
+    ErrorClass.NETWORK: ClassReaction(BotErrorType.NETWORK, BotErrorSeverity.WARNING, BotErrorAction.RETRY_BACKOFF, 5),
 }
-_INVALID_SYMBOL_CODES = {"10029", "110050"}
-_ORDER_STATE_CODES = {"10014", "110001", "110005", "110008", "110010", "110072", "40004", "20006"}
-_RISK_CODES = {
-    "110011", "110013", "110021", "110022", "110023", "110031", "110039", "110040",
-    "110047", "110048", "30256",
-}
-_INVALID_ORDER_CODES = {
-    "10001", "110003", "110009", "110017", "110020", "110032", "110049",
-    "110057", "110058", "110059", "110060", "110061", "30208", "30209",
-}
-
-_CODE_PATTERNS = (
-    re.compile(r"(?:errcode|retcode|code)\s*[:=]?\s*\(?(-?\d+)\)?", re.IGNORECASE),
-    re.compile(r"\((-?\d+)\)"),
-)
-
-
-def _extract_code(exc: BaseException) -> str | None:
-    for attr in ("code", "status_code", "ret_code", "retCode"):
-        value = getattr(exc, attr, None)
-        if value is not None:
-            return str(value)
-    text = str(exc)
-    for pattern in _CODE_PATTERNS:
-        match = pattern.search(text)
-        if match:
-            return match.group(1)
-    return None
-
-
-def _http_status(exc: BaseException) -> int | None:
-    response = getattr(exc, "response", None)
-    value = getattr(response, "status_code", None)
-    if value is None:
-        value = getattr(exc, "http_status", None)
-    try:
-        return int(value) if value is not None else None
-    except (TypeError, ValueError):
-        return None
-
-
-def _is_network_exception(exc: BaseException) -> bool:
-    if isinstance(exc, (ConnectionError, TimeoutError)):
-        return True
-    module = type(exc).__module__.lower()
-    name = type(exc).__name__.lower()
-    return (
-        module.startswith("httpx")
-        or module.startswith("requests")
-        or module.startswith("urllib3")
-    ) and any(token in name for token in ("timeout", "connect", "network", "request", "transport"))
 
 
 def _decision(
@@ -159,34 +123,24 @@ def _decision(
 
 
 def classify_bot_error(exc: BaseException) -> BotErrorDecision:
-    """Map an arbitrary runtime exception to a safe operational policy."""
+    """Map an arbitrary runtime exception to a safe operational policy.
+
+    Exchange failures arrive as `ExchangeError` (or, from call sites not yet on the adapter, as a
+    raw Bybit/emulator exception the Bybit adapter classifies); their error class picks the
+    reaction from `REACTION_TABLE`. Other failures keep the engine's own classification.
+    """
+    exchange_error = classify_bybit_failure(exc)
+    if exchange_error is not None:
+        reaction = REACTION_TABLE[exchange_error.error_class]
+        message = (exchange_error.message or "").strip() or type(exc).__name__
+        return _decision(
+            reaction.error_type, reaction.severity, reaction.action, message,
+            code=exchange_error.raw_code, retry_after_seconds=reaction.retry_after_seconds,
+        )
+
     message = str(exc).strip() or type(exc).__name__
     lowered = message.lower()
-    code = _extract_code(exc)
-    http_status = _http_status(exc)
-
-    if code in _RATE_LIMIT_CODES or http_status == 429:
-        return _decision(BotErrorType.RATE_LIMIT, BotErrorSeverity.WARNING, BotErrorAction.RETRY_BACKOFF, message, code=code, retry_after_seconds=15)
-    if code in _EXCHANGE_UNAVAILABLE_CODES or (http_status is not None and http_status >= 500):
-        return _decision(BotErrorType.EXCHANGE_UNAVAILABLE, BotErrorSeverity.ERROR, BotErrorAction.RETRY_BACKOFF, message, code=code, retry_after_seconds=15)
-    if code in _TIME_SYNC_CODES or "recv_window" in lowered or "timestamp" in lowered and "server" in lowered:
-        return _decision(BotErrorType.TIME_SYNC, BotErrorSeverity.WARNING, BotErrorAction.RETRY_BACKOFF, message, code=code, retry_after_seconds=10)
-    if code in _AUTH_CODES or http_status == 401 or "api credentials are not configured" in lowered or "authentication failed" in lowered:
-        return _decision(BotErrorType.AUTHENTICATION, BotErrorSeverity.CRITICAL, BotErrorAction.STOP, message, code=code)
-    if code in _PERMISSION_CODES or http_status == 403 or "permission denied" in lowered or "unmatched ip" in lowered:
-        return _decision(BotErrorType.PERMISSION, BotErrorSeverity.CRITICAL, BotErrorAction.STOP, message, code=code)
-    if code in _INSUFFICIENT_FUNDS_CODES or any(token in lowered for token in ("insufficient balance", "wallet balance is insufficient", "available balance is insufficient", "insufficient margin")):
-        return _decision(BotErrorType.INSUFFICIENT_FUNDS, BotErrorSeverity.ERROR, BotErrorAction.PAUSE, message, code=code)
-    if code in _INVALID_SYMBOL_CODES or any(token in lowered for token in ("ticker not found", "instrument info not found", "symbol is invalid", "invalid symbol")):
-        return _decision(BotErrorType.INVALID_SYMBOL, BotErrorSeverity.ERROR, BotErrorAction.PAUSE, message, code=code)
-    if code in _ORDER_STATE_CODES or any(token in lowered for token in ("order does not exist", "order has been completed or cancelled", "duplicate order", "orderlinkid is duplicate")):
-        return _decision(BotErrorType.ORDER_STATE, BotErrorSeverity.WARNING, BotErrorAction.RESYNC_AND_RETRY, message, code=code, retry_after_seconds=5)
-    if code in _RISK_CODES or any(token in lowered for token in ("liquidation will be triggered", "risk limit", "position limit")):
-        return _decision(BotErrorType.RISK, BotErrorSeverity.CRITICAL, BotErrorAction.PAUSE, message, code=code)
-    if code in _INVALID_ORDER_CODES or any(token in lowered for token in ("below bybit minimum", "order notional", "order qty", "order quantity", "price exceeds", "price is higher", "price is lower")):
-        return _decision(BotErrorType.INVALID_ORDER, BotErrorSeverity.ERROR, BotErrorAction.PAUSE, message, code=code)
-    if _is_network_exception(exc) or http_status in {408, 425, 502, 503, 504}:
-        return _decision(BotErrorType.NETWORK, BotErrorSeverity.WARNING, BotErrorAction.RETRY_BACKOFF, message, code=code, retry_after_seconds=5)
+    code = extract_code(exc)
     if isinstance(exc, ValueError) and any(token in lowered for token in ("configuration", "supports linear", "must be", "cannot be", "inactive")):
         return _decision(BotErrorType.CONFIGURATION, BotErrorSeverity.ERROR, BotErrorAction.PAUSE, message, code=code)
     return _decision(BotErrorType.INTERNAL, BotErrorSeverity.CRITICAL, BotErrorAction.STOP, message, code=code)
