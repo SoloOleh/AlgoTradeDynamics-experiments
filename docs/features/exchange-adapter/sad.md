@@ -2,7 +2,7 @@
 status: Draft
 owner: "Oleh Solomko"
 reviewers: ["Tech Lead", "Security Lead"]
-updated_at: "2026-10-12"
+updated_at: "2026-10-13"
 feature_size: "M"
 target_surfaces: [backend-service]  # filled in §4 — subset of: backend-service | web-frontend | mobile-app | desktop-app | cli | worker | library-sdk. Read (never re-derived) by api/sequences/tasks/plan-tests/review → _shared/surfaces.md
 ---
@@ -328,6 +328,456 @@ sequenceDiagram
     end
 ```
 
+### Runtime flows per user story
+
+The flows below cover every spec §4 user story and §5 AC (coverage table at the end of this section). They use generic participants: `service (…)` is a §5 building block (API routers and services, bot worker, strategies and runtimes, exchange seam, exchange adapter), `data-store` is the backend database, `external-system` is an exchange or the notification channel, and `message-bus` is the exchange's live event stream. Every write carries a `persists …` note for `data-model`.
+
+### Flow 1: A bot tick trades through its venue's adapter (US-01)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant EX as external-system (exchange)
+    participant BUS as message-bus (live event stream)
+    participant AD as service (exchange adapter)
+    participant WK as service (bot worker)
+    participant SEAM as service (exchange seam)
+    participant ST as service (strategy)
+    participant DB as data-store
+
+    Note over EX,WK: Trigger: a live order or execution event for the bot, or the 15 s fallback reconciliation
+    EX->>BUS: publish order or execution event
+    BUS->>AD: deliver raw event
+    AD->>WK: neutral stream event wakes the bot
+    WK->>WK: check idempotency key - take the per-bot lock so the bot is never ticked twice at once
+    WK->>DB: load bot with venue, market type and exchange account
+    DB-->>WK: bot
+    WK->>SEAM: resolve adapter for the bot with its required capabilities
+    SEAM-->>WK: adapter bound to the bot's own exchange account (refusal path in Flow 7)
+    Note over SEAM,AD: emulator venue uses the bot's own emulator account key, or the default emulator account when it has none. Demo, testnet and live use the server keys of that venue
+    WK->>ST: tick the bot with its adapter
+    ST->>AD: look up own orders by client tag, read prices and instrument rules
+    AD->>EX: same read requests, on the bot's own account
+    EX-->>AD: response
+    AD-->>ST: neutral orders, prices and instrument rules
+    ST->>AD: place or cancel orders with deterministic client tags
+    AD->>EX: same order request as before the refactor, on the bot's own account only
+    EX-->>AD: accepted
+    AD-->>ST: neutral order
+    ST->>DB: save orders and bot state in the stored vocabulary
+    Note over ST,DB: persists bot order rows (bot, client tag, stored status) and bot state (status, cycle, position, PnL)
+    Note over WK,EX: retry a failed request up to the existing retry limit with back-off (detail in Flow 4)
+    alt retry limit exhausted
+        WK->>DB: bot paused with the same severity as today
+        Note over WK,DB: persists bot status and bot event. The pause stands in for a dead-letter queue, which the system does not have
+    end
+    Note over EX,DB: Postcondition: the bot sent the same orders and reached the same state as its pre-refactor recording (AC-01), only on its own exchange account (AC-03)
+```
+
+### Flow 2: The Operator reads or acts on a bot (US-01, US-04)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as client (Operator)
+    participant API as service (API)
+    participant DB as data-store
+    participant SEAM as service (exchange seam)
+    participant AD as service (exchange adapter)
+    participant EX as external-system (exchange)
+
+    Note over C,API: Precondition: the Operator is signed in and names a bot by id
+    C->>API: open the bot page, or stop, sync, cancel orders, close the position, read live position or orders
+    API->>DB: load the bot owned by the Operator
+    alt bot belongs to another platform user or does not exist
+        DB-->>API: no bot for this owner
+        API-->>C: trading bot not found, no venue or state revealed
+        Note over API,EX: no guard call and nothing sent to any exchange (AC-11)
+    else own bot
+        DB-->>API: bot
+        API->>SEAM: resolve adapter for the bot with the capabilities this action needs
+        alt venue has no adapter or a capability is missing
+            SEAM-->>API: refused, venue or capability and market type named
+            API-->>C: action refused with the reason, nothing sent to any exchange
+        else guard passes
+            SEAM-->>API: adapter
+            opt open the bot page
+                API->>AD: read the bot's executions
+                AD->>EX: execution history request
+                EX-->>AD: executions
+                AD-->>API: neutral executions with realised PnL and fee per fill
+                API-->>C: PnL, fees and closed cycles, same figures as before the step (AC-02)
+            end
+            opt stop, sync, cancel orders, close the position or read live state
+                API->>AD: cancel, close or read in platform terms
+                AD->>EX: same request as before the refactor
+                EX-->>AD: response
+                AD-->>API: neutral result
+                API->>DB: save orders, bot status and bot event
+                Note over API,DB: persists bot order rows, bot status and bot event
+                API-->>C: action result
+            end
+        end
+    end
+    Note over C,DB: Postcondition: only the owner's bot ever reaches an adapter, and performance figures come from the same exchange execution history
+```
+
+### Flow 3: A mid-cycle bot resumes after a deploy (US-02)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant WK as service (bot worker)
+    participant DB as data-store
+    participant SEAM as service (exchange seam)
+    participant ST as service (strategy)
+    participant AD as service (exchange adapter)
+    participant EX as external-system (exchange)
+
+    Note over WK,EX: Trigger: the backend restarts on a new migration step and forces one reconciliation of every running bot
+    Note over DB,EX: Precondition: the previous version left entry orders, a take-profit and, where the strategy holds one, a position. The starting state is the pre-refactor recording or the same state captured from the previous migration step
+    WK->>DB: load running bots
+    DB-->>WK: running bots
+    loop each running bot
+        WK->>WK: check idempotency key - take the per-bot lock so the bot is never reconciled twice at once
+        WK->>SEAM: resolve adapter for the bot with its required capabilities
+        SEAM-->>WK: adapter (refusal path in Flow 7)
+        WK->>ST: tick the bot with its adapter
+        ST->>DB: read own order rows by client tag and stored status
+        DB-->>ST: rows written by the previous version, read natively
+        ST->>AD: look up each stored order by client tag
+        AD->>EX: open orders and order history request
+        EX-->>AD: orders
+        AD-->>ST: open, final (filled or cancelled) or not found
+        alt the stored entry orders and the take-profit are still open
+            ST-->>WK: orders recognised as own, no second ladder, take-profit kept as is
+        else some orders changed state while the backend was down
+            ST->>AD: the next order actions of the cycle, the same ones the pre-refactor version sends from this state
+            AD->>EX: same order request as before the refactor
+            EX-->>AD: accepted
+            AD-->>ST: neutral order
+        else a lookup fails
+            Note over ST,EX: the order stays active, nothing tied to it is placed or cancelled (Flow 5)
+        end
+        ST->>DB: save order states and bot state in the stored vocabulary
+        Note over ST,DB: persists bot order rows (status updates by bot and client tag) and bot state
+    end
+    Note over WK,EX: retry a failed request up to the existing retry limit with back-off, then pause (Flow 4)
+    Note over WK,EX: Postcondition: the bot completes the cycle with trading equivalence from both starting states, with no second ladder and no re-placed take-profit (AC-04, AC-05)
+```
+
+### Flow 4: An exchange failure becomes an error class and today's reaction (US-03)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant WK as service (bot worker)
+    participant ST as service (strategy)
+    participant AD as service (exchange adapter)
+    participant EX as external-system (exchange)
+    participant DB as data-store
+    participant TG as external-system (notification channel)
+
+    Note over WK,EX: Precondition: a running bot sends a request to the exchange during its tick
+    WK->>ST: tick the bot with its adapter
+    ST->>AD: place an order in platform terms
+    AD->>EX: same order request as before the refactor
+    EX-->>AD: error code, error text or timeout
+    AD->>AD: map code, HTTP status and text to an error class, keep the raw code, scrub the message
+    AD-->>ST: exchange error with error class, raw code and scrubbed message
+    ST-->>WK: failure propagates
+    WK->>WK: look up the error class in the reaction table - stored error type, severity, action, retry delay
+    WK->>DB: record the bot event
+    Note over WK,DB: persists bot event (event type, stored error type as today, raw exchange code, severity) and an operation log entry
+    alt action is retry after back-off, for example a temporary network failure or timeout
+        Note over WK,EX: retry up to the existing retry limit (default 5) with the class back-off
+        alt a retry succeeds
+            WK->>DB: bot stays Active, the temporary-network event stays in the feed
+        else retry limit exhausted
+            WK->>DB: bot paused with the same severity as today
+            Note over WK,DB: persists bot status and bot incident
+            WK->>TG: pause notification, scrubbed, if connected and allowed
+        end
+    else action is resync and retry, for example an inconsistent order state
+        WK->>ST: resync orders from the exchange, then retry, as today
+    else action is pause, as the reference failure table records for that class
+        WK->>DB: bot paused with the same severity as today
+        Note over WK,DB: persists bot status and bot incident
+        WK->>TG: pause notification, scrubbed, if connected and allowed
+    else action is stop, as the reference failure table records for that class
+        WK->>DB: bot stopped with the same severity as today
+        Note over WK,DB: persists bot status and bot incident
+        WK->>TG: stop notification, scrubbed, if connected and allowed
+    end
+    Note over WK,TG: Postcondition: every reference failure table row gives the recorded action and severity, with the same stored error type and raw code (AC-06, AC-07)
+```
+
+### Flow 5: An order lookup never treats a failure as proof the order is gone (US-03)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant WK as service (bot worker)
+    participant ST as service (strategy)
+    participant AD as service (exchange adapter)
+    participant EX as external-system (exchange)
+    participant DB as data-store
+
+    Note over ST,DB: Precondition: the bot has an order row it believes is active
+    ST->>AD: look up the order by client tag
+    AD->>EX: search open orders, then order history, by client tag
+    alt order is in open orders
+        EX-->>AD: open order
+        AD-->>ST: open
+        ST->>DB: order stays active
+    else order is in order history
+        EX-->>AD: history entry
+        AD-->>ST: final, with its state (filled or cancelled)
+        ST->>DB: order takes its final state from history
+        Note over ST,DB: persists bot order row status by bot and client tag
+    else exchange answers with the unknown-order error class, or the order is in neither
+        EX-->>AD: unknown order, or empty in both
+        AD-->>ST: not found
+        ST->>DB: order marked gone
+        Note over ST,DB: persists bot order row status by bot and client tag
+    else lookup fails with any other error class
+        EX-->>AD: error code, error text or timeout
+        AD-->>ST: exchange error, error class is not unknown-order
+        ST->>ST: keep the order active, place and cancel nothing tied to it
+        ST-->>WK: lookup failed, ask again later
+        Note over WK,EX: ask again on later ticks up to the existing retry limit (default 5)
+        alt limit exhausted with no answer
+            WK->>DB: bot paused as today
+            Note over WK,DB: persists bot status and bot event
+        end
+    end
+    Note over ST,EX: Postcondition: a failed lookup is never proof that an order is gone (AC-08, deliberate deviation)
+```
+
+### Flow 6: Starting a bot passes ownership, then the guard (US-04, US-06)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as client (Operator)
+    participant API as service (API)
+    participant DB as data-store
+    participant ST as service (strategy)
+    participant SEAM as service (exchange seam)
+    participant EX as external-system (exchange)
+
+    Note over C,API: Precondition: the Operator is signed in and presses Start on the Bots list or the bot page
+    C->>API: start bot
+    API->>DB: load the bot owned by the Operator
+    alt bot belongs to another platform user or does not exist
+        DB-->>API: no bot for this owner
+        API-->>C: trading bot not found, no venue or state revealed, nothing sent (AC-11)
+    else own bot
+        DB-->>API: bot with venue and market type
+        API->>ST: required capabilities for this bot's settings and market type
+        ST-->>API: capability set
+        API->>SEAM: resolve adapter for the venue with the capability set
+        SEAM->>SEAM: look up the venue in the registry with no default, compare declared capabilities with no network call
+        alt venue has no adapter
+            SEAM-->>API: venue not supported, venue named
+            API-->>C: start refused, venue named, bot stays stopped (AC-09)
+        else a capability is missing on the market type
+            SEAM-->>API: capability missing, capability and market type named
+            API-->>C: start refused, capability and market type named, bot stays stopped (AC-15)
+        else guard passes
+            SEAM-->>API: adapter
+            API->>DB: bot marked running with a bot-started event
+            Note over API,DB: persists bot status and bot event
+            API-->>C: bot Active
+        end
+    end
+    Note over API,EX: Postcondition: on every refusal nothing reached any exchange, and a Bybit configuration that starts today is never refused
+```
+
+### Flow 7: A running bot whose venue lost its adapter or capability is paused (US-04, US-06)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant BUS as message-bus (live event stream)
+    participant WK as service (bot worker)
+    participant DB as data-store
+    participant SEAM as service (exchange seam)
+    participant EX as external-system (exchange)
+    participant TG as external-system (notification channel)
+
+    Note over WK,SEAM: Precondition: a deploy or configuration change left the running bot's venue with no adapter, or its adapter no longer declares a capability the strategy needs on the bot's market type
+    alt live exchange event for the bot
+        BUS->>WK: event wakes the bot
+    else scheduled check
+        WK->>WK: 15 s fallback reconciliation is due
+    end
+    WK->>WK: check idempotency key - take the per-bot lock, skip a bot the guard already paused
+    WK->>DB: load bot
+    DB-->>WK: running bot
+    WK->>SEAM: resolve adapter for the bot with its required capabilities
+    alt venue has no adapter
+        SEAM-->>WK: venue not supported, venue named
+    else a capability is missing on the market type
+        SEAM-->>WK: capability missing, capability and market type named
+    end
+    Note over WK,SEAM: no retry - a guard refusal bypasses the error-class reaction table and goes straight to pause
+    WK->>DB: bot paused with the stated reason, orders left as they are
+    Note over WK,DB: persists bot status, bot event and bot incident (venue unsupported or capability missing)
+    WK->>TG: pause notification with the reason, if connected and allowed
+    Note over WK,EX: Postcondition: no request reached any exchange, existing orders stay untouched, and the Operator decides what to do with them (AC-10, AC-15b)
+```
+
+### Flow 8: The Operator checks a venue's connection (US-05)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as client (Operator)
+    participant API as service (API)
+    participant SEAM as service (exchange seam)
+    participant AD as service (exchange adapter)
+    participant EX as external-system (exchange)
+
+    Note over C,API: Precondition: the caller names a venue to check
+    C->>API: run the connection check for a venue
+    alt caller is not signed in
+        API-->>C: refused, nothing revealed about which venues are configured (AC-14)
+    else signed in
+        API->>API: apply the existing per-user rate limit
+        API->>SEAM: resolve adapter for the venue, no default venue
+        alt venue has no adapter
+            SEAM-->>API: venue not supported
+            API-->>C: venue named as not supported
+        else adapter found
+            SEAM-->>API: adapter
+            API->>AD: check connection
+            alt no keys configured for the venue
+                AD-->>API: not configured
+                API-->>C: venue named as not configured, no key value shown (AC-13)
+            else keys configured
+                AD->>EX: authenticated account request
+                alt exchange answers
+                    EX-->>AD: account answer
+                    AD-->>API: connected
+                    API-->>C: venue named as connected (AC-12)
+                else exchange request fails
+                    EX-->>AD: error code, error text or timeout
+                    AD-->>API: failing, with the error class and no raw message
+                    API-->>C: venue named as failing with the error class, no raw exchange message, no key or secret (AC-13b)
+                end
+            end
+        end
+    end
+    Note over C,EX: Postcondition: the answer is connected, not configured or failing, never with a key, a secret or a raw exchange message. Nothing is persisted
+```
+
+### Flow 9: Keys and secrets are scrubbed at the adapter and at every sink (US-07)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant AD as service (exchange adapter)
+    participant EX as external-system (exchange)
+    participant SEAM as service (exchange seam)
+    participant WK as service (bot worker)
+    participant DB as data-store
+    participant TG as external-system (notification channel)
+
+    Note over AD,EX: Precondition: a request runs with a venue key and secret, or an emulator account key inside a connection address
+    AD->>EX: request with the bot's keys
+    EX-->>AD: failure whose text may echo a key, a secret or the connection address
+    AD->>SEAM: scrub the error text
+    alt text holds a configured key, secret or emulator account key
+        SEAM-->>AD: key masked to its last 4 characters, secret removed entirely
+    else text holds an unknown credential in a known pattern (api_key, X-API-Key, api_secret)
+        SEAM-->>AD: value masked by pattern
+    end
+    AD-->>WK: exchange error with error class, raw code and scrubbed message
+    WK->>SEAM: scrub again at the sink
+    SEAM-->>WK: scrubbed text
+    WK->>DB: record bot event, operation log entry and incident
+    Note over WK,DB: persists bot event, operation log entry and bot incident with scrubbed text only. Rows stored before the deploy are not rewritten
+    WK->>TG: notification with scrubbed text, if connected and allowed
+    WK->>WK: the log line passes the root logging filter, which scrubs once more
+    Note over AD,TG: Postcondition: no event, log line, notification or connection-check answer holds more of a key than its last 4 characters, or any part of a secret (AC-16)
+```
+
+### Flow 10: A stand-in adapter plugs in with no strategy change (US-08)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant WK as service (bot worker)
+    participant SEAM as service (exchange seam)
+    participant ST as service (strategy)
+    participant AD as service (stand-in exchange adapter)
+    participant EX as external-system (test exchange)
+    participant DB as data-store
+
+    Note over WK,SEAM: Precondition: a test venue is registered with a stand-in adapter that declares the same capabilities as the Bybit adapter
+    WK->>SEAM: resolve adapter for a bot on the test venue
+    SEAM-->>WK: stand-in adapter
+    WK->>ST: tick the bot with the stand-in adapter
+    ST->>AD: the same platform-term calls it makes on a Bybit venue
+    AD->>EX: requests in the stand-in's own way
+    EX-->>AD: response
+    AD-->>ST: neutral orders, executions and positions
+    ST->>DB: save orders and bot state
+    Note over ST,DB: persists bot order rows and bot state in the stored vocabulary
+    alt the stand-in fails a request
+        AD-->>ST: exchange error with an error class
+        ST-->>WK: failure handled by the same reaction table as for any adapter
+    end
+    Note over ST,AD: Postcondition: every strategy runs its golden-run scenario through the stand-in with no change to the strategy (AC-17)
+```
+
+### Coverage: user stories and acceptance criteria
+
+| User story | Realised by |
+|---|---|
+| US-01 Keep Bybit bots trading unchanged | Flow 1, Flow 2 |
+| US-02 Running bots survive each deploy | Flow 3 |
+| US-03 Same reaction to exchange failures | Flow 4, Flow 5 |
+| US-04 Unsupported venue fails closed | Flow 6, Flow 7, Flow 2 (cross-user branch) |
+| US-05 Check the connection of a venue | Flow 8 |
+| US-06 Incompatible setting is blocked by capability | Flow 6, Flow 7 |
+| US-07 Keys never leak through the adapter | Flow 9 |
+| US-08 New exchange plugs in without strategy changes | Flow 10 |
+
+| AC | Shown by |
+|---|---|
+| AC-01 | Flow 1, happy path and postcondition. Equivalence itself is proven by the golden-run harness (ADR-0007) |
+| AC-02 | Flow 2, «open the bot page» branch |
+| AC-03 | Flow 1, adapter bound to the bot's own exchange account (note after step 9) |
+| AC-04 | Flow 3, precondition (both starting states) and postcondition |
+| AC-05 | Flow 3, «still open» branch: orders recognised, no second ladder, take-profit kept |
+| AC-06 | Flow 4, reaction-table branches (retry, resync, pause, stop) |
+| AC-07 | Flow 4, «retry after back-off» branch with its success and retry-limit-exhausted sub-branches |
+| AC-08 | Flow 5, all four branches. Also referenced from Flow 3 |
+| AC-09 | Flow 6, «venue has no adapter» branch |
+| AC-10 | Flow 7, «venue has no adapter» branch |
+| AC-11 | Flow 6 and Flow 2, «bot belongs to another platform user» branch |
+| AC-12 | Flow 8, «exchange answers» branch |
+| AC-13 | Flow 8, «no keys configured» branch |
+| AC-13b | Flow 8, «exchange request fails» branch |
+| AC-14 | Flow 8, «caller is not signed in» branch |
+| AC-15 | Flow 6, «a capability is missing» branch |
+| AC-15b | Flow 7, «a capability is missing» branch |
+| AC-16 | Flow 9. The scrubbed text also appears in Flow 4 and Flow 8 |
+| AC-17 | Flow 10 |
+
+No user story or AC is uncovered, and none is non-runtime N/A. The flows agree with `ux-flows.md`: refusals at the action's screen (SCR-01 / SCR-02), pauses in the event feed with Telegram on top (SCR-03), and «Trading bot not found» for another user's bot. The `target_surfaces` value `[backend-service]` declares no UI surface, so no `ui` participant is drawn.
+
+### Flagged for design (not decided here)
+
+- **Async mapping.** Flows 1, 3 and 7 are event-driven. The idempotency-key step is the per-bot lock (plus deterministic client tags with a lookup before placing). The dead-letter step is the bot pause after the existing retry limit, because the system has no dead-letter queue. Confirm, or record as an ADR if this needs more than SAD §8.
+- **Guard refusal on the Operator's own bot for stop, sync, cancel or close (Flow 2).** It is drawn as «action refused with the reason, nothing sent». SAD §4 names only a refused start or a pause. An alternative is to stop the bot locally without reaching the exchange.
+- **Connection check for a venue with no adapter (Flow 8).** A fourth answer, «not supported», follows from ADR-0004 (no default venue) and is not in spec AC-12…AC-14. This is input for the `api` stage.
+- **Seed flow 2 overlaps Flow 6.** The seed uses concrete §5 names, and Flow 6 is its generic version with persist notes. They are left side by side because this stage only adds. Remove the seed by hand if one is enough.
+- **Stand-in test exchange (Flow 10).** Whether the stand-in adapter talks to the emulator or works in memory is left to `plan-tests`.
+- **Data-model hints.** Every persisted entity already exists: bot order rows (looked up by bot + client tag, and `order_link_id` is already indexed), bot state, bot events, bot incidents and the operation log. Guard pauses add two `incident_type` values (`venue_unsupported`, `capability_missing`). The column is a free-text string, so no migration is needed.
+
 ## 7. Deployment view
 
 <!-- 🎯 Why: the TOPOLOGY DevOps must know without reading the deploy charts — how many replicas,
@@ -392,6 +842,7 @@ sequenceDiagram
 | [0007](adr/0007-record-golden-runs-at-the-emulator-client-in-a-pytest-harness.md) | Record golden runs at the emulator client in a pytest harness | Accepted | §4 |
 | [0008](adr/0008-scrub-secrets-at-the-adapter-and-at-every-sink.md) | Scrub secrets at the adapter and again at every sink | Accepted | §4 |
 | [0009](adr/0009-scope-the-static-search-to-the-exchange-trading-dialect.md) | Scope the static search to the exchange trading dialect, not the emulator admin plane | Accepted | §10 |
+| [0010](adr/0010-extend-the-fastapi-error-body-and-keep-the-unversioned-api-prefix.md) | Extend FastAPI's `{detail}` error body with `code` and `details`, and keep the unversioned `/api` prefix | Accepted | §8 (api stage) |
 
 ADR files live under `docs/features/exchange-adapter/adr/NNNN-<title>.md`.
 
@@ -467,7 +918,7 @@ Each top-3 goal from §1 is expanded into a full scenario. QG-4 is the performan
 | The UI live stream (`api/websockets.py:247-261`) opens `/v5/` WS connections itself with `api_key` in the URL | Medium | Migrated in step (7): it takes its stream endpoints from the adapter through the guard, and its errors pass the scrubber (ADR-0008, ADR-0009) | Oleh Solomko |
 | The scrubber removes only secrets it knows. An unexpected credential (for example a new token type) inside an error text would pass | Low | Pattern masking on top of known-value masking (`api_key=…`, `X-API-Key: …`, `api_secret`). Security review of the scrubber (spec §6.1) | Oleh Solomko |
 | `docs/architecture-map.md` §Conventions goes stale: exchange clients move from `bot_engine/bybit/` to `bot_engine/exchange/<name>/` | Low | Re-run `/sdd:survey` after the last PR of the step | Oleh Solomko |
-| Open question (spec §8): which price scenarios the golden runs use, and the mid-cycle starting state for Momentum and Pattern Scalper | Open question | Resolve before `/sdd:plan-tests exchange-adapter`. Spec default: one trend-and-range scenario per strategy plus one rounding-boundary scenario. For Momentum and Pattern Scalper, mid-cycle = an open position with its take-profit and stop orders placed | Oleh Solomko |
+| Resolved (spec §8, 2026-10-13 in [test-plan.md](test-plan.md)): which price scenarios the golden runs use, and the mid-cycle starting state for Momentum and Pattern Scalper | Low | Default accepted at `/sdd:plan-tests`. Spec default: one trend-and-range scenario per strategy plus one rounding-boundary scenario. For Momentum and Pattern Scalper, mid-cycle = an open position with its take-profit and stop orders placed | Oleh Solomko |
 | Open question (spec §8): reshape Momentum and Pattern Scalper client tags longer than 36 characters now or in step 1 | Open question | Resolve before the roadmap step 1 spec. The maximum tag length is already a declared capability value (Bybit 36, ADR-0006), and tags stay unchanged in this step | Oleh Solomko |
 
 **Accepted debt (acceptable in v1, plan to fix later):**

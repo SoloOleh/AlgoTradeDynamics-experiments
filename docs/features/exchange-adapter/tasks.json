@@ -1,0 +1,433 @@
+{
+  "slug": "exchange-adapter",
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Build the golden-run harness around the emulator client",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-01",
+        "AC-04"
+      ],
+      "dod": "pytest BE/tests/golden/test_harness_smoke.py passes: two recordings of the same scenario on the pre-refactor code are canonically equal.",
+      "files_hint": [
+        "BE/tests/golden/conftest.py",
+        "BE/tests/golden/harness.py",
+        "BE/tests/golden/canonical.py",
+        "BE/tests/golden/test_harness_smoke.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t01-golden-run-harness.md"
+    },
+    {
+      "id": "T02",
+      "title": "Record the 8 golden runs and the latency and overhead baselines on the pre-refactor code",
+      "layer": "tests",
+      "deps": [
+        "T01"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-04",
+        "AC-05"
+      ],
+      "dod": "8 recordings stamped with the pre-refactor commit exist and pytest -m golden runs 12 replays that all pass on the unchanged code.",
+      "files_hint": [
+        "BE/tests/golden/recordings/",
+        "BE/tests/golden/scenarios.py",
+        "BE/tests/golden/test_golden_runs.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t02-record-golden-runs.md"
+    },
+    {
+      "id": "T03",
+      "title": "Record the reference failure table and add the static search and the one-command pre-merge gate",
+      "layer": "tests",
+      "deps": [
+        "T01"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-07"
+      ],
+      "dod": "The failure-table check passes one row per stored error type plus the exhausted-retry and lookup rows, and scripts/premerge.sh runs golden, failure table, static search and both suites, exiting 0.",
+      "files_hint": [
+        "BE/tests/golden/failure_table/",
+        "BE/tests/golden/test_failure_table.py",
+        "BE/tests/golden/static_search.py",
+        "BE/tests/golden/test_static_search.py",
+        "scripts/premerge.sh"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t03-failure-table-and-gate.md"
+    },
+    {
+      "id": "T04",
+      "title": "Add the exchange seam core: port, error vocabulary, capabilities and the shared scrubber",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-16",
+        "AC-17"
+      ],
+      "dod": "pytest BE/tests/test_exchange_seam.py BE/tests/test_redaction.py passes: enums match openapi.yaml and the scrubber masks keys to ****abcd and removes secrets, including in a WS URL.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/__init__.py",
+        "BE/app/bot_engine/exchange/port.py",
+        "BE/app/bot_engine/exchange/errors.py",
+        "BE/app/bot_engine/exchange/capabilities.py",
+        "BE/app/bot_engine/exchange/redaction.py",
+        "BE/tests/test_exchange_seam.py",
+        "BE/tests/test_redaction.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t04-exchange-seam-core.md"
+    },
+    {
+      "id": "T05",
+      "title": "Move Bybit error classification into the adapter package and keep reactions in an engine class table",
+      "layer": "infra",
+      "deps": [
+        "T02",
+        "T03",
+        "T04"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-07"
+      ],
+      "dod": "The failure-table check passes 100% of rows through Bybit classifier then engine class table, and golden 12/12 plus existing suites pass.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/bybit/__init__.py",
+        "BE/app/bot_engine/exchange/bybit/errors.py",
+        "BE/app/bot_engine/error_handling.py",
+        "BE/tests/golden/test_failure_table.py",
+        "BE/tests/test_bybit_error_classes.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t05-bybit-error-classes.md"
+    },
+    {
+      "id": "T06",
+      "title": "Build the Bybit adapter over the existing pybit and EmulatorHTTP clients",
+      "layer": "infra",
+      "deps": [
+        "T04",
+        "T05"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-03",
+        "AC-08"
+      ],
+      "dod": "pytest BE/tests/test_bybit_adapter.py passes against the emulator with place/cancel requests byte-identical to today and golden 12/12 green.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/bybit/adapter.py",
+        "BE/app/bot_engine/exchange/bybit/client.py",
+        "BE/app/bot_engine/exchange/bybit/emulator_client.py",
+        "BE/app/bot_engine/exchange/bybit/capabilities.py",
+        "BE/app/bot_engine/bybit/",
+        "BE/tests/test_bybit_adapter.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t06-bybit-adapter.md"
+    },
+    {
+      "id": "T07",
+      "title": "Add the venue registry, the fail-closed guard and each strategy's required capabilities",
+      "layer": "domain",
+      "deps": [
+        "T06"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-15"
+      ],
+      "dod": "pytest BE/tests/test_venue_guard.py passes, including zero network calls on refusal and the invariant that every configuration accepted today passes the guard.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/registry.py",
+        "BE/app/bot_engine/strategies/base.py",
+        "BE/app/bot_engine/strategies/grid.py",
+        "BE/app/bot_engine/strategies/dca.py",
+        "BE/app/bot_engine/strategies/momentum.py",
+        "BE/app/bot_engine/strategies/pattern_scalper.py",
+        "BE/tests/test_venue_guard.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t07-venue-registry-and-guard.md"
+    },
+    {
+      "id": "T08",
+      "title": "Run the guard at start and every Operator bot action, after the ownership check",
+      "layer": "ports",
+      "deps": [
+        "T07"
+      ],
+      "acs": [
+        "AC-09",
+        "AC-11",
+        "AC-15"
+      ],
+      "dod": "pytest BE/tests/test_bots_guard_api.py passes: 422 GuardRefusal with code+details for AC-09/AC-15, byte-identical 404 with no guard call for AC-11, zero exchange requests on refusal.",
+      "files_hint": [
+        "BE/app/api/bots.py",
+        "BE/app/services/trading_bot_service.py",
+        "BE/app/bot_engine/bot.py",
+        "BE/tests/test_bots_guard_api.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t08-guard-at-start-and-actions.md"
+    },
+    {
+      "id": "T09",
+      "title": "Run the guard before every worker tick and pause the bot on a refusal, without retrying",
+      "layer": "app",
+      "deps": [
+        "T05",
+        "T07"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-15b"
+      ],
+      "dod": "pytest BE/tests/test_guard_pause.py passes: a tick or live event for a bot whose venue or capability is gone pauses it with event, incident and notification and zero exchange requests.",
+      "files_hint": [
+        "BE/app/bot_engine/runtime.py",
+        "BE/app/bot_engine/bot.py",
+        "BE/app/bot_engine/error_handling.py",
+        "BE/tests/test_guard_pause.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t09-guard-pause-in-worker.md"
+    },
+    {
+      "id": "T10",
+      "title": "Move the order, market-data and position helpers onto the port and add the AC-08 order-lookup rule",
+      "layer": "app",
+      "deps": [
+        "T06",
+        "T07"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "pytest BE/tests/test_order_lookup_rule.py passes all four Flow 5 branches plus retry exhaustion, and the failure table passes with the AC-08 lookup row.",
+      "files_hint": [
+        "BE/app/bot_engine/orders.py",
+        "BE/app/bot_engine/market_data.py",
+        "BE/app/bot_engine/positions.py",
+        "BE/tests/test_order_lookup_rule.py",
+        "BE/tests/golden/failure_table/rows.json"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t10-helpers-onto-port.md"
+    },
+    {
+      "id": "T11",
+      "title": "Migrate the DCA strategy and runtime onto the exchange adapter",
+      "layer": "app",
+      "deps": [
+        "T08",
+        "T09",
+        "T10"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-04",
+        "AC-05"
+      ],
+      "dod": "DCA fresh and both mid-cycle golden replays are equivalent with 0 duplicate orders and 0 unintended cancellations, and the static search has no hits in the DCA files.",
+      "files_hint": [
+        "BE/app/bot_engine/dca_runtime.py",
+        "BE/app/bot_engine/strategies/dca.py",
+        "BE/tests/golden/recordings/",
+        "BE/tests/test_dca_strategy.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t11-migrate-dca.md"
+    },
+    {
+      "id": "T12",
+      "title": "Migrate the Grid strategy and runtime onto the exchange adapter",
+      "layer": "app",
+      "deps": [
+        "T11"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-04",
+        "AC-05"
+      ],
+      "dod": "Grid fresh and both mid-cycle golden replays are equivalent with 0 duplicate orders and 0 unintended cancellations, and the static search has no hits in the Grid files.",
+      "files_hint": [
+        "BE/app/bot_engine/grid_runtime.py",
+        "BE/app/bot_engine/strategies/grid.py",
+        "BE/tests/golden/recordings/"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t12-migrate-grid.md"
+    },
+    {
+      "id": "T13",
+      "title": "Migrate the Momentum strategy onto the exchange adapter",
+      "layer": "app",
+      "deps": [
+        "T12"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-04"
+      ],
+      "dod": "Momentum fresh and both mid-cycle golden replays are equivalent, legacy reduceOnly rows read correctly, and the static search has no hits in momentum.py.",
+      "files_hint": [
+        "BE/app/bot_engine/strategies/momentum.py",
+        "BE/tests/golden/recordings/",
+        "BE/tests/test_momentum_strategy.py",
+        "BE/tests/test_momentum_api.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t13-migrate-momentum.md"
+    },
+    {
+      "id": "T14",
+      "title": "Migrate the Pattern Scalper strategy onto the exchange adapter",
+      "layer": "app",
+      "deps": [
+        "T13"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-04"
+      ],
+      "dod": "Pattern Scalper fresh and both mid-cycle golden replays are equivalent and the static search has no hits in pattern_scalper.py.",
+      "files_hint": [
+        "BE/app/bot_engine/strategies/pattern_scalper.py",
+        "BE/tests/golden/recordings/",
+        "BE/tests/test_pattern_scalper.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t14-migrate-pattern-scalper.md"
+    },
+    {
+      "id": "T15",
+      "title": "Build bot performance from neutral executions through the adapter",
+      "layer": "app",
+      "deps": [
+        "T10"
+      ],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "pytest BE/tests/test_performance_equivalence.py passes with identical PnL, fees and closed cycles before and after.",
+      "files_hint": [
+        "BE/app/bot_engine/performance.py",
+        "BE/tests/test_performance_equivalence.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t15-migrate-performance.md"
+    },
+    {
+      "id": "T16",
+      "title": "Move live exchange streams behind the adapter and make the stream supervisor and UI live stream exchange-neutral",
+      "layer": "infra",
+      "deps": [
+        "T07",
+        "T09"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-16"
+      ],
+      "dod": "pytest BE/tests/test_exchange_streams.py passes with neutral stream events, no emulator key in any log or event, and a live event pausing a bot whose venue is gone with zero requests.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/bybit/streams.py",
+        "BE/app/bot_engine/exchange_streams.py",
+        "BE/app/api/websockets.py",
+        "BE/app/bot_engine/runtime.py",
+        "BE/tests/test_exchange_streams.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t16-migrate-streams.md"
+    },
+    {
+      "id": "T17",
+      "title": "Scrub keys and secrets at every sink and in the root logging filter",
+      "layer": "wiring",
+      "deps": [
+        "T04",
+        "T08",
+        "T09"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "pytest BE/tests/test_secret_leaks.py passes: injected keys, secrets and an emulator key in a WS URL are absent from every sink (key at most ****abcd).",
+      "files_hint": [
+        "BE/app/bot_engine/events.py",
+        "BE/app/bot_engine/error_handling.py",
+        "BE/app/services/operations_service.py",
+        "BE/app/services/telegram_notifications.py",
+        "BE/app/services/trading_bot_service.py",
+        "BE/app/core/logging.py",
+        "BE/tests/test_secret_leaks.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t17-scrub-at-every-sink.md"
+    },
+    {
+      "id": "T18",
+      "title": "Replace the Bybit-demo test route with an authenticated per-venue connection check",
+      "layer": "ports",
+      "deps": [
+        "T04",
+        "T07"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-13",
+        "AC-13b",
+        "AC-14",
+        "AC-16"
+      ],
+      "dod": "pytest BE/tests/test_venue_connection.py passes for connected, not_configured, failing, not_supported and 401, and /api/bybit/test is gone.",
+      "files_hint": [
+        "BE/app/api/venues.py",
+        "BE/app/api/bybit.py",
+        "BE/app/main.py",
+        "BE/app/bot_engine/exchange/bybit/adapter.py",
+        "BE/tests/test_api.py",
+        "BE/tests/test_venue_connection.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t18-venue-connection-check.md"
+    },
+    {
+      "id": "T19",
+      "title": "Prove every strategy runs unchanged through a stand-in adapter on a test venue",
+      "layer": "tests",
+      "deps": [
+        "T14"
+      ],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "pytest BE/tests/golden/test_stand_in_adapter.py passes for all four strategies with no production file changed.",
+      "files_hint": [
+        "BE/tests/golden/stand_in_adapter.py",
+        "BE/tests/golden/test_stand_in_adapter.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t19-stand-in-adapter-golden-runs.md"
+    },
+    {
+      "id": "T20",
+      "title": "Route backtest instrument reads through the emulator adapter, delete the Bybit session factory and drive the static search to 0",
+      "layer": "wiring",
+      "deps": [
+        "T14",
+        "T15",
+        "T16",
+        "T17",
+        "T18"
+      ],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "The static search asserts 0, backtest results are identical before and after, and the full pre-merge gate passes.",
+      "files_hint": [
+        "BE/app/services/backtest_service.py",
+        "BE/app/services/fast_momentum_backtest.py",
+        "BE/app/services/fast_scalper_backtest.py",
+        "BE/app/services/backtest_emulator.py",
+        "BE/app/bot_engine/bybit/",
+        "BE/app/bot_engine/orders.py",
+        "BE/tests/golden/test_static_search.py",
+        "BE/tests/test_backtest_equivalence.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t20-close-the-step.md"
+    }
+  ]
+}

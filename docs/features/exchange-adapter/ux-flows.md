@@ -1,7 +1,7 @@
 ---
 status: approved         # draft | approved
 feature_size: "M"
-updated_at: "2026-10-11"
+updated_at: "2026-10-12"
 ---
 
 # UX flows — exchange-adapter
@@ -14,7 +14,7 @@ updated_at: "2026-10-11"
 
 ## Platform decisions
 
-- **Posture:** desktop-first web dashboard, unchanged — no `docs/design-system.md` exists yet, so this records the posture of the existing pages; the feature reuses them and adds no screen (spec §3 «New UI» non-goal).
+- **Posture:** desktop-first, per [`docs/design-system.md`](../../design-system.md) §Platform posture. No deviation. The feature reuses the existing pages and adds no screen (spec §3 «New UI» non-goal).
 - **No new screens, no new navigation.** Every flow below runs on pages the Operator already uses; what changes is what those pages *say* (refusal reasons, pause reasons, masked keys), not where the Operator goes.
 - **Refusals surface where the action was taken.** A refused start (AC-09, AC-15) is reported on the same screen the Operator pressed Start on — the Bots list or the bot page — through the error message those screens already show for a failed start. No dialog, no redirect.
 - **Pauses surface on the bot page and through notifications.** A bot paused by the system (AC-07 retry exhaustion, AC-10, AC-15b) shows as Paused with its reason in the bot page's event feed — the guaranteed channel. The Telegram notification is delivered on top of it only when the Operator has connected Telegram and allows that event type, as today.
@@ -50,7 +50,11 @@ flowchart TD
     A["SCR-02 Bot page, bot Active"] --> B{"Exchange request fails, which error class?"}
     B -->|"temporary network failure or timeout"| C["Bot retries after back-off"]
     B -->|"failed order lookup, not unknown-order"| L["SCR-02 order still shown as active, nothing placed or cancelled against it"]
-    L --> C
+    L --> M{"Bot asks again later. Answer within the existing retry limit?"}
+    M -->|"order still open"| N["SCR-02 order stays active, status stays Active"]
+    M -->|"order found in order history"| O["SCR-02 order shown with its final state from history, filled or cancelled"]
+    M -->|"unknown-order error class, or in neither open orders nor history"| P["SCR-02 order shown as gone, status stays Active"]
+    M -->|"no answer before the limit"| F
     C --> D{"Succeeds within the existing retry limit?"}
     D -->|"yes"| E["SCR-02 event feed shows a temporary-network event, status stays Active"]
     D -->|"no"| F["SCR-02 status Paused, event with the same severity as today"]
@@ -61,7 +65,7 @@ flowchart TD
     G -->|"Operator opens the bot"| A
 ```
 
-While a bot runs, an exchange request fails. **Temporary network failure or timeout:** the bot retries after a back-off. If a retry succeeds within the existing limit, the event feed shows a temporary-network event and the bot stays Active. If the failure outlasts the limit, the bot pauses with the same severity as today. **Failed order lookup** for any reason other than «unknown order»: the bot page keeps showing that order as active, the bot places and cancels nothing tied to it, and it goes through the same retry/limit path (the deliberate AC-08 deviation). **Any other error class** (rate limit, insufficient balance, rejected order, duplicate client tag, rejected credentials and so on): the bot does exactly what the reference failure table recorded. A retry or resync keeps it Active with the same event category and raw exchange code in the feed. A pause or stop shows it as Paused. Every pause also goes out as a Telegram notification when the Operator has Telegram connected and allows that event, and from the notification the Operator returns to the bot page.
+While a bot runs, an exchange request fails. **Temporary network failure or timeout:** the bot retries after a back-off. If a retry succeeds within the existing limit, the event feed shows a temporary-network event and the bot stays Active. If the failure outlasts the limit, the bot pauses with the same severity as today. **Failed order lookup** for any reason other than «unknown order» (the deliberate AC-08 deviation): the bot page keeps showing that order as active, and the bot places and cancels nothing tied to it while it asks again later. If the order turns out to be still open, nothing changes. If the order history has it, the page shows its final state from there (filled or cancelled). The order is shown as gone only when the exchange answers «unknown order», or the order is in neither the open orders nor the history. If no answer comes before the existing retry limit, the bot pauses as today. A failed lookup alone never removes the order from the page. **Any other error class** (rate limit, insufficient balance, rejected order, duplicate client tag, rejected credentials and so on): the bot does exactly what the reference failure table recorded. A retry or resync keeps it Active with the same event category and raw exchange code in the feed. A pause or stop shows it as Paused. Every pause also goes out as a Telegram notification when the Operator has Telegram connected and allows that event, and from the notification the Operator returns to the bot page.
 
 ### Flow: US-04 — Unsupported venue fails closed
 
@@ -70,7 +74,8 @@ flowchart TD
     A["SCR-01 Bots list"] -->|"presses Start"| C{"Bot's venue has an exchange adapter?"}
     B["SCR-02 Bot page"] -->|"presses Start"| C
     C -->|"yes"| D["SCR-02 status Active"]
-    C -->|"no"| E["Same screen shows an error naming the venue that has no exchange adapter, bot stays stopped, nothing sent to any exchange"]
+    C -->|"no, Start pressed on the Bots list"| E1["SCR-01 error naming the venue that has no exchange adapter, bot stays stopped, nothing sent to any exchange"]
+    C -->|"no, Start pressed on the bot page"| E2["SCR-02 error naming the venue that has no exchange adapter, bot stays stopped, nothing sent to any exchange"]
     D -->|"a deploy or config change removes the venue's adapter, then the next check or live event arrives"| F["SCR-02 status Paused, reason stated in the event feed, existing orders left on the exchange untouched"]
     F --> G["SCR-03 Telegram notification with the reason, if connected and allowed"]
     G -->|"Operator opens the bot and decides what to do with the orders"| B
@@ -86,7 +91,8 @@ flowchart TD
     A["SCR-01 Bots list"] -->|"presses Start"| C{"Venue's adapter declares every capability the strategy needs on the bot's market type?"}
     B["SCR-02 Bot page"] -->|"presses Start"| C
     C -->|"yes, always true for a Bybit setup that starts today"| D["SCR-02 status Active"]
-    C -->|"no"| E["Same screen shows an error naming the missing capability and the market type, bot stays stopped, nothing sent to any exchange"]
+    C -->|"no, Start pressed on the Bots list"| E1["SCR-01 error naming the missing capability and the market type, bot stays stopped, nothing sent to any exchange"]
+    C -->|"no, Start pressed on the bot page"| E2["SCR-02 error naming the missing capability and the market type, bot stays stopped, nothing sent to any exchange"]
     D -->|"after a deploy the adapter no longer declares a needed capability, then the next check or live event arrives"| F["SCR-02 status Paused, missing capability and market type named in the event feed, orders left untouched"]
     F --> G["SCR-03 Telegram notification with the reason, if connected and allowed"]
     G -->|"Operator opens the bot"| B
@@ -123,15 +129,15 @@ When an exchange request fails while a bot's keys are in use, including the emul
 | AC-05 | N/A: golden-run harness | US-02 out of scope. The bot page simply shows one ladder, as today |
 | AC-06 | Flow US-03 → H → I / F | Same event category and raw code in the feed. Action per the reference failure table |
 | AC-07 | Flow US-03 → C → D → E / F | Temporary-network event while retrying. Paused once the retry limit is exhausted |
-| AC-08 | Flow US-03 → L → C | Order kept shown as active, nothing tied to it placed or cancelled |
-| AC-09 | Flow US-04 → C → E | Start refused on the screen where Start was pressed, venue named |
+| AC-08 | Flow US-03 → L → M → N / O / P / F | Order kept shown as active, nothing tied to it placed or cancelled. Final state from history, gone only on unknown-order or absent from both, Paused at the retry limit |
+| AC-09 | Flow US-04 → C → E1 / E2 | Start refused on the screen where Start was pressed, venue named |
 | AC-10 | Flow US-04 → D → F → G | Paused with reason. Orders left untouched. Telegram on top of the feed |
 | AC-11 | Flow US-04 → X → Y | Existing «Trading bot not found» state. No venue or state revealed |
 | AC-12 | N/A: API-only | US-05 out of scope. No screen calls the connection check |
 | AC-13 | N/A: API-only | US-05 out of scope |
 | AC-13b | N/A: API-only | US-05 out of scope |
 | AC-14 | N/A: API-only | US-05 out of scope. The refusal is an API answer, not a sign-in redirect |
-| AC-15 | Flow US-06 → C → E | Start refused naming the missing capability and the market type |
+| AC-15 | Flow US-06 → C → E1 / E2 | Start refused naming the missing capability and the market type |
 | AC-15b | Flow US-06 → D → F → G | Paused with the capability and market type named |
 | AC-16 | Flow US-07 → C / D / E | Masking in the event feed and Telegram. The connection-check answer is API-only (US-05) |
 | AC-17 | N/A: developer-facing | US-08 out of scope (stand-in adapter golden runs) |

@@ -1,0 +1,730 @@
+# Contract for exchange-adapter — DERIVED, not hand-written:
+#   fields + constraints  ← data-model.md (existing tables; schema_change: false) + app/schemas/trading_bot.py
+#   error responses       ← sad.md §6 Flow 2, Flow 6, Flow 8 alt-branches
+#   endpoint list + shape ← spec.md §4 US-04/05/06, §5 AC-09…AC-15b, AC-16
+# Scope: only the operations whose behaviour this feature changes. Every other /api route is
+# unchanged and is not restated here. Deviations from the sdd defaults (error body superset,
+# unversioned /api prefix) are recorded in ADR-0010.
+openapi: 3.1.0
+
+info:
+  title: AlgoTradeDynamics — exchange-adapter API changes
+  version: 0.1.0
+  description: |
+    Every bot now reaches an exchange only through the exchange adapter chosen by its venue
+    (exchange + environment). This contract covers what changes at the HTTP surface. A bot whose
+    venue has no adapter, or whose strategy needs a capability the adapter does not declare on the
+    bot's market type, is refused before anything is sent to any exchange. Another user's bot is
+    still answered as non-existent, before any venue routing. The connection check takes a venue,
+    requires a signed-in operator, and answers with a status and an error class, never with a raw
+    exchange message or a key.
+
+    **Removed:** `GET /api/bybit/test` (unauthenticated, Bybit-demo only). Replaced by
+    `GET /api/venues/{exchange}/{environment}/connection` in migration step (8) (`sad.md` §4).
+    Nothing in `FE/src` calls the old route.
+
+    **Error body (ADR-0010):** every error keeps FastAPI's `detail` string, so the existing frontend
+    (`body.detail || body.message`) and tests keep working. Errors introduced by this feature add a
+    neutral `code` (`module.error_name`) and structured `details`. Unchanged errors (401, 404
+    «Trading bot not found», today's 400/422 start refusals) keep exactly today's `{detail}` body.
+
+    **Not changed:** request bodies, success bodies, status codes of the unchanged branches, and the
+    per-user rate limits (`app.core.rate_limit`). No operation takes an `Idempotency-Key`: none of
+    these flows has a retry or an async actor (sad.md §6 Flow 2, 6, 8).
+
+servers:
+  - url: http://localhost:8000
+    description: Local (docker compose backend)
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Venues
+    description: Connection check per venue (US-05)
+  - name: Bots
+    description: Bot actions that reach an exchange through the venue guard (US-04, US-06)
+
+paths:
+  /api/venues/{exchange}/{environment}/connection:
+    get:
+      tags: [Venues]
+      summary: Check the connection of a venue
+      description: |
+        Resolves the venue's exchange adapter (no default venue, ADR-0004) and asks it to check the
+        connection with the keys configured on the server for that venue. Nothing is persisted.
+        The path parameters are bounded strings, not an enum, so an unknown venue reaches the
+        guard and is answered `not_supported` instead of failing validation.
+
+        Every answer names the venue. The `message` is a fixed text per status: it never carries
+        the raw exchange message, a key or a secret (AC-13b, AC-16). Falls under the existing
+        per-user `api_read` rate limit (spec §6.1).
+      operationId: getVenueConnection
+      parameters:
+        - $ref: "#/components/parameters/ExchangePath"
+        - $ref: "#/components/parameters/EnvironmentPath"
+      responses:
+        "200":
+          description: |
+            The check ran (or was answered without a network call). `status` says which:
+            `connected` (AC-12), `not_configured` (AC-13, no request sent), `failing` with an
+            `error_class` (AC-13b), `not_supported` (no adapter for the venue, no request sent).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VenueConnection" }
+              examples:
+                connected:
+                  summary: AC-12 — Bybit demo keys configured and the exchange answers
+                  value:
+                    venue: { exchange: bybit, environment: demo }
+                    status: connected
+                    error_class: null
+                    message: "Venue bybit/demo is connected"
+                not_configured:
+                  summary: AC-13 — no keys configured for the venue
+                  value:
+                    venue: { exchange: bybit, environment: live }
+                    status: not_configured
+                    error_class: null
+                    message: "Venue bybit/live has no exchange keys configured"
+                failing:
+                  summary: AC-13b — the exchange rejected the keys
+                  value:
+                    venue: { exchange: bybit, environment: testnet }
+                    status: failing
+                    error_class: rejected_credentials
+                    message: "Venue bybit/testnet is failing: rejected_credentials"
+                not_supported:
+                  summary: Venue has no exchange adapter (sad.md §6 Flow 8, ADR-0004)
+                  value:
+                    venue: { exchange: binance, environment: live }
+                    status: not_supported
+                    error_class: null
+                    message: "Venue binance/live has no exchange adapter"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/RequestValidation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/bots/{bot_id}/start:
+    post:
+      tags: [Bots]
+      summary: Start a bot
+      description: |
+        Ownership is checked first (404 for another user's bot, AC-11). Then the guard resolves
+        the venue's adapter with the capabilities the strategy requires for the bot's settings and
+        market type, with no network call (ADR-0004, ADR-0006). A refusal leaves the bot stopped
+        and sends nothing to any exchange. A Bybit configuration that starts today is never refused
+        by the guard (AC-15).
+      operationId: startBot
+      parameters:
+        - $ref: "#/components/parameters/BotId"
+      responses:
+        "200":
+          description: Bot marked running (unchanged body)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TradingBotRunResponse" }
+              example:
+                bot: { id: 42, exchange: bybit, environment: emulator, category: linear, runtime_status: running }
+                orders: []
+                action: STARTED
+                message: "Bot worker started"
+        "400":
+          description: Live trading is disabled for this bot (unchanged)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { detail: "Live trading is disabled for this bot" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/BotNotFound"
+        "422":
+          $ref: "#/components/responses/StartRefused"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/bots/{bot_id}/stop:
+    post:
+      tags: [Bots]
+      summary: Stop a bot
+      description: |
+        Stop may cancel orders and close the position through the adapter (per the bot's settings),
+        so it passes the guard first. A guard refusal leaves the bot and its orders as they are
+        (sad.md §6 Flow 2).
+      operationId: stopBot
+      parameters:
+        - $ref: "#/components/parameters/BotId"
+      responses:
+        "200":
+          description: Bot stopped (unchanged body)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TradingBot" }
+              example: { id: 42, exchange: bybit, environment: emulator, category: linear, runtime_status: stopped }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/BotNotFound"
+        "422":
+          $ref: "#/components/responses/GuardRefused"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/bots/{bot_id}/sync:
+    post:
+      tags: [Bots]
+      summary: Synchronise a bot's orders with the exchange
+      operationId: syncBot
+      parameters:
+        - $ref: "#/components/parameters/BotId"
+      responses:
+        "200":
+          description: Orders seen on the exchange (unchanged body)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TradingBotOrder" }
+              example:
+                - { id: 7, bot_id: 42, exchange: bybit, environment: emulator, category: linear, order_link_id: "bot-42-g1-buy-0", status: New }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/BotNotFound"
+        "422":
+          $ref: "#/components/responses/GuardRefused"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/bots/{bot_id}/cancel-orders:
+    post:
+      tags: [Bots]
+      summary: Cancel a bot's open orders
+      operationId: cancelBotOrders
+      parameters:
+        - $ref: "#/components/parameters/BotId"
+      responses:
+        "200":
+          description: Orders cancelled (unchanged body)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TradingBotOrder" }
+              example:
+                - { id: 7, bot_id: 42, exchange: bybit, environment: emulator, category: linear, order_link_id: "bot-42-g1-buy-0", status: Cancelled }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/BotNotFound"
+        "422":
+          $ref: "#/components/responses/GuardRefused"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/bots/{bot_id}/close-position:
+    post:
+      tags: [Bots]
+      summary: Close a bot's position
+      description: |
+        `confirm: false` keeps today's 400. A guard refusal is 422, never 400: the route must map
+        the guard's refusals explicitly rather than through its generic `ValueError → 400` branch.
+      operationId: closeBotPosition
+      parameters:
+        - $ref: "#/components/parameters/BotId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClosePositionRequest" }
+            example: { confirm: true }
+      responses:
+        "200":
+          description: Close order placed (unchanged body)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClosePositionResult" }
+              example:
+                message: "Position close requested"
+                order: { id: 9, bot_id: 42, exchange: bybit, environment: emulator, category: linear, order_link_id: "bot-42-g1-close-0", status: New }
+        "400":
+          description: Position close requires confirmation (unchanged)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { detail: "Position close requires confirm=true" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/BotNotFound"
+        "422":
+          $ref: "#/components/responses/GuardRefused"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/bots/{bot_id}/position:
+    get:
+      tags: [Bots]
+      summary: Read a bot's live position
+      operationId: getBotPosition
+      parameters:
+        - $ref: "#/components/parameters/BotId"
+      responses:
+        "200":
+          description: Live position (unchanged body)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TradingBotPosition" }
+              example: { symbol: BTCUSDT, category: linear, side: Buy, size: "0.010", avg_entry_price: "60000.0", mark_price: "60120.5" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/BotNotFound"
+        "422":
+          $ref: "#/components/responses/GuardRefused"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/bots/{bot_id}/risk:
+    get:
+      tags: [Bots]
+      summary: Read a bot's risk summary
+      description: Momentum and Pattern Scalper read the live position here, so the read passes the guard.
+      operationId: getBotRisk
+      parameters:
+        - $ref: "#/components/parameters/BotId"
+      responses:
+        "200":
+          description: Risk summary (unchanged body)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TradingBotRisk" }
+              example: { max_open_orders: 10, current_open_orders: 3, allow_live_trading: false, is_live_environment: false, blocked: false, reason: null }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/BotNotFound"
+        "422":
+          $ref: "#/components/responses/GuardRefused"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/bots/{bot_id}/performance:
+    get:
+      tags: [Bots]
+      summary: Read a bot's performance (bot page)
+      description: |
+        Grid and DCA first refresh order state from the exchange, best effort, as today. If the
+        guard refuses, the refresh is skipped (nothing sent to any exchange) and the stored figures
+        are returned with 200, the same as when the refresh fails today. A bot paused by the guard
+        keeps a readable bot page (AC-02, AC-10).
+      operationId: getBotPerformance
+      parameters:
+        - $ref: "#/components/parameters/BotId"
+      responses:
+        "200":
+          description: Performance summary (unchanged body, same figures as before the step — AC-02)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TradingBotPerformance" }
+              example: { closed_cycles: 12, winning_cycles: 9, gross_realized_pnl: "34.21", closed_fees: "1.87", net_realized_pnl: "32.34" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/BotNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/bots/{bot_id}/clear-history:
+    post:
+      tags: [Bots]
+      summary: Clear a bot's operational history
+      description: |
+        Cancelling the bot's exchange orders here is best effort, as today. If the guard refuses,
+        nothing is sent to any exchange, `exchange_orders_cancelled` is 0, and
+        `exchange_cancel_error` carries the scrubbed refusal reason. Local history is still cleared.
+        `exchange_cancel_error` passes the shared scrubber in every case (AC-16): today it is
+        `str(exc)` of a raw exchange failure.
+      operationId: clearBotHistory
+      parameters:
+        - $ref: "#/components/parameters/BotId"
+      responses:
+        "200":
+          description: History cleared (unchanged body)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClearHistoryResult" }
+              examples:
+                cleared:
+                  value: { message: "Bot history cleared", bot_id: 42, orders_deleted: 14, events_deleted: 30, exchange_orders_cancelled: 2, exchange_cancel_error: null }
+                guard_refused:
+                  summary: Venue has no adapter — exchange side skipped
+                  value: { message: "Bot history cleared", bot_id: 42, orders_deleted: 14, events_deleted: 30, exchange_orders_cancelled: 0, exchange_cancel_error: "Venue binance/live has no exchange adapter" }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/BotNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    BotId:
+      in: path
+      name: bot_id
+      required: true
+      schema: { type: integer, minimum: 1 }
+    ExchangePath:
+      in: path
+      name: exchange
+      required: true
+      description: First half of the venue key (trading_bots.exchange)
+      schema: { type: string, minLength: 1, maxLength: 40 }
+      example: bybit
+    EnvironmentPath:
+      in: path
+      name: environment
+      required: true
+      description: Second half of the venue key (trading_bots.environment)
+      schema: { type: string, minLength: 1, maxLength: 20 }
+      example: demo
+
+  responses:
+    Unauthenticated:
+      description: |
+        Not signed in (unchanged body). On the connection check it reveals nothing about which
+        venues are configured (AC-14).
+      headers:
+        WWW-Authenticate:
+          schema: { type: string, const: Bearer }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { detail: "Не автентифіковано" }
+    BotNotFound:
+      description: |
+        The bot does not exist or belongs to another user (unchanged body). Checked before any
+        venue routing: no guard call, nothing sent to any exchange, no venue or state revealed (AC-11).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { detail: "Trading bot not found" }
+    GuardRefused:
+      description: |
+        The guard refused the action on the Operator's own bot: the venue has no exchange adapter,
+        or the adapter does not declare a capability this action needs on the bot's market type.
+        Nothing was sent to any exchange and the bot is left as it was (sad.md §6 Flow 2).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/GuardRefusal" }
+          examples:
+            venue_unsupported:
+              value:
+                detail: "Venue binance/live has no exchange adapter"
+                code: exchange.venue_unsupported
+                details: { exchange: binance, environment: live }
+            capability_missing:
+              value:
+                detail: "Capability short_selling is not available on market type spot for venue bybit/demo"
+                code: exchange.capability_missing
+                details: { exchange: bybit, environment: demo, capability: short_selling, market_type: spot }
+    StartRefused:
+      description: |
+        The start was refused and the bot stays stopped. Either the guard refused (AC-09 venue has
+        no adapter, AC-15 capability missing on the market type, with `code` + `details`; nothing
+        sent to any exchange), or one of today's start validations failed (unchanged `{detail}`
+        body, e.g. «Trading bot is inactive»).
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: "#/components/schemas/GuardRefusal"
+              - $ref: "#/components/schemas/Error"
+          examples:
+            venue_unsupported:
+              summary: AC-09
+              value:
+                detail: "Venue binance/live has no exchange adapter"
+                code: exchange.venue_unsupported
+                details: { exchange: binance, environment: live }
+            capability_missing:
+              summary: AC-15
+              value:
+                detail: "Capability short_selling is not available on market type spot for venue bybit/demo"
+                code: exchange.capability_missing
+                details: { exchange: bybit, environment: demo, capability: short_selling, market_type: spot }
+            existing_validation:
+              summary: Today's start refusal (unchanged)
+              value: { detail: "Trading bot is inactive" }
+    RequestValidation:
+      description: A path or body parameter failed validation (FastAPI's standard body, unchanged)
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [detail]
+            properties:
+              detail:
+                type: array
+                items: { type: object }
+          example:
+            detail:
+              - { type: string_too_long, loc: [path, environment], msg: "String should have at most 20 characters" }
+    RateLimited:
+      description: Per-user rate limit exceeded (existing middleware, unchanged)
+      headers:
+        Retry-After: { schema: { type: integer } }
+        X-RateLimit-Limit: { schema: { type: integer } }
+        X-RateLimit-Remaining: { schema: { type: integer } }
+        X-RateLimit-Reset: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RateLimitError" }
+          example:
+            detail: "Too many requests. Please retry later."
+            rate_limit: { scope: api_read, limit: 300, window_seconds: 60 }
+
+  schemas:
+    # Error body — superset of FastAPI's {detail} (ADR-0010). `detail` is always present; `code` and
+    # `details` are present on every error this feature introduces.
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          description: Human-readable reason, English, scrubbed of keys and secrets (AC-16)
+        code:
+          type: string
+          pattern: "^[a-z_]+\\.[a-z_]+$"
+          description: Neutral machine code, `module.error_name`
+        details:
+          type: object
+          description: Structured context for `code`
+
+    GuardRefusal:
+      description: A venue-guard refusal (ADR-0004). Never raised for a bot the caller does not own.
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          required: [code, details]
+          properties:
+            code:
+              type: string
+              enum: [exchange.venue_unsupported, exchange.capability_missing]
+            details:
+              type: object
+              required: [exchange, environment]
+              additionalProperties: false
+              properties:
+                exchange: { type: string, maxLength: 40 }
+                environment: { type: string, maxLength: 20 }
+                capability:
+                  $ref: "#/components/schemas/Capability"
+                market_type:
+                  $ref: "#/components/schemas/MarketType"
+
+    RateLimitError:
+      type: object
+      required: [detail, rate_limit]
+      properties:
+        detail: { type: string }
+        rate_limit:
+          type: object
+          required: [scope, limit, window_seconds]
+          properties:
+            scope: { type: string }
+            limit: { type: integer }
+            window_seconds: { type: integer }
+
+    Venue:
+      description: The exchange + environment pair a bot trades on (CONTEXT.md «Venue»)
+      type: object
+      required: [exchange, environment]
+      additionalProperties: false
+      properties:
+        exchange: { type: string, maxLength: 40 }
+        environment: { type: string, maxLength: 20 }
+
+    VenueConnection:
+      type: object
+      required: [venue, status, error_class, message]
+      additionalProperties: false
+      properties:
+        venue: { $ref: "#/components/schemas/Venue" }
+        status:
+          type: string
+          enum: [connected, not_configured, failing, not_supported]
+        error_class:
+          description: Set only when `status` is `failing`; `null` otherwise
+          oneOf:
+            - $ref: "#/components/schemas/ErrorClass"
+            - type: "null"
+        message:
+          type: string
+          description: Fixed text per status. Never the raw exchange message, a key or a secret
+
+    ErrorClass:
+      description: Exchange-neutral error class (ADR-0005). Not the stored error type (ADR-0003)
+      type: string
+      enum:
+        - network
+        - rate_limited
+        - exchange_unavailable
+        - time_sync
+        - rejected_credentials
+        - permission_denied
+        - insufficient_balance
+        - invalid_symbol
+        - invalid_order
+        - duplicate_client_tag
+        - unknown_order
+        - order_state_conflict
+        - risk_limit
+
+    Capability:
+      description: Capability catalogue (sad.md §5, ADR-0006). `client_tag_max_length` is a declared value, not a refusable capability, so it is not listed
+      type: string
+      enum:
+        - limit_orders
+        - market_orders
+        - reduce_only_orders
+        - position_reads
+        - short_selling
+        - execution_pnl
+        - wallet_balance
+        - candles
+        - order_lookup_by_tag
+        - private_event_stream
+
+    MarketType:
+      description: trading_bots.category
+      type: string
+      enum: [spot, linear, inverse]
+
+    # Unchanged bodies. Only the fields this feature's ACs touch are listed; the full shape is the
+    # FastAPI model named in each description, which this feature does not change.
+    TradingBot:
+      description: "Unchanged — full shape: app.schemas.trading_bot.TradingBotResponse"
+      type: object
+      required: [id, exchange, environment, category, runtime_status]
+      properties:
+        id: { type: integer }
+        exchange: { type: string, maxLength: 40 }
+        environment: { type: string, maxLength: 20 }
+        category: { $ref: "#/components/schemas/MarketType" }
+        runtime_status: { type: string, maxLength: 20 }
+        last_error:
+          type: [string, "null"]
+          maxLength: 500
+          description: Scrubbed (AC-16)
+        last_error_type:
+          type: [string, "null"]
+          maxLength: 40
+          description: Stored error type, values unchanged (ADR-0003)
+        last_error_code:
+          type: [string, "null"]
+          maxLength: 40
+          description: Raw exchange code, kept for diagnosis (AC-06)
+      additionalProperties: true
+
+    TradingBotRunResponse:
+      description: "Unchanged — app.schemas.trading_bot.TradingBotRunResponse"
+      type: object
+      required: [bot, orders, action, message]
+      properties:
+        bot: { $ref: "#/components/schemas/TradingBot" }
+        orders:
+          type: array
+          items: { $ref: "#/components/schemas/TradingBotOrder" }
+        action: { type: string }
+        message: { type: string }
+
+    TradingBotOrder:
+      description: "Unchanged — full shape: app.schemas.trading_bot.TradingBotOrderResponse"
+      type: object
+      required: [id, bot_id, exchange, environment, category, status]
+      properties:
+        id: { type: integer }
+        bot_id: { type: integer }
+        exchange: { type: string, maxLength: 40 }
+        environment: { type: string, maxLength: 20 }
+        category: { type: string, maxLength: 20 }
+        order_link_id:
+          type: [string, "null"]
+          maxLength: 160
+          description: Client tag, format frozen (ADR-0003)
+        status:
+          type: string
+          maxLength: 30
+          description: Frozen stored vocabulary (New, PartiallyFilled, Filled, Cancelled, Rejected, Deactivated, Untriggered…)
+        raw_response:
+          type: object
+          description: Raw exchange payload, unchanged
+      additionalProperties: true
+
+    TradingBotPosition:
+      description: "Unchanged — full shape: app.schemas.trading_bot.TradingBotPositionResponse"
+      type: object
+      required: [symbol, category, size]
+      properties:
+        symbol: { type: string }
+        category: { type: string }
+        size: { type: string }
+      additionalProperties: true
+
+    TradingBotRisk:
+      description: "Unchanged — full shape: app.schemas.trading_bot.TradingBotRiskResponse"
+      type: object
+      additionalProperties: true
+
+    TradingBotPerformance:
+      description: "Unchanged — full shape: app.schemas.trading_bot.TradingBotPerformanceResponse"
+      type: object
+      required: [closed_cycles]
+      properties:
+        closed_cycles: { type: integer }
+        closed_fees: { type: [string, "null"] }
+        net_realized_pnl: { type: [string, "null"] }
+      additionalProperties: true
+
+    ClosePositionRequest:
+      description: "Unchanged — app.schemas.trading_bot.TradingBotClosePositionRequest"
+      type: object
+      properties:
+        confirm: { type: boolean, default: false }
+
+    ClosePositionResult:
+      description: "Unchanged — app.schemas.trading_bot.TradingBotClosePositionResponse"
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        order:
+          oneOf:
+            - $ref: "#/components/schemas/TradingBotOrder"
+            - type: "null"
+
+    ClearHistoryResult:
+      description: "Unchanged shape — app.schemas.trading_bot.TradingBotClearHistoryResponse"
+      type: object
+      required: [message, bot_id, orders_deleted, events_deleted, exchange_orders_cancelled]
+      properties:
+        message: { type: string }
+        bot_id: { type: integer }
+        orders_deleted: { type: integer }
+        events_deleted: { type: integer }
+        exchange_orders_cancelled: { type: integer }
+        exchange_cancel_error:
+          type: [string, "null"]
+          description: Scrubbed (AC-16). Carries the guard refusal reason when the guard refused
