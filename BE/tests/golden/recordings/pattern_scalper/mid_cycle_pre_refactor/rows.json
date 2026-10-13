@@ -1,0 +1,70 @@
+{
+  "bot_id": 1,
+  "after_step": 21,
+  "bot": {
+    "id": 1,
+    "runtime_status": "running",
+    "order_link_generation": 1,
+    "last_error_type": null,
+    "last_error_code": null,
+    "last_error_action": null,
+    "error_retry_count": 0,
+    "settings": {
+      "run_interval_seconds": 0,
+      "timeframe": "1",
+      "cooldown_minutes": 0,
+      "pattern_scalper_state": {
+        "last_signal_candle": 1767615660000,
+        "current_trade": {
+          "side": "Sell",
+          "entry_price": 100.0881,
+          "stop_loss": 100.65918857142857,
+          "take_profit": 99.23146714285714,
+          "opened_at": "2026-01-05T12:22:00+00:00",
+          "entry_order_link_id": "bot-1-g1-scalper-entry-sell-1767615660000",
+          "signal_score": 0.9177699582142063,
+          "signal_pattern": "triangle_breakdown",
+          "signal_reasons": [
+            "Pattern: Triangle Breakdown",
+            "Triangle/compression resolved downward",
+            "Triangle breakout agrees with the higher-timeframe trend",
+            "Entry volume is 1.97\u00d7 recent average",
+            "RSI is compatible with the setup (48.8)"
+          ],
+          "indicators": {
+            "triangle_contraction": 0.4517997214280419,
+            "triangle_upper": 100.49192121212121,
+            "triangle_lower": 100.14603484848485,
+            "pattern": "triangle_breakdown",
+            "pattern_quality": 0.5577699582142063,
+            "market_regime": "bearish_trend",
+            "context_timeframe": "5",
+            "context_ema_fast": 101.34588651311735,
+            "context_ema_slow": 101.78059700861304,
+            "context_ema_separation_atr": 0.3413088820124112,
+            "context_ema_slope_atr": -0.17784718159878715,
+            "rsi": 48.826572284236256,
+            "atr": 0.4759071428571439,
+            "volume_ratio": 1.9678886797137232,
+            "body_atr": 0.05232113107299328
+          }
+        }
+      }
+    }
+  },
+  "orders": [
+    {
+      "id": 1,
+      "order_link_id": "bot-1-g1-scalper-entry-sell-1767615660000",
+      "order_role": "scalper_entry_short",
+      "side": "Sell",
+      "order_type": "Market",
+      "status": "Filled",
+      "qty": 5.0,
+      "filled_qty": 0.0,
+      "price": null,
+      "parent_order_id": null,
+      "cycle_completed": false
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "dca": {
+    "fill_reaction_p95_s": 0.012726068496704102,
+    "request_p95_s": 0.0030675829912070185,
+    "requests": 193,
+    "source_commit": "8b6482e743759e413d2ecd26d40766b2f4b0bea6"
+  },
+  "grid": {
+    "fill_reaction_p95_s": 0.02731800079345703,
+    "request_p95_s": 0.0031459589954465628,
+    "requests": 252,
+    "source_commit": "8b6482e743759e413d2ecd26d40766b2f4b0bea6"
+  },
+  "momentum": {
+    "fill_reaction_p95_s": 0.0,
+    "request_p95_s": 0.0032604580046609044,
+    "requests": 1170,
+    "source_commit": "8b6482e743759e413d2ecd26d40766b2f4b0bea6"
+  },
+  "pattern_scalper": {
+    "fill_reaction_p95_s": 0.0,
+    "request_p95_s": 0.003196250007022172,
+    "requests": 825,
+    "source_commit": "8b6482e743759e413d2ecd26d40766b2f4b0bea6"
+  }
+}

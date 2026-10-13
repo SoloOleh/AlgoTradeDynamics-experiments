@@ -56,7 +56,7 @@ def test_resume_from_mid_cycle_snapshot_matches_the_tail_of_the_full_run(emulato
     resumed = record_run(SMOKE, emulator=emulator, db=golden_db, resume_from=snapshot)
 
     assert resumed["resumed_from_step"] == 2
-    assert (snapshot / "rows.json").exists() and (snapshot / "emulator.db").exists()
+    assert (snapshot / "rows.json").exists() and (snapshot / "emulator.db.gz").exists()
     tail = canonicalise(resumed, from_step=2)
     assert tail["orders"], "the resumed tail must trade, or equality proves nothing"
     assert tail == canonicalise(full, from_step=2)

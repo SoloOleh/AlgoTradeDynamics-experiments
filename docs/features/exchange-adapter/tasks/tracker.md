@@ -7,7 +7,7 @@
 | # | Task | Layer | Owner | Estimate | Blocked by | Status |
 |---|---|---|---|---|---|---|
 | T01 | Build the golden-run harness around the emulator client | tests | Oleh Solomko | M | — | done |
-| T02 | Record the 8 golden runs and the latency and overhead baselines on the pre-refactor code | tests | Oleh Solomko | M | T01 | todo |
+| T02 | Record the 8 golden runs and the latency and overhead baselines on the pre-refactor code | tests | Oleh Solomko | M | T01 | done |
 | T03 | Record the reference failure table and add the static search and the one-command pre-merge gate | tests | Oleh Solomko | M | T01 | todo |
 | T04 | Add the exchange seam core: port, error vocabulary, capabilities and the shared scrubber | domain | Oleh Solomko | M | — | todo |
 | T05 | Move Bybit error classification into the adapter package and keep reactions in an engine class table | infra | Oleh Solomko | M | T02, T03, T04 | todo |

@@ -8,8 +8,10 @@ before and after the exchange-adapter refactor (ADR-0007).
 from __future__ import annotations
 
 import asyncio
+import gzip
 import json
 import os
+import random
 import shutil
 import socket
 import subprocess
@@ -32,20 +34,64 @@ SIM_START = datetime(2026, 1, 5, 12, 0, tzinfo=timezone.utc)
 SNAPSHOT_FILES = ("emulator.db", "emulator.db-wal", "emulator.db-shm", "backend.db")
 
 
+CANDLE_MS = 60_000
+
+
+def generate_candles(seed: int, count: int, *, base: float = 100.0) -> list[tuple]:
+    """Deterministic 1-minute OHLCV candles (open_time ms, open, high, low, close, volume)."""
+    rng = random.Random(seed)
+    start_ms = int(SIM_START.timestamp() * 1000) - 200 * CANDLE_MS
+    rows: list[tuple] = []
+    price = base
+    for index in range(count):
+        drift = rng.choice([-1, 0, 0, 1]) * 0.0008
+        open_price = price
+        close = max(1.0, open_price * (1 + drift + rng.gauss(0, 0.003)))
+        high = max(open_price, close) * (1 + abs(rng.gauss(0, 0.0015)))
+        low = min(open_price, close) * (1 - abs(rng.gauss(0, 0.0015)))
+        volume = rng.uniform(80, 120) * rng.choice([1, 1, 1, 1, 1, 3, 5])
+        rows.append((
+            start_ms + index * CANDLE_MS, round(open_price, 4), round(high, 4),
+            round(low, 4), round(close, 4), round(volume, 2),
+        ))
+        price = round(close, 4)
+    return rows
+
+
 @dataclass(frozen=True)
 class Scenario:
-    """A deterministic price path for one bot."""
+    """A deterministic price path for one bot.
+
+    Manual scenarios push `prices` one by one. Replay scenarios import seeded 1-minute candles
+    into the emulator as a historical dataset (candle-reading strategies need history) and step
+    the replay one candle at a time from `replay_from`.
+    """
 
     name: str
     strategy_type: str
     symbol: str
-    start_price: float
-    prices: list[float]
+    start_price: float = 0.0
+    prices: list[float] = field(default_factory=list)
     bot: dict[str, Any] = field(default_factory=dict)
     settings: dict[str, Any] = field(default_factory=dict)
     environment: str = "emulator"
     category: str = "linear"
     step_seconds: int = 60
+    candle_seed: int | None = None
+    candle_count: int = 0
+    replay_from: int = 0
+
+    @property
+    def is_replay(self) -> bool:
+        return self.candle_seed is not None
+
+    def candles(self) -> list[tuple]:
+        if not self.is_replay:
+            return []
+        return generate_candles(self.candle_seed, self.candle_count)
+
+    def step_count(self) -> int:
+        return self.candle_count - self.replay_from if self.is_replay else len(self.prices)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -107,6 +153,29 @@ class Emulator:
         )
         response.raise_for_status()
         return response.json()
+
+    def import_candles(self, symbol: str, rows: list[tuple]) -> int:
+        lines = ["open_time,open,high,low,close,volume"]
+        lines += [",".join(str(value) for value in row) for row in rows]
+        response = self.admin.post(
+            "/api/admin/historical/import-csv",
+            params={"symbol": symbol, "interval": "1", "category": "linear", "name": "golden"},
+            files={"file": ("golden.csv", "\n".join(lines).encode(), "text/csv")},
+        )
+        response.raise_for_status()
+        return int(response.json()["dataset"]["id"])
+
+    def start_replay(self, symbol: str, dataset_id: int, *, start_ms: int, end_ms: int) -> None:
+        self.admin.post(
+            f"/api/admin/markets/{symbol}/replay/start",
+            json={"dataset_id": dataset_id, "start_time": start_ms, "end_time": end_ms,
+                  "speed": 0.1, "path_mode": "ohlc"},
+        ).raise_for_status()
+        # Paused: the harness steps candles itself, the emulator worker must not advance them.
+        self.admin.post(f"/api/admin/markets/{symbol}/pause").raise_for_status()
+
+    def replay_step(self, symbol: str) -> dict:
+        return self.admin.post(f"/api/admin/markets/{symbol}/replay/step").raise_for_status().json()
 
     def execution_count(self) -> int:
         return len(self.admin.get("/api/admin/executions", params={"limit": 100000}).raise_for_status().json())
@@ -218,6 +287,10 @@ class RequestRecorder:
                 result = json.loads(response.read())
             except ValueError:
                 result = None
+            if request.method == "GET" and isinstance(result, dict):
+                # Reads are kept for diagnosis only; their bodies (klines, history) are not compared.
+                items = (result.get("result") or {}).get("list")
+                result = {"retCode": result.get("retCode"), "items": len(items) if isinstance(items, list) else None}
             recorder.requests.append({
                 "step": recorder.step,
                 "method": request.method,
@@ -379,10 +452,14 @@ def _exchange_state(emulator: Emulator) -> dict:
 
 def _snapshot(run_dir: Path, snapshot_dir: Path, bot_id: int, step: int) -> None:
     snapshot_dir.mkdir(parents=True, exist_ok=True)
+    for stale in snapshot_dir.glob("*.gz"):
+        stale.unlink()
     for name in SNAPSHOT_FILES:
         source = run_dir / name
         if source.exists():
-            shutil.copy2(source, snapshot_dir / name)
+            with source.open("rb") as raw, (snapshot_dir / f"{name}.gz").open("wb") as target, \
+                    gzip.GzipFile(fileobj=target, mode="wb", mtime=0) as packed:
+                shutil.copyfileobj(raw, packed)
     (snapshot_dir / "rows.json").write_text(json.dumps(
         {"bot_id": bot_id, "after_step": step, **_bot_rows(bot_id)}, indent=2, default=str,
     ))
@@ -417,9 +494,10 @@ def record_run(
         bot_id = int(rows["bot_id"])
         first_step = int(rows["after_step"]) + 1
         for name in SNAPSHOT_FILES:
-            source = Path(resume_from) / name
+            source = Path(resume_from) / f"{name}.gz"
             if source.exists():
-                shutil.copy2(source, run_dir / name)
+                with gzip.open(source, "rb") as packed, (run_dir / name).open("wb") as raw:
+                    shutil.copyfileobj(packed, raw)
         db.bind(run_dir / "backend.db", create=False)
     else:
         db.bind(run_dir / "backend.db", create=True)
@@ -433,20 +511,34 @@ def record_run(
     try:
         _point_backend_at(running)
         with recorder.active():
+            candles = scenario.candles()
             if resume_from is None:
-                running.set_price(scenario.symbol, scenario.start_price, simulation_time=SIM_START)
-                with use_simulated_time(SIM_START):
+                setup_time = SIM_START
+                if scenario.is_replay:
+                    dataset_id = running.import_candles(scenario.symbol, candles)
+                    first = candles[scenario.replay_from]
+                    running.start_replay(
+                        scenario.symbol, dataset_id, start_ms=first[0], end_ms=candles[-1][0],
+                    )
+                    setup_time = datetime.fromtimestamp(first[0] / 1000, tz=timezone.utc)
+                else:
+                    running.set_price(scenario.symbol, scenario.start_price, simulation_time=SIM_START)
+                with use_simulated_time(setup_time):
                     recorder.step = -1
                     bot_id = _create_and_start_bot(db.client, scenario)
                     _tick(bot_id)
                 events.extend(_new_events(bot_id, 0, -1))
             last_event_id = max([event["id"] for event in events], default=_last_event_id(bot_id))
 
-            for step in range(first_step, len(scenario.prices)):
-                price = scenario.prices[step]
-                moment = SIM_START + timedelta(seconds=scenario.step_seconds * (step + 1))
+            for step in range(first_step, scenario.step_count()):
                 executions_before = running.execution_count()
-                running.set_price(scenario.symbol, price, simulation_time=moment)
+                if scenario.is_replay:
+                    candle_open = candles[scenario.replay_from + step][0]
+                    moment = datetime.fromtimestamp((candle_open + CANDLE_MS) / 1000, tz=timezone.utc)
+                    running.replay_step(scenario.symbol)
+                else:
+                    moment = SIM_START + timedelta(seconds=scenario.step_seconds * (step + 1))
+                    running.set_price(scenario.symbol, scenario.prices[step], simulation_time=moment)
                 fill_published = time.time()
                 filled = running.execution_count() > executions_before
                 recorder.step = step
