@@ -1,0 +1,367 @@
+[
+  {
+    "id": "network_timeout",
+    "source": "bybit",
+    "exception": {
+      "kind": "requests_timeout",
+      "message": "HTTPSConnectionPool(host='api.bybit.com', port=443): Read timed out. (read timeout=10)"
+    },
+    "expected": {
+      "error_type": "network",
+      "severity": "warning",
+      "action": "retry_backoff",
+      "code": null,
+      "runtime_status": "retrying"
+    }
+  },
+  {
+    "id": "emulator_network_timeout",
+    "source": "emulator",
+    "exception": {
+      "kind": "emulator_timeout",
+      "message": "timed out"
+    },
+    "expected": {
+      "error_type": "network",
+      "severity": "warning",
+      "action": "retry_backoff",
+      "code": null,
+      "runtime_status": "retrying"
+    }
+  },
+  {
+    "id": "emulator_connect_error",
+    "source": "emulator",
+    "exception": {
+      "kind": "emulator_connect_error",
+      "message": "[Errno 111] Connection refused"
+    },
+    "expected": {
+      "error_type": "network",
+      "severity": "warning",
+      "action": "retry_backoff",
+      "code": null,
+      "runtime_status": "retrying"
+    }
+  },
+  {
+    "id": "rate_limit",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 10006,
+      "message": "Too many visits!"
+    },
+    "expected": {
+      "error_type": "rate_limit",
+      "severity": "warning",
+      "action": "retry_backoff",
+      "code": "10006",
+      "runtime_status": "retrying"
+    }
+  },
+  {
+    "id": "exchange_unavailable",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 10016,
+      "message": "Server error."
+    },
+    "expected": {
+      "error_type": "exchange_unavailable",
+      "severity": "error",
+      "action": "retry_backoff",
+      "code": "10016",
+      "runtime_status": "retrying"
+    }
+  },
+  {
+    "id": "emulator_http_503",
+    "source": "emulator",
+    "exception": {
+      "kind": "emulator_http_status",
+      "http_status": 503,
+      "message": "Server error '503 Service Unavailable' for url 'http://exchange-emulator:8001/v5/order/realtime'"
+    },
+    "expected": {
+      "error_type": "exchange_unavailable",
+      "severity": "error",
+      "action": "retry_backoff",
+      "code": null,
+      "runtime_status": "retrying"
+    }
+  },
+  {
+    "id": "time_sync",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 10002,
+      "message": "invalid request, please check your server timestamp or recv_window param. req_timestamp[1736078400000],server_timestamp[1736078406000],recv_window[5000]"
+    },
+    "expected": {
+      "error_type": "time_sync",
+      "severity": "warning",
+      "action": "retry_backoff",
+      "code": "10002",
+      "runtime_status": "retrying"
+    }
+  },
+  {
+    "id": "rejected_credentials",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 10003,
+      "message": "API key is invalid."
+    },
+    "expected": {
+      "error_type": "authentication",
+      "severity": "critical",
+      "action": "stop",
+      "code": "10003",
+      "runtime_status": "error"
+    }
+  },
+  {
+    "id": "missing_credentials",
+    "source": "synthetic",
+    "exception": {
+      "kind": "value_error",
+      "message": "Bybit demo API credentials are not configured"
+    },
+    "expected": {
+      "error_type": "authentication",
+      "severity": "critical",
+      "action": "stop",
+      "code": null,
+      "runtime_status": "error"
+    }
+  },
+  {
+    "id": "permission",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 10005,
+      "message": "Permission denied, please check your API key permissions."
+    },
+    "expected": {
+      "error_type": "permission",
+      "severity": "critical",
+      "action": "stop",
+      "code": "10005",
+      "runtime_status": "error"
+    }
+  },
+  {
+    "id": "ip_rate_limit_http_403",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_failed_request",
+      "http_status": 403,
+      "message": "You have breached the IP rate limit or your IP is from the USA."
+    },
+    "expected": {
+      "error_type": "internal",
+      "severity": "critical",
+      "action": "stop",
+      "code": "403",
+      "runtime_status": "error"
+    }
+  },
+  {
+    "id": "insufficient_balance",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 110007,
+      "message": "ab not enough for new order"
+    },
+    "expected": {
+      "error_type": "insufficient_funds",
+      "severity": "error",
+      "action": "pause",
+      "code": "110007",
+      "runtime_status": "paused"
+    }
+  },
+  {
+    "id": "emulator_insufficient_balance",
+    "source": "emulator",
+    "exception": {
+      "kind": "exchange_operation_error",
+      "code": 110007,
+      "operation": "Momentum entry",
+      "message": "Insufficient available balance"
+    },
+    "expected": {
+      "error_type": "insufficient_funds",
+      "severity": "error",
+      "action": "pause",
+      "code": "110007",
+      "runtime_status": "paused"
+    }
+  },
+  {
+    "id": "rejected_order",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 110017,
+      "message": "Reduce-only rule not satisfied"
+    },
+    "expected": {
+      "error_type": "invalid_order",
+      "severity": "error",
+      "action": "pause",
+      "code": "110017",
+      "runtime_status": "paused"
+    }
+  },
+  {
+    "id": "order_below_minimum",
+    "source": "synthetic",
+    "exception": {
+      "kind": "value_error",
+      "message": "Order qty 0.0001 is below Bybit minimum 0.001"
+    },
+    "expected": {
+      "error_type": "invalid_order",
+      "severity": "error",
+      "action": "pause",
+      "code": null,
+      "runtime_status": "paused"
+    }
+  },
+  {
+    "id": "invalid_symbol",
+    "source": "bybit",
+    "exception": {
+      "kind": "value_error",
+      "message": "Instrument info not found for FOOUSDT"
+    },
+    "expected": {
+      "error_type": "invalid_symbol",
+      "severity": "error",
+      "action": "pause",
+      "code": null,
+      "runtime_status": "paused"
+    }
+  },
+  {
+    "id": "duplicate_client_tag",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 110072,
+      "message": "OrderLinkedID is duplicate"
+    },
+    "expected": {
+      "error_type": "order_state",
+      "severity": "warning",
+      "action": "resync_and_retry",
+      "code": "110072",
+      "runtime_status": "retrying"
+    }
+  },
+  {
+    "id": "unknown_order",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 110001,
+      "message": "Order does not exist."
+    },
+    "expected": {
+      "error_type": "order_state",
+      "severity": "warning",
+      "action": "resync_and_retry",
+      "code": "110001",
+      "runtime_status": "retrying"
+    }
+  },
+  {
+    "id": "risk_limit",
+    "source": "bybit",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 110013,
+      "message": "Due to risk limit, cannot set leverage"
+    },
+    "expected": {
+      "error_type": "risk",
+      "severity": "critical",
+      "action": "pause",
+      "code": "110013",
+      "runtime_status": "paused"
+    }
+  },
+  {
+    "id": "configuration",
+    "source": "synthetic",
+    "exception": {
+      "kind": "value_error",
+      "message": "DCA volume multiplier must be at least 1"
+    },
+    "expected": {
+      "error_type": "configuration",
+      "severity": "error",
+      "action": "pause",
+      "code": null,
+      "runtime_status": "paused"
+    }
+  },
+  {
+    "id": "internal",
+    "source": "synthetic",
+    "exception": {
+      "kind": "runtime_error",
+      "message": "unexpected state while building the ladder"
+    },
+    "expected": {
+      "error_type": "internal",
+      "severity": "critical",
+      "action": "stop",
+      "code": null,
+      "runtime_status": "error"
+    }
+  },
+  {
+    "id": "retry_limit_exhausted",
+    "source": "bybit",
+    "exception": {
+      "kind": "requests_timeout",
+      "message": "HTTPSConnectionPool(host='api.bybit.com', port=443): Read timed out. (read timeout=10)"
+    },
+    "retry_count": 5,
+    "expected": {
+      "error_type": "network",
+      "severity": "error",
+      "action": "pause",
+      "code": null,
+      "runtime_status": "paused"
+    }
+  },
+  {
+    "id": "failed_order_lookup",
+    "source": "bybit",
+    "deviation": "AC-08",
+    "note": "Expected reaction is the AC-08 deviation: a lookup that fails for any reason other than the unknown-order class keeps the order active and retries up to the limit. Today the emulator client returns an empty list on such a failure and the order is marked missing; the order-lookup rule is enforced by T10 (test_order_lookup_rule.py).",
+    "exception": {
+      "kind": "pybit_invalid_request",
+      "code": 10006,
+      "message": "Too many visits!",
+      "request": "GET /v5/order/realtime: {'orderLinkId': 'bot-1-g1-entry-2-1'}"
+    },
+    "keeps_order_active": true,
+    "expected": {
+      "error_type": "rate_limit",
+      "severity": "warning",
+      "action": "retry_backoff",
+      "code": "10006",
+      "runtime_status": "retrying"
+    }
+  }
+]
