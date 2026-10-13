@@ -11,7 +11,7 @@
 | T03 | Record the reference failure table and add the static search and the one-command pre-merge gate | tests | Oleh Solomko | M | T01 | done |
 | T04 | Add the exchange seam core: port, error vocabulary, capabilities and the shared scrubber | domain | Oleh Solomko | M | — | done |
 | T05 | Move Bybit error classification into the adapter package and keep reactions in an engine class table | infra | Oleh Solomko | M | T02, T03, T04 | done |
-| T06 | Build the Bybit adapter over the existing pybit and EmulatorHTTP clients | infra | Oleh Solomko | L | T04, T05 | todo |
+| T06 | Build the Bybit adapter over the existing pybit and EmulatorHTTP clients | infra | Oleh Solomko | L | T04, T05 | done |
 | T07 | Add the venue registry, the fail-closed guard and each strategy's required capabilities | domain | Oleh Solomko | M | T06 | todo |
 | T08 | Run the guard at start and every Operator bot action, after the ownership check | ports | Oleh Solomko | M | T07 | todo |
 | T09 | Run the guard before every worker tick and pause the bot on a refusal, without retrying | app | Oleh Solomko | M | T05, T07 | todo |

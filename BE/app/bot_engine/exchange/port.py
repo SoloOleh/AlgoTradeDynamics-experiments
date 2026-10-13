@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from app.bot_engine.exchange.capabilities import CapabilitySet
+from app.bot_engine.exchange.errors import ExchangeError
 
 FINAL_ORDER_STATUSES = frozenset({"Filled", "Cancelled", "Rejected", "Deactivated"})
 ACTIVE_ORDER_STATUSES = frozenset({"New", "Created", "PartiallyFilled", "PendingNew", "Untriggered"})
@@ -61,9 +62,11 @@ class NewOrder:
 
 @dataclass(frozen=True, slots=True)
 class Order:
+    """An exchange order. Absent fields are `None` (a price of `None` means the exchange sent none)."""
+
     order_id: str | None
     client_tag: str | None
-    status: str
+    status: str | None
     side: str | None
     order_type: str | None
     qty: float | None
@@ -72,6 +75,7 @@ class Order:
     avg_price: float | None
     reduce_only: bool
     raw: dict[str, Any] = field(default_factory=dict)
+    leaves_qty: float | None = None
 
     @property
     def is_active(self) -> bool:
@@ -80,10 +84,21 @@ class Order:
 
 @dataclass(frozen=True, slots=True)
 class PlacedOrder:
+    """The exchange's answer to a placement.
+
+    `rejection` is set, not raised, when the exchange answered the request with a refusal in its
+    body; callers decide what a refused placement means, as they did before the adapter existed.
+    """
+
     order_id: str | None
     client_tag: str | None
     status: str | None
     raw: dict[str, Any] = field(default_factory=dict)
+    rejection: ExchangeError | None = None
+
+    @property
+    def accepted(self) -> bool:
+        return self.rejection is None
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,28 +146,34 @@ class Execution:
     fee: float
     realised_pnl: float | None
     exec_time_ms: int | None
-    raw: dict[str, Any] = field(default_factory=dict)
+    exec_seq: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class Position:
-    symbol: str
+    """An open position (size > 0). `side` is the exchange's side text, `""` when it sent none."""
+
+    symbol: str | None
     side: str
     size: float
-    avg_entry_price: float
+    avg_entry_price: float | None
     mark_price: float | None = None
     liq_price: float | None = None
     leverage: float | None = None
-    margin_mode: str | None = None
-    unrealised_pnl: float | None = None
-    raw: dict[str, Any] = field(default_factory=dict)
+    margin_mode: Any = None
 
 
 @dataclass(frozen=True, slots=True)
 class Balance:
-    available: float | None
-    equity: float | None = None
+    """Account balances in the settlement coin; `None` where the exchange sent no usable value."""
+
+    total_available: float | None = None
+    total_equity: float | None = None
+    total_wallet: float | None = None
     wallet: float | None = None
+    coin_available: float | None = None
+    coin_equity: float | None = None
+    coin_wallet: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,7 +209,8 @@ class ExchangeAdapter(Protocol):
     def order_history(self, market_type: str, symbol: str, *, limit: int) -> list[Order]: ...
     def lookup_order(self, market_type: str, symbol: str, client_tag: str) -> OrderLookup: ...
 
-    def executions(self, market_type: str, symbol: str | None = None, **query: Any) -> list[Execution]: ...
+    def executions(self, market_type: str, symbol: str, *, start_ms: int | None = None,
+                   end_ms: int | None = None) -> list[Execution]: ...
     def positions(self, market_type: str, symbol: str) -> list[Position]: ...
     def balance(self) -> Balance: ...
 
