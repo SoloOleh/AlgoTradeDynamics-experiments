@@ -1,0 +1,18 @@
+{
+  "average_cycle_pnl": "3.713",
+  "closed_cycles": 2,
+  "closed_fees": "0",
+  "gross_realized_pnl": "7.426",
+  "net_realized_pnl": "7.426",
+  "open_position_qty": "1",
+  "open_position_value": "102.4",
+  "realized_pnl_percent": "1.244321713966866122310825733",
+  "total_buy_cost": "596.791",
+  "total_fees": "0",
+  "total_pnl": "8.2260000000000114",
+  "total_pnl_percent": "1.378371992875229586237057864",
+  "total_sell_value": "502.617",
+  "unrealized_pnl": "0.8000000000000114",
+  "win_rate_percent": "100",
+  "winning_cycles": 2
+}

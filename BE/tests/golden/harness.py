@@ -480,12 +480,14 @@ def record_run(
     snapshot_after_step: int | None = None,
     snapshot_dir: Path | None = None,
     resume_from: Path | None = None,
+    after_run=None,
 ) -> dict:
     """Run a scenario end to end and return its recording.
 
     With `snapshot_after_step`, the emulator and backend databases are copied into `snapshot_dir`
     after that step (a mid-cycle state). With `resume_from`, the run starts from such a snapshot
-    and plays only the steps after it.
+    and plays only the steps after it. `after_run(bot_id)` is called on the final state while the
+    emulator is still up; its result is returned as `after_run`.
     """
     run_dir = db.new_run_dir(scenario.name)
     first_step = 0
@@ -561,6 +563,7 @@ def record_run(
                     _point_backend_at(running)
 
         final_state = {**_bot_rows(bot_id), "exchange": _exchange_state(running)}
+        after_run_result = after_run(bot_id) if after_run is not None else None
     finally:
         running.stop()
         db.dispose()
@@ -573,6 +576,7 @@ def record_run(
         "requests": recorder.requests,
         "events": events,
         "final_state": final_state,
+        "after_run": after_run_result,
         "timings": {
             "fill_reaction_s": fill_reactions,
             "request_durations_s": [item["duration_s"] for item in recorder.requests],

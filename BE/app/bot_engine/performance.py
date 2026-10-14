@@ -8,7 +8,9 @@ from typing import Any
 from sqlalchemy import asc
 from sqlalchemy.orm import Session
 
-from app.bot_engine.bybit.client import get_bybit_session
+from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.capabilities import Capability
+from app.bot_engine.exchange.port import Execution
 from app.bot_engine.grid_runtime import get_order_link_prefix, get_position_snapshot
 from app.bot_engine.strategies import get_strategy
 from app.models.trading_bot import TradingBot
@@ -100,33 +102,17 @@ def _pct(value: Decimal, base: Decimal) -> Decimal | None:
 
 
 
-def _execution_history(session, bot: TradingBot, *, max_pages: int = 100) -> list[dict[str, Any]]:
-    executions: list[dict[str, Any]] = []
-    cursor: str | None = None
-    seen_cursors: set[str] = set()
-    for _ in range(max_pages):
-        params: dict[str, Any] = {"category": bot.category, "symbol": bot.symbol, "limit": 100}
-        if cursor:
-            params["cursor"] = cursor
-        response = session.get_executions(**params)
-        result = response.get("result", {})
-        executions.extend(result.get("list", []) or [])
-        next_cursor = str(result.get("nextPageCursor") or "")
-        if not next_cursor or next_cursor in seen_cursors:
-            break
-        seen_cursors.add(next_cursor)
-        cursor = next_cursor
-    return executions
+def _execution_history(adapter, bot: TradingBot) -> list[Execution]:
+    return adapter.executions(bot.category, bot.symbol)
 
 
 def _get_scalper_performance(db: Session, bot: TradingBot) -> dict[str, Any]:
-    session = get_bybit_session(bot)
+    adapter = registry.exchange_for(bot, {Capability.EXECUTION_PNL})
     prefix = get_order_link_prefix(bot)
-    executions = []
-    for item in _execution_history(session, bot):
-        if str(item.get("orderLinkId") or "").startswith(prefix):
-            executions.append(item)
-    executions.sort(key=lambda item: (int(item.get("execTime") or 0), int(item.get("execSeq") or 0)))
+    executions = [
+        item for item in _execution_history(adapter, bot) if (item.client_tag or "").startswith(prefix)
+    ]
+    executions.sort(key=lambda item: (item.exec_time_ms or 0, item.exec_seq or 0))
 
     position_side: str | None = None
     position_qty = ZERO
@@ -143,11 +129,11 @@ def _get_scalper_performance(db: Session, bot: TradingBot) -> dict[str, Any]:
     total_exit_value = ZERO
 
     for item in executions:
-        side = str(item.get("side") or "").title()
-        qty = _to_decimal(item.get("execQty"))
-        price = _to_decimal(item.get("execPrice"))
-        fee = _to_decimal(item.get("execFee"))
-        pnl = _to_decimal(item.get("closedPnl"))
+        side = (item.side or "").title()
+        qty = _to_decimal(item.qty)
+        price = _to_decimal(item.price)
+        fee = _to_decimal(item.fee)
+        pnl = _to_decimal(item.realised_pnl)
         if side not in {"Buy", "Sell"} or qty <= 0 or price <= 0:
             continue
         total_fees += fee
@@ -192,7 +178,7 @@ def _get_scalper_performance(db: Session, bot: TradingBot) -> dict[str, Any]:
     average_cycle = net_realized / closed_cycles if closed_cycles else ZERO
     win_rate = Decimal(winning_cycles) / Decimal(closed_cycles) * Decimal("100") if closed_cycles else ZERO
     try:
-        position = get_strategy(bot.strategy_type).get_position(db, bot)
+        position = get_strategy(bot.strategy_type).get_position(db, bot, adapter=adapter)
     except Exception:  # noqa: BLE001
         position = None
     unrealized = _to_decimal(position.get("unrealized_pnl")) if position else ZERO
