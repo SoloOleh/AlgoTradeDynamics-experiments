@@ -1306,8 +1306,8 @@ class PatternScalperStrategy:
         }
 
     def validate_start(self, db, bot: TradingBot) -> None:
-        capabilities = registry.adapter_for_venue(bot.exchange, bot.environment).capabilities()
-        if not capabilities.supports(Capability.SHORT_SELLING, bot.category):
+        # A product rule, not a capability: the guard already refused a venue without short selling.
+        if bot.category != "linear":
             raise ValueError("Pattern Scalper currently supports linear perpetuals only")
         message = ensure_live_trading_allowed(db, bot)
         if message:

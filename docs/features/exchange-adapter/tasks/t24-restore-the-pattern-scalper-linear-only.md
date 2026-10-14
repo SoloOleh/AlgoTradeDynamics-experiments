@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/strategies/pattern_scalper.py", "BE/tests/test_p
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T24 — Restore the Pattern Scalper linear-only start check

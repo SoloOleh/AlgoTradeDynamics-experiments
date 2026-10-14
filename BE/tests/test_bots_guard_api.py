@@ -206,3 +206,13 @@ def test_start_validations_keep_todays_bodies(client, no_exchange_traffic):
     response = client.post(f"/api/bots/{bot_id}/start", headers=headers)
     assert response.status_code == 422
     assert response.json() == {"detail": "Trading bot is inactive"}
+
+
+def test_an_inverse_pattern_scalper_bot_keeps_todays_linear_only_refusal(client, no_exchange_traffic):
+    """Bybit declares short selling on inverse, yet Pattern Scalper still trades linear only (spec §3)."""
+    headers = _headers(client)
+    bot_id = _bot(client, headers, strategy_type="pattern_scalper", category="inverse")
+    response = client.post(f"/api/bots/{bot_id}/start", headers=headers)
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Pattern Scalper currently supports linear perpetuals only"}
+    assert _status(bot_id) != "running"
