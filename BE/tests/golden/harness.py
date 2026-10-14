@@ -341,7 +341,7 @@ def _auth_headers(client) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _create_and_start_bot(client, scenario: Scenario) -> int:
+def _create_and_start_bot(client, scenario: Scenario, *, venue: tuple[str, str] | None = None) -> int:
     headers = _auth_headers(client)
     payload = {
         "name": f"golden {scenario.name}",
@@ -358,6 +358,23 @@ def _create_and_start_bot(client, scenario: Scenario) -> int:
     if created.status_code != 201:
         raise AssertionError(f"bot create failed: {created.status_code} {created.text}")
     bot_id = created.json()["id"]
+    if venue is not None:
+        # The API only knows today's exchanges, so a test venue (AC-17) is set on the row and the
+        # bot is started through the same engine entry point the start route uses.
+        from app.bot_engine.bot import run_bot_once
+        from app.db.session import SessionLocal
+        from app.models.trading_bot import TradingBot
+        from app.models.user import User
+
+        session = SessionLocal()
+        try:
+            bot = session.get(TradingBot, bot_id)
+            bot.exchange, bot.environment = venue
+            session.commit()
+            run_bot_once(session, bot, session.get(User, bot.user_id))
+        finally:
+            session.close()
+        return bot_id
     started = client.post(f"/api/bots/{bot_id}/start", headers=headers)
     if started.status_code != 200:
         raise AssertionError(f"bot start failed: {started.status_code} {started.text}")
@@ -472,6 +489,18 @@ def _first_mutation_after(requests: list[dict], start_index: int) -> dict | None
     return None
 
 
+def prepare_scenario(running: Emulator, scenario: Scenario) -> datetime:
+    """Put the scenario's opening market on the emulator; returns the simulated setup time."""
+    if not scenario.is_replay:
+        running.set_price(scenario.symbol, scenario.start_price, simulation_time=SIM_START)
+        return SIM_START
+    candles = scenario.candles()
+    dataset_id = running.import_candles(scenario.symbol, candles)
+    first = candles[scenario.replay_from]
+    running.start_replay(scenario.symbol, dataset_id, start_ms=first[0], end_ms=candles[-1][0])
+    return datetime.fromtimestamp(first[0] / 1000, tz=timezone.utc)
+
+
 def record_run(
     scenario: Scenario,
     *,
@@ -481,13 +510,15 @@ def record_run(
     snapshot_dir: Path | None = None,
     resume_from: Path | None = None,
     after_run=None,
+    venue: tuple[str, str] | None = None,
 ) -> dict:
     """Run a scenario end to end and return its recording.
 
     With `snapshot_after_step`, the emulator and backend databases are copied into `snapshot_dir`
     after that step (a mid-cycle state). With `resume_from`, the run starts from such a snapshot
     and plays only the steps after it. `after_run(bot_id)` is called on the final state while the
-    emulator is still up; its result is returned as `after_run`.
+    emulator is still up; its result is returned as `after_run`. `venue` runs the bot on another
+    registered venue (the AC-17 stand-in).
     """
     run_dir = db.new_run_dir(scenario.name)
     first_step = 0
@@ -515,19 +546,10 @@ def record_run(
         with recorder.active():
             candles = scenario.candles()
             if resume_from is None:
-                setup_time = SIM_START
-                if scenario.is_replay:
-                    dataset_id = running.import_candles(scenario.symbol, candles)
-                    first = candles[scenario.replay_from]
-                    running.start_replay(
-                        scenario.symbol, dataset_id, start_ms=first[0], end_ms=candles[-1][0],
-                    )
-                    setup_time = datetime.fromtimestamp(first[0] / 1000, tz=timezone.utc)
-                else:
-                    running.set_price(scenario.symbol, scenario.start_price, simulation_time=SIM_START)
+                setup_time = prepare_scenario(running, scenario)
                 with use_simulated_time(setup_time):
                     recorder.step = -1
-                    bot_id = _create_and_start_bot(db.client, scenario)
+                    bot_id = _create_and_start_bot(db.client, scenario, venue=venue)
                     _tick(bot_id)
                 events.extend(_new_events(bot_id, 0, -1))
             last_event_id = max([event["id"] for event in events], default=_last_event_id(bot_id))

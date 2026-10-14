@@ -24,7 +24,7 @@
 | T16 | Move live exchange streams behind the adapter and make the stream supervisor and UI live stream exchange-neutral | infra | Oleh Solomko | L | T07, T09 | done |
 | T17 | Scrub keys and secrets at every sink and in the root logging filter | wiring | Oleh Solomko | M | T04, T08, T09 | done |
 | T18 | Replace the Bybit-demo test route with an authenticated per-venue connection check | ports | Oleh Solomko | M | T04, T07 | done |
-| T19 | Prove every strategy runs unchanged through a stand-in adapter on a test venue | tests | Oleh Solomko | M | T14 | todo |
+| T19 | Prove every strategy runs unchanged through a stand-in adapter on a test venue | tests | Oleh Solomko | M | T14 | done |
 | T20 | Route backtest instrument reads through the emulator adapter, delete the Bybit session factory and drive the static search to 0 | wiring | Oleh Solomko | M | T14, T15, T16, T17, T18 | todo |
 
 **Total:** 20 tasks, ~16 person-days (5 × L ≈ 1 d, 15 × M ≈ ¾ d).
