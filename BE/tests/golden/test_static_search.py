@@ -1,15 +1,11 @@
 """Static search for exchange access outside the adapters (QG-3, ADR-0009)."""
 from tests.golden.static_search import scan
 
-# Hits on the pre-refactor code. Migration tasks may only lower it; T20 flips the check to == 0.
-BASELINE_HITS = 75
-
-
-def test_static_search_does_not_grow_past_its_baseline():
+def test_no_exchange_access_outside_the_adapters():
+    """75 hits on the pre-refactor code; the migration drove them to 0 and they stay there."""
     hits = scan()
     report = "\n".join(f"{hit.path}:{hit.line}: [{hit.rule}] {hit.text}" for hit in hits)
-    assert BASELINE_HITS is not None, f"record the baseline ({len(hits)} hits):\n{report}"
-    assert len(hits) <= BASELINE_HITS, f"{len(hits)} hits > baseline {BASELINE_HITS}:\n{report}"
+    assert hits == [], f"{len(hits)} exchange access(es) outside the adapters:\n{report}"
 
 
 def test_static_search_flags_each_rule(tmp_path):

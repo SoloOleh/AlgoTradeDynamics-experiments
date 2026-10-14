@@ -1,8 +1,6 @@
 """Place, cancel, and query exchange orders for trading bots.
 
-Every helper takes an `ExchangeAdapter` and returns the port's neutral types. Passing a raw exchange
-session instead still works and returns today's payload dicts: that path is the shim the runtimes
-use until they move onto the port (T11–T14) and is deleted in T20.
+Every helper takes an `ExchangeAdapter` and returns the port's neutral types.
 """
 from __future__ import annotations
 
@@ -33,54 +31,18 @@ class OrderRequest:
     reduce_only: bool = False
 
 
-def is_exchange_adapter(source) -> bool:
-    """True for an adapter on the port, False for a raw exchange session (the T20-bound shim)."""
-    return getattr(type(source), "lookup_order", None) is not None
+def get_open_orders(adapter, *, category: str, symbol: str) -> list[Order]:
+    return adapter.open_orders(category, symbol)
 
 
-def get_open_orders(session, *, category: str, symbol: str) -> list[dict] | list[Order]:
-    if is_exchange_adapter(session):
-        return session.open_orders(category, symbol)
-    response = session.get_open_orders(
-        category=category, symbol=symbol, openOnly=0)
-    return response.get("result", {}).get("list", [])
+def get_orders_by_prefix(adapter, *, category: str, symbol: str, order_link_prefix: str) -> list[Order]:
+    """The reconciliation page: open orders + the last 50 history items with the tag prefix."""
+    orders = adapter.open_orders(category, symbol) + adapter.order_history(category, symbol, limit=50)
+    return [order for order in orders if (order.client_tag or "").startswith(order_link_prefix)]
 
 
-def get_orders_by_prefix(session, *, category: str, symbol: str, order_link_prefix: str) -> list[dict] | list[Order]:
-    """Today's reconciliation page: open orders + the last 50 history items with the tag prefix."""
-    if is_exchange_adapter(session):
-        orders = session.open_orders(category, symbol) + session.order_history(category, symbol, limit=50)
-        return [order for order in orders if (order.client_tag or "").startswith(order_link_prefix)]
-    open_orders = get_open_orders(session, category=category, symbol=symbol)
-    matched_open = [
-        item for item in open_orders if (item.get("orderLinkId") or "").startswith(order_link_prefix)
-    ]
-    history = session.get_order_history(
-        category=category, symbol=symbol, limit=50)
-    history_items = history.get("result", {}).get("list", [])
-    matched_history = [
-        item for item in history_items if (item.get("orderLinkId") or "").startswith(order_link_prefix)
-    ]
-    return matched_open + matched_history
-
-
-def get_instrument_rules(session, *, category: str, symbol: str) -> InstrumentRules:
-    if is_exchange_adapter(session):
-        return session.instrument_rules(category, symbol)
-    response = session.get_instruments_info(category=category, symbol=symbol)
-    items = response.get("result", {}).get("list", [])
-    if not items:
-        raise ValueError(f"Instrument info not found for {symbol}")
-
-    info = items[0]
-    lot_size_filter = info.get("lotSizeFilter", {})
-    price_filter = info.get("priceFilter", {})
-    return InstrumentRules(
-        min_order_qty=float(lot_size_filter.get("minOrderQty") or 0),
-        qty_step=float(lot_size_filter.get("qtyStep") or 0.000001),
-        tick_size=float(price_filter.get("tickSize") or 0.000001),
-        min_notional_value=float(lot_size_filter.get("minNotionalValue") or 0),
-    )
+def get_instrument_rules(adapter, *, category: str, symbol: str) -> InstrumentRules:
+    return adapter.instrument_rules(category, symbol)
 
 
 def round_to_step(value: float, step: float) -> float:
@@ -146,94 +108,26 @@ def validate_order_request(order: OrderRequest, rules: InstrumentRules) -> str |
     return None
 
 
-def place_order(session, *, category: str, symbol: str, order: OrderRequest) -> dict | PlacedOrder:
+def place_order(adapter, *, category: str, symbol: str, order: OrderRequest) -> PlacedOrder:
     if _requires_reduce_only(order) and not order.reduce_only:
         raise ValueError(
             "Position close orders must be reduce-only before placing")
-    if is_exchange_adapter(session):
-        return session.place_order(category, symbol, NewOrder(
-            side=order.side,
-            order_type=order.order_type,
-            qty=order.qty,
-            price=order.price,
-            client_tag=order.order_link_id,
-            reduce_only=order.reduce_only,
-        ))
-    payload = {
-        "category": category,
-        "symbol": symbol,
-        "side": order.side,
-        "orderType": order.order_type,
-        "qty": str(order.qty),
-        "orderLinkId": order.order_link_id,
-    }
-    if order.price is not None:
-        payload["price"] = str(order.price)
-    if order.reduce_only:
-        payload["reduceOnly"] = True
-    return session.place_order(**payload)
+    return adapter.place_order(category, symbol, NewOrder(
+        side=order.side,
+        order_type=order.order_type,
+        qty=order.qty,
+        price=order.price,
+        client_tag=order.order_link_id,
+        reduce_only=order.reduce_only,
+    ))
 
 
-def cancel_order(session, *, category: str, symbol: str, order_id: str) -> dict:
-    if is_exchange_adapter(session):
-        return session.cancel_order(category, symbol, order_id=order_id)
-    return session.cancel_order(category=category, symbol=symbol, orderId=order_id)
+def cancel_order(adapter, *, category: str, symbol: str, order_id: str) -> dict:
+    return adapter.cancel_order(category, symbol, order_id=order_id)
 
 
-def get_order_status(session, *, category: str, symbol: str, order_id: str) -> dict:
-    response = session.get_open_orders(
-        category=category,
-        symbol=symbol,
-        orderId=order_id,
-        openOnly=0,
-    )
-    items = response.get("result", {}).get("list", [])
-    if items:
-        return items[0]
-
-    history = session.get_order_history(
-        category=category, symbol=symbol, orderId=order_id)
-    history_items = history.get("result", {}).get("list", [])
-    if history_items:
-        return history_items[0]
-    return {}
-
-
-def get_order_status_by_link_id(
-    session, *, category: str, symbol: str, order_link_id: str
-) -> dict:
-    """Return the exact exchange order matching an orderLinkId, if it still exists.
-
-    This targeted lookup is used during reconciliation when an active local order is
-    absent from the regular open/history page. It avoids treating pagination as an
-    exchange reset.
-    """
-    response = session.get_open_orders(
-        category=category,
-        symbol=symbol,
-        orderLinkId=order_link_id,
-        openOnly=0,
-    )
-    items = response.get("result", {}).get("list", [])
-    if items:
-        return items[0]
-
-    history = session.get_order_history(
-        category=category,
-        symbol=symbol,
-        orderLinkId=order_link_id,
-        limit=1,
-    )
-    history_items = history.get("result", {}).get("list", [])
-    if history_items:
-        return history_items[0]
-    return {}
-
-
-def cancel_order_by_link_id(session, *, category: str, symbol: str, order_link_id: str) -> dict:
-    if is_exchange_adapter(session):
-        return session.cancel_order(category, symbol, client_tag=order_link_id)
-    return session.cancel_order(category=category, symbol=symbol, orderLinkId=order_link_id)
+def cancel_order_by_link_id(adapter, *, category: str, symbol: str, order_link_id: str) -> dict:
+    return adapter.cancel_order(category, symbol, client_tag=order_link_id)
 
 
 # --------------------------------------------------------------------------- order lookup (AC-08)

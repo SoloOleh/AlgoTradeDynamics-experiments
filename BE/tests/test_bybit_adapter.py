@@ -57,9 +57,25 @@ def test_adapter_implements_the_port(emulator_url):
     assert isinstance(BybitAdapter("emulator"), ExchangeAdapter)
 
 
+def _legacy_place(session, *, category, symbol, side, order_type, qty, price, reduce_only, tag):
+    """The pre-refactor request, verbatim from the session branch of `orders.place_order` (deleted in T20)."""
+    payload = {
+        "category": category,
+        "symbol": symbol,
+        "side": side,
+        "orderType": order_type,
+        "qty": str(qty),
+        "orderLinkId": tag,
+    }
+    if price is not None:
+        payload["price"] = str(price)
+    if reduce_only:
+        payload["reduceOnly"] = True
+    return session.place_order(**payload)
+
+
 def test_place_and_cancel_requests_are_byte_identical_to_todays(emulator, emulator_url):
-    from app.bot_engine import orders as legacy
-    from app.bot_engine.bybit.client import _get_emulator_session
+    from app.bot_engine.exchange.bybit.client import _get_emulator_session
 
     key = _new_account(emulator, "bytes")
     session = _get_emulator_session(emulator_url, key)
@@ -73,11 +89,9 @@ def test_place_and_cancel_requests_are_byte_identical_to_todays(emulator, emulat
     for side, order_type, qty, price, reduce_only, label in cases:
         tag = _tag(label)
         with RequestRecorder().active() as old:
-            legacy.place_order(session, category="linear", symbol="BTCUSDT", order=legacy.OrderRequest(
-                side=side, order_type=order_type, order_role="grid_entry_1" if not reduce_only else "position_take_profit",
-                order_link_id=tag, qty=qty, price=price, reduce_only=reduce_only,
-            ))
-            legacy.cancel_order_by_link_id(session, category="linear", symbol="BTCUSDT", order_link_id=tag)
+            _legacy_place(session, category="linear", symbol="BTCUSDT", side=side, order_type=order_type,
+                          qty=qty, price=price, reduce_only=reduce_only, tag=tag)
+            session.cancel_order(category="linear", symbol="BTCUSDT", orderLinkId=tag)
         with RequestRecorder().active() as new:
             adapter.place_order("linear", "BTCUSDT", NewOrder(
                 side=side, order_type=order_type, qty=qty, price=price, client_tag=tag, reduce_only=reduce_only,
@@ -88,14 +102,14 @@ def test_place_and_cancel_requests_are_byte_identical_to_todays(emulator, emulat
 
 
 def test_cancel_by_order_id_matches_todays_request(emulator, emulator_url):
-    from app.bot_engine import orders as legacy
-    from app.bot_engine.bybit.client import _get_emulator_session
+    from app.bot_engine.exchange.bybit.client import _get_emulator_session
 
     key = _new_account(emulator, "cancel-id")
     adapter = BybitAdapter("emulator", emulator_api_key=key)
     placed = adapter.place_order("linear", "BTCUSDT", NewOrder("Buy", "Limit", 0.001, 60000.0, _tag("c")))
     with RequestRecorder().active() as old:
-        legacy.cancel_order(_get_emulator_session(emulator_url, key), category="linear", symbol="BTCUSDT", order_id=placed.order_id)
+        # The pre-refactor `orders.cancel_order` session call, verbatim.
+        _get_emulator_session(emulator_url, key).cancel_order(category="linear", symbol="BTCUSDT", orderId=placed.order_id)
     with RequestRecorder().active() as new:
         adapter.cancel_order("linear", "BTCUSDT", order_id=placed.order_id)
     assert len(_bodies(old)) == 1

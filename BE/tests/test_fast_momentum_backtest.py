@@ -104,6 +104,7 @@ def test_fast_momentum_engine_persists_results_and_uses_snapshot_category(tmp_pa
 	from app.models.user import User
 	from app.services.backtest_service import list_executions
 	from app.services.fast_momentum_backtest import FastMomentumBacktestEngine, backtest_ui_stream_hub
+	from app.bot_engine.exchange.port import InstrumentRules
 
 	db_engine = create_engine(f"sqlite:///{tmp_path / 'fast_momentum.db'}", connect_args={"check_same_thread": False})
 	Base.metadata.create_all(db_engine)
@@ -158,18 +159,12 @@ def test_fast_momentum_engine_persists_results_and_uses_snapshot_category(tmp_pa
 
 	instrument_calls = []
 
-	class FakeEmulator:
-		def instrument_info(self, **kwargs):
-			instrument_calls.append(kwargs)
-			return {
-				"result": {
-					"list": [{
-						"lotSizeFilter": {"minOrderQty": "0.001", "qtyStep": "0.001", "minNotionalValue": "5"},
-						"priceFilter": {"tickSize": "0.01"},
-					}]
-				}
-			}
+	class FakeExchange:
+		def instrument_rules(self, market_type, symbol):
+			instrument_calls.append({"category": market_type, "symbol": symbol})
+			return InstrumentRules(min_order_qty=0.001, qty_step=0.001, tick_size=0.01, min_notional_value=5.0)
 
+	class FakeEmulator:
 		def candles(self, **_):
 			for candle in candles:
 				yield {
@@ -194,6 +189,7 @@ def test_fast_momentum_engine_persists_results_and_uses_snapshot_category(tmp_pa
 	engine = FastMomentumBacktestEngine(db, run)
 	engine.emulator.close()
 	engine.emulator = FakeEmulator()
+	engine.exchange = FakeExchange()
 	engine.run_all()
 
 	assert instrument_calls

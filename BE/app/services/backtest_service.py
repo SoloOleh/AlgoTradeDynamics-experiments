@@ -22,7 +22,7 @@ from app.models.trading_bot import TradingBot
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot_order import TradingBotOrder
 from app.schemas.backtest import BacktestCreate
-from app.services.backtest_emulator import BacktestEmulatorClient
+from app.services.backtest_emulator import BacktestEmulatorClient, emulator_instrument_rules, emulator_venue
 
 ACTIVE_STATUSES = {"queued", "running", "paused"}
 FINAL_STATUSES = {"completed", "failed", "cancelled"}
@@ -67,16 +67,11 @@ def _validate_initial_grid_quantity(
     bot: TradingBot,
     *,
     first_price: float,
-    instrument_response: dict[str, Any],
+    rules,
 ) -> None:
-    items = instrument_response.get("result", {}).get("list", [])
-    if not items:
-        raise ValueError(f"Instrument rules were not found for {bot.symbol}")
-
-    lot = items[0].get("lotSizeFilter", {})
-    min_order_qty = _float(lot.get("minOrderQty"))
-    qty_step = _float(lot.get("qtyStep"), 0.000001)
-    min_notional = _float(lot.get("minNotionalValue"))
+    min_order_qty = rules.min_order_qty
+    qty_step = rules.qty_step
+    min_notional = rules.min_notional_value
 
     configured_qty = _float(bot.order_qty)
     if bot.strategy_type != "grid":
@@ -205,11 +200,14 @@ def create_backtest(db: Session, payload: BacktestCreate, user_id: int) -> Backt
         if first_candle is None:
             raise ValueError("No candles exist in the selected dataset and period")
 
-        instrument_response = emulator.instrument_info(category=bot.category, symbol=bot.symbol)
+        rules = emulator_instrument_rules(
+            emulator_venue(), category=bot.category, symbol=bot.symbol,
+            missing=f"Instrument rules were not found for {bot.symbol}",
+        )
         _validate_initial_grid_quantity(
             bot,
             first_price=_float(first_candle.get("open")),
-            instrument_response=instrument_response,
+            rules=rules,
         )
     finally:
         emulator.close()

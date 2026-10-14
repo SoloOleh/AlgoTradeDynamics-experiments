@@ -52,12 +52,6 @@ class BacktestEmulatorClient:
         items = payload.get("items", [])
         return items[0] if items else None
 
-    def instrument_info(self, *, category: str, symbol: str) -> dict:
-        return self._request(
-            "GET", "/v5/market/instruments-info",
-            params={"category": category, "symbol": symbol},
-        )
-
     def candles(self, *, dataset_id: int, start_time: int, end_time: int) -> Iterator[dict]:
         after_time = None
         while True:
@@ -137,3 +131,24 @@ class BacktestEmulatorClient:
         return self._request(
             "GET", "/api/admin/executions", params=params
         )
+
+
+def emulator_instrument_rules(adapter, *, category: str, symbol: str, missing: str):
+    """Instrument rules from the Bybit emulator venue's adapter (the admin plane stays above).
+
+    `missing` keeps each engine's message for a symbol the emulator does not list.
+    """
+    from app.bot_engine.exchange.errors import ErrorClass, ExchangeError
+
+    try:
+        return adapter.instrument_rules(category, symbol)
+    except ExchangeError as exc:
+        if exc.error_class is ErrorClass.INVALID_SYMBOL:
+            raise ValueError(missing) from exc
+        raise
+
+
+def emulator_venue():
+    from app.bot_engine.exchange import registry
+
+    return registry.adapter_for_venue("bybit", "emulator")
