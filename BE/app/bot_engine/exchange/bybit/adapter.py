@@ -355,4 +355,26 @@ class BybitAdapter:
         return BybitStreams(self.environment, account_key=self.account_key)
 
     def check_connection(self) -> ConnectionStatus:
-        raise NotImplementedError("the connection check moves behind the adapter in T18")
+        """An authenticated account request with the venue's keys (sad.md §6 Flow 8).
+
+        No keys configured → `not_configured` without a request. The answer carries only the error
+        class of a failure, never its raw message.
+        """
+        if self.environment != "emulator":
+            from app.bot_engine.exchange.bybit.client import get_bybit_credentials
+
+            api_key, api_secret = get_bybit_credentials(self.environment)
+            if not api_key or not api_secret:
+                return ConnectionStatus("not_configured")
+            get_scrubber().add_key(api_key)
+            get_scrubber().add_secret(api_secret)
+        try:
+            response = self._request("get_wallet_balance", accountType="UNIFIED")
+        except ExchangeError as exc:
+            return ConnectionStatus("failing", exc.error_class.value)
+        except Exception:  # noqa: BLE001 - an unclassified failure still never leaks its text
+            return ConnectionStatus("failing", ErrorClass.EXCHANGE_UNAVAILABLE.value)
+        rejection = _rejection(response)
+        if rejection is not None:
+            return ConnectionStatus("failing", rejection.error_class.value)
+        return ConnectionStatus("connected")
