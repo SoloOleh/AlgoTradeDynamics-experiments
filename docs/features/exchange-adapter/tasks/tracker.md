@@ -28,7 +28,7 @@
 | T20 | Route backtest instrument reads through the emulator adapter, delete the Bybit session factory and drive the static search to 0 | wiring | Oleh Solomko | M | T14, T15, T16, T17, T18 | done |
 | T21 | Keep the worker alive when the guard call fails with a non-guard error | app | Oleh Solomko | S | T20 | done |
 | T22 | Register only real emulator account keys with the shared scrubber | infra | Oleh Solomko | S | T20 | done |
-| T23 | Keep the bot page readable for guard-refused Momentum and Pattern Scalper bots | app | Oleh Solomko | S | T20 | todo |
+| T23 | Keep the bot page readable for guard-refused Momentum and Pattern Scalper bots | app | Oleh Solomko | S | T20 | done |
 | T24 | Restore the Pattern Scalper linear-only start check | domain | Oleh Solomko | S | T20 | todo |
 | T25 | Scrub the remaining exception sinks | wiring | Oleh Solomko | S | T22 | todo |
 | T26 | React only to adapter error classes in the engine and replay the failure table through the adapter on a tick | app | Oleh Solomko | S | T25 | todo |

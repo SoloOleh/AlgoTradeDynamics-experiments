@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy import desc
 
 from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.errors import GuardRefusal
 from app.bot_engine.exchange.port import PlacedOrder
 from app.bot_engine.error_handling import ExchangeOperationError
 from app.bot_engine.events import log_bot_event
@@ -296,6 +297,15 @@ def _position(adapter, bot: TradingBot) -> dict[str, Any] | None:
             "position": position,
         }
     return None
+
+
+def _position_unless_refused(bot: TradingBot) -> dict | None:
+    """The open position for the runtime state; none while the guard refuses the venue (AC-10)."""
+    try:
+        adapter = registry.exchange_for(bot)
+    except GuardRefusal:
+        return None
+    return _position(adapter, bot)
 
 
 def _wallet_balance(adapter) -> float | None:
@@ -831,7 +841,7 @@ class MomentumStrategy:
         if bot.last_error:
             return "error", risk
         settings = _settings(bot)
-        position = _position(registry.exchange_for(bot), bot)
+        position = _position_unless_refused(bot)
         if position:
             return "position_open", risk
         if _cooldown_active(settings, _state(bot)):

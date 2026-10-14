@@ -159,11 +159,27 @@ def test_another_users_bot_is_not_found_and_the_guard_is_never_reached(client, m
     assert response.content == b'{"detail":"Trading bot not found"}'
 
 
-def test_performance_on_an_unsupported_venue_returns_stored_figures(client, no_exchange_traffic):
+@pytest.mark.parametrize("strategy", ["grid", "dca", "momentum", "pattern_scalper"])
+def test_performance_on_an_unsupported_venue_returns_stored_figures(client, no_exchange_traffic, strategy):
     headers = _headers(client)
-    bot_id = _bot(client, headers, exchange="binance", environment="live")
+    bot_id = _bot(client, headers, exchange="binance", environment="live", strategy_type=strategy)
     response = client.get(f"/api/bots/{bot_id}/performance", headers=headers)
     assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize("strategy", ["grid", "dca", "momentum", "pattern_scalper"])
+def test_a_running_bot_whose_venue_was_removed_keeps_a_readable_bot_page(
+    client, no_exchange_traffic, monkeypatch, strategy,
+):
+    """Before the next tick pauses it, the bot page and the bot list still answer (AC-10)."""
+    headers = _headers(client)
+    bot_id = _bot(client, headers, strategy_type=strategy, runtime_status="running")
+    monkeypatch.delitem(registry._VENUES, ("bybit", "emulator"))
+    page = client.get(f"/api/bots/{bot_id}", headers=headers)
+    assert page.status_code == 200, page.text
+    listing = client.get("/api/bots", headers=headers)
+    assert listing.status_code == 200, listing.text
+    assert [bot["id"] for bot in listing.json()] == [bot_id]
 
 
 def test_clear_history_on_an_unsupported_venue_still_clears_local_history(client, no_exchange_traffic):

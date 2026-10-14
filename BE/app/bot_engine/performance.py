@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.bot_engine.exchange import registry
 from app.bot_engine.exchange.capabilities import Capability
+from app.bot_engine.exchange.errors import GuardRefusal
 from app.bot_engine.exchange.port import Execution
 from app.bot_engine.grid_runtime import get_order_link_prefix, get_position_snapshot
 from app.bot_engine.strategies import get_strategy
@@ -107,11 +108,14 @@ def _execution_history(adapter, bot: TradingBot) -> list[Execution]:
 
 
 def _get_scalper_performance(db: Session, bot: TradingBot) -> dict[str, Any]:
-    adapter = registry.exchange_for(bot, {Capability.EXECUTION_PNL})
+    try:
+        adapter = registry.exchange_for(bot, {Capability.EXECUTION_PNL})
+    except GuardRefusal:
+        # Nothing is sent to any exchange; the bot page stays readable (AC-02, AC-10).
+        adapter = None
     prefix = get_order_link_prefix(bot)
-    executions = [
-        item for item in _execution_history(adapter, bot) if (item.client_tag or "").startswith(prefix)
-    ]
+    history = _execution_history(adapter, bot) if adapter is not None else []
+    executions = [item for item in history if (item.client_tag or "").startswith(prefix)]
     executions.sort(key=lambda item: (item.exec_time_ms or 0, item.exec_seq or 0))
 
     position_side: str | None = None
@@ -177,10 +181,12 @@ def _get_scalper_performance(db: Session, bot: TradingBot) -> dict[str, Any]:
     net_realized = gross_realized - closed_fees
     average_cycle = net_realized / closed_cycles if closed_cycles else ZERO
     win_rate = Decimal(winning_cycles) / Decimal(closed_cycles) * Decimal("100") if closed_cycles else ZERO
-    try:
-        position = get_strategy(bot.strategy_type).get_position(db, bot, adapter=adapter)
-    except Exception:  # noqa: BLE001
-        position = None
+    position = None
+    if adapter is not None:
+        try:
+            position = get_strategy(bot.strategy_type).get_position(db, bot, adapter=adapter)
+        except Exception:  # noqa: BLE001
+            position = None
     unrealized = _to_decimal(position.get("unrealized_pnl")) if position else ZERO
     open_qty = _to_decimal(position.get("size")) if position else ZERO
     open_value = _to_decimal(position.get("position_value")) if position else ZERO

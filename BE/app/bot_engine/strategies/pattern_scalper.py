@@ -18,6 +18,7 @@ from typing import Any
 from sqlalchemy import desc
 
 from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.errors import GuardRefusal
 from app.bot_engine.exchange.port import PlacedOrder
 from app.bot_engine.events import log_bot_event
 from app.bot_engine.error_handling import ExchangeOperationError
@@ -1141,6 +1142,15 @@ def _position(adapter, bot: TradingBot) -> dict | None:
     return None
 
 
+def _position_unless_refused(bot: TradingBot) -> dict | None:
+    """The open position for the runtime state; none while the guard refuses the venue (AC-10)."""
+    try:
+        adapter = registry.exchange_for(bot)
+    except GuardRefusal:
+        return None
+    return _position(adapter, bot)
+
+
 def _record_order(db, bot: TradingBot, order: OrderRequest, placed: PlacedOrder, payload: dict | None = None) -> TradingBotOrder:
     record = TradingBotOrder(
         created_at=utcnow(), updated_at=utcnow(), bot_id=bot.id, user_id=bot.user_id,
@@ -1358,7 +1368,7 @@ class PatternScalperStrategy:
             return "stopped", risk
         if bot.last_error:
             return "error", risk
-        if _position(registry.exchange_for(bot), bot):
+        if _position_unless_refused(bot):
             return "position_open", risk
         settings = _settings(bot)
         if _cooldown(bot, settings, _state(bot)):

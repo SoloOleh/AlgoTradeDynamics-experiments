@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/performance.py", "BE/app/services/trading_bot_se
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T23 — Keep the bot page readable for guard-refused Momentum and Pattern Scalper bots
