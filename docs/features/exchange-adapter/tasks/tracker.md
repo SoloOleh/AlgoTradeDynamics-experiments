@@ -26,5 +26,18 @@
 | T18 | Replace the Bybit-demo test route with an authenticated per-venue connection check | ports | Oleh Solomko | M | T04, T07 | done |
 | T19 | Prove every strategy runs unchanged through a stand-in adapter on a test venue | tests | Oleh Solomko | M | T14 | done |
 | T20 | Route backtest instrument reads through the emulator adapter, delete the Bybit session factory and drive the static search to 0 | wiring | Oleh Solomko | M | T14, T15, T16, T17, T18 | done |
-
-**Total:** 20 tasks, ~16 person-days (5 × L ≈ 1 d, 15 × M ≈ ¾ d).
+| T21 | Keep the worker alive when the guard call fails with a non-guard error | app | Oleh Solomko | S | T20 | done |
+| T22 | Register only real emulator account keys with the shared scrubber | infra | Oleh Solomko | S | T20 | todo |
+| T23 | Keep the bot page readable for guard-refused Momentum and Pattern Scalper bots | app | Oleh Solomko | S | T20 | todo |
+| T24 | Restore the Pattern Scalper linear-only start check | domain | Oleh Solomko | S | T20 | todo |
+| T25 | Scrub the remaining exception sinks | wiring | Oleh Solomko | S | T22 | todo |
+| T26 | React only to adapter error classes in the engine and replay the failure table through the adapter on a tick | app | Oleh Solomko | S | T25 | todo |
+| T27 | Declare every capability each strategy actually uses | domain | Oleh Solomko | S | T20 | todo |
+| T28 | Validate the guard and connection-check responses against the contract file | tests | Oleh Solomko | S | T20 | todo |
+| T29 | Prove the connection check against the emulator for rejected keys and a closed port | tests | Oleh Solomko | S | T28 | todo |
+| T30 | Make the AC-10 scheduled-pause tests order-independent | tests | Oleh Solomko | S | T21 | todo |
+| T31 | Keep position response bodies and stored market-order prices unchanged | app | Oleh Solomko | S | T20 | todo |
+| T32 | Skip a malformed stream message instead of dropping the connection | infra | Oleh Solomko | S | T20 | todo |
+| T33 | Rebuild performance figures from exact decimal execution values | app | Oleh Solomko | S | T20 | todo |
+| T34 | Remove leftover dead code and give the pre-merge gate its own test database | wiring | Oleh Solomko | S | T26 | todo |
+**Total:** 34 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d).

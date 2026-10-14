@@ -428,6 +428,274 @@
         "BE/tests/test_backtest_equivalence.py"
       ],
       "file": "docs/features/exchange-adapter/tasks/t20-close-the-step.md"
+    },
+    {
+      "id": "T21",
+      "title": "Keep the worker alive when the guard call fails with a non-guard error",
+      "layer": "app",
+      "deps": [
+        "T20"
+      ],
+      "acs": [
+        "AC-10"
+      ],
+      "dod": "A bot whose guard call raises a non-guard error gets today's per-bot reaction (handle_bot_runtime_error) and the other bots still tick; worker_loop survives an unexpected tick failure.",
+      "files_hint": [
+        "BE/app/bot_engine/runtime.py",
+        "BE/tests/test_guard_pause.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t21-keep-the-worker-alive-when.md"
+    },
+    {
+      "id": "T22",
+      "title": "Register only real emulator account keys with the shared scrubber",
+      "layer": "infra",
+      "deps": [
+        "T20"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "A free-form emulator_api_key that is not an emulator-issued key (emu_ + token) or the configured default never reaches the process-wide scrubber, so it cannot mask other users' texts; real keys are still masked.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/bybit/adapter.py",
+        "BE/app/bot_engine/exchange/redaction.py",
+        "BE/tests/test_bybit_adapter.py",
+        "BE/tests/test_redaction.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t22-register-only-real-emulator-account.md"
+    },
+    {
+      "id": "T23",
+      "title": "Keep the bot page readable for guard-refused Momentum and Pattern Scalper bots",
+      "layer": "app",
+      "deps": [
+        "T20"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-10"
+      ],
+      "dod": "GET /bots/{id}/performance and GET /bots answer 200 for a Momentum or Pattern Scalper bot on a venue the guard refuses (stored figures, no exchange request), for all four strategies.",
+      "files_hint": [
+        "BE/app/bot_engine/performance.py",
+        "BE/app/services/trading_bot_service.py",
+        "BE/app/bot_engine/strategies/momentum.py",
+        "BE/app/bot_engine/strategies/pattern_scalper.py",
+        "BE/tests/test_guard_pause.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t23-keep-the-bot-page-readable.md"
+    },
+    {
+      "id": "T24",
+      "title": "Restore the Pattern Scalper linear-only start check",
+      "layer": "domain",
+      "deps": [
+        "T20"
+      ],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "An inverse or spot Pattern Scalper bot is refused at start with today's `{detail}` text and sends no request; the capability guard still runs on top.",
+      "files_hint": [
+        "BE/app/bot_engine/strategies/pattern_scalper.py",
+        "BE/tests/test_pattern_scalper.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t24-restore-the-pattern-scalper-linear-only.md"
+    },
+    {
+      "id": "T25",
+      "title": "Scrub the remaining exception sinks",
+      "layer": "wiring",
+      "deps": [
+        "T22"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "An unclassified transport failure leaves the adapter scrubbed; the bot-page WS snapshot's stream_errors are scrubbed; uvicorn's handlers carry the scrubbing filter; a malformed log record does not raise into application code.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/bybit/adapter.py",
+        "BE/app/bot_engine/exchange/errors.py",
+        "BE/app/api/websockets.py",
+        "BE/app/core/logging.py",
+        "BE/tests/test_secret_leaks.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t25-scrub-the-remaining-exception-sinks.md"
+    },
+    {
+      "id": "T26",
+      "title": "React only to adapter error classes in the engine and replay the failure table through the adapter on a tick",
+      "layer": "app",
+      "deps": [
+        "T25"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-07"
+      ],
+      "dod": "The engine imports nothing from exchange.bybit and reacts to `ExchangeError.error_class` only; rejected placements raise the adapter's classified error; every failure-table row, injected at the adapter's client transport during a real worker tick, yields the recorded stored type/severity/action/code and the persisted bot_error payload; a stand-in failure with a non-Bybit raw code gets the class's reaction; neutral runtime texts don't name Bybit.",
+      "files_hint": [
+        "BE/app/bot_engine/error_handling.py",
+        "BE/app/bot_engine/strategies/momentum.py",
+        "BE/app/bot_engine/strategies/pattern_scalper.py",
+        "BE/app/bot_engine/grid_runtime.py",
+        "BE/app/bot_engine/orders.py",
+        "BE/app/bot_engine/exchange/bybit/streams.py",
+        "BE/tests/golden/failure_table/",
+        "BE/tests/golden/test_failure_table.py",
+        "BE/tests/golden/stand_in_adapter.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t26-react-only-to-adapter-error.md"
+    },
+    {
+      "id": "T27",
+      "title": "Declare every capability each strategy actually uses",
+      "layer": "domain",
+      "deps": [
+        "T20"
+      ],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "Grid declares MARKET_ORDERS, DCA declares POSITION_READS; a venue lacking either refuses that strategy at start; every configuration accepted today still passes on Bybit; sad.md §5 catalogue matches.",
+      "files_hint": [
+        "BE/app/bot_engine/strategies/grid.py",
+        "BE/app/bot_engine/strategies/dca.py",
+        "BE/tests/test_venue_guard.py",
+        "docs/features/exchange-adapter/sad.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t27-declare-every-capability-each-strategy.md"
+    },
+    {
+      "id": "T28",
+      "title": "Validate the guard and connection-check responses against the contract file",
+      "layer": "tests",
+      "deps": [
+        "T20"
+      ],
+      "acs": [
+        "AC-09",
+        "AC-12",
+        "AC-13",
+        "AC-13b",
+        "AC-14"
+      ],
+      "dod": "Every real response body from start, the guarded actions and GET /api/venues/{exchange}/{environment}/connection (four statuses + 401) validates against contracts/openapi.yaml with $ref resolved; no hand-rolled schema copies.",
+      "files_hint": [
+        "BE/tests/contract_schema.py",
+        "BE/tests/test_bots_guard_api.py",
+        "BE/tests/test_venue_connection.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t28-validate-the-guard-and-connection-check.md"
+    },
+    {
+      "id": "T29",
+      "title": "Prove the connection check against the emulator for rejected keys and a closed port",
+      "layer": "tests",
+      "deps": [
+        "T28"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-13b"
+      ],
+      "dod": "On the emulator venue a wrong key answers failing/rejected_credentials and a closed port answers failing/network, through the real client path, with no key in the answer.",
+      "files_hint": [
+        "BE/tests/test_venue_connection.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t29-prove-the-connection-check-against.md"
+    },
+    {
+      "id": "T30",
+      "title": "Make the AC-10 scheduled-pause tests order-independent",
+      "layer": "tests",
+      "deps": [
+        "T21"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-15b"
+      ],
+      "dod": "The scheduled-pause tests pass in any order alongside retrying bots; `_retry_is_due` tolerates a naive stored datetime; the misnamed notification-wiring test says what it checks.",
+      "files_hint": [
+        "BE/app/bot_engine/runtime.py",
+        "BE/tests/test_guard_pause.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t30-make-the-ac-10-scheduled-pause-tests.md"
+    },
+    {
+      "id": "T31",
+      "title": "Keep position response bodies and stored market-order prices unchanged",
+      "layer": "app",
+      "deps": [
+        "T20"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "Position endpoints return the same strings as before the refactor (leverage \"10\", mark \"65000.50\", empty liqPrice → \"0\"); a market order acknowledged with price \"0\" is stored as 0.0.",
+      "files_hint": [
+        "BE/app/bot_engine/grid_runtime.py",
+        "BE/app/bot_engine/strategies/momentum.py",
+        "BE/app/bot_engine/strategies/pattern_scalper.py",
+        "BE/app/bot_engine/orders.py",
+        "BE/app/bot_engine/exchange/port.py",
+        "BE/tests/test_bots_api.py",
+        "BE/tests/test_order_lookup_rule.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t31-keep-position-response-bodies-and.md"
+    },
+    {
+      "id": "T32",
+      "title": "Skip a malformed stream message instead of dropping the connection",
+      "layer": "infra",
+      "deps": [
+        "T20"
+      ],
+      "acs": [],
+      "dod": "A message that fails translation is logged (scrubbed) and skipped; the connection stays open and the next valid message is delivered.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/bybit/streams.py",
+        "BE/tests/test_exchange_streams.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t32-skip-a-malformed-stream-message.md"
+    },
+    {
+      "id": "T33",
+      "title": "Rebuild performance figures from exact decimal execution values",
+      "layer": "app",
+      "deps": [
+        "T20"
+      ],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "Execution qty/price/fee/realised P&L carry the exchange's decimal text exactly; a value with more than 15 significant digits gives the same Decimal as the raw string; AC-02 recordings stay byte-identical.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/port.py",
+        "BE/app/bot_engine/exchange/bybit/adapter.py",
+        "BE/app/bot_engine/performance.py",
+        "BE/tests/golden/stand_in_adapter.py",
+        "BE/tests/test_performance_equivalence.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t33-rebuild-performance-figures-from-exact.md"
+    },
+    {
+      "id": "T34",
+      "title": "Remove leftover dead code and give the pre-merge gate its own test database",
+      "layer": "wiring",
+      "deps": [
+        "T26"
+      ],
+      "acs": [],
+      "dod": "No uncalled `_mark_order_missing_from_exchange`, no unread `remote_by_link` write, no stale docstring; premerge.sh runs every stage on a fresh per-run temp dir so concurrent pytest runs can't collide.",
+      "files_hint": [
+        "BE/app/bot_engine/grid_runtime.py",
+        "BE/app/bot_engine/error_handling.py",
+        "scripts/premerge.sh"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t34-remove-leftover-dead-code-and.md"
     }
   ]
 }

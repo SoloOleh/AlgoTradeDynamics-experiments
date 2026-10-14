@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from app.bot_engine.bot import tick_bot_once
 from app.bot_engine.error_handling import clear_bot_runtime_error, handle_bot_runtime_error, pause_bot_for_guard
@@ -16,6 +17,8 @@ from app.services.ui_stream_service import bot_ui_stream_hub
 WORKER_STREAM_CHECK_SECONDS = 2
 WORKER_FALLBACK_SECONDS = 15
 
+logger = logging.getLogger(__name__)
+
 
 async def worker_loop(app) -> None:
     supervisor = ExchangeStreamSupervisor()
@@ -28,16 +31,24 @@ async def worker_loop(app) -> None:
             bot_ids = await supervisor.wait_for_bot_ids(WORKER_STREAM_CHECK_SECONDS)
             if bot_ids is not None:
                 force_bot_ids = supervisor.consume_force_tick_ids(bot_ids)
-                await tick_running_bots(app, bot_ids=bot_ids, force_bot_ids=force_bot_ids)
+                await _tick_safely(app, bot_ids=bot_ids, force_bot_ids=force_bot_ids)
                 continue
             now = asyncio.get_running_loop().time()
             if now - last_fallback >= WORKER_FALLBACK_SECONDS:
                 # Slow fail-safe reconciliation if a WS feed is unavailable.
-                await tick_running_bots(app)
+                await _tick_safely(app)
                 last_fallback = now
     finally:
         await supervisor.stop()
         app.state.exchange_stream_supervisor = None
+
+
+async def _tick_safely(app, **kwargs) -> None:
+    # One failed pass must never end the worker: every other bot would stop trading.
+    try:
+        await tick_running_bots(app, **kwargs)
+    except Exception:  # noqa: BLE001
+        logger.exception("Bot worker tick failed; continuing with the next pass")
 
 
 def _retry_is_due(bot: TradingBot) -> bool:
@@ -81,6 +92,13 @@ async def tick_running_bots(
                         adapter = registry.exchange_for(current_bot)
                     except GuardRefusal as refusal:
                         pause_bot_for_guard(bot_db, current_bot, refusal)
+                        continue
+                    except Exception as exc:  # noqa: BLE001
+                        # E.g. invalid strategy settings while reading its needs: this bot alone.
+                        bot_db.rollback()
+                        failed_bot = bot_db.get(TradingBot, bot.id)
+                        if failed_bot is not None:
+                            handle_bot_runtime_error(bot_db, failed_bot, exc, source="worker")
                         continue
                     if current_bot.runtime_status == "retrying":
                         if not _retry_is_due(current_bot):
