@@ -7,11 +7,12 @@ from sqlalchemy.orm import sessionmaker
 from app.bot_engine.error_handling import (
     BotErrorAction,
     BotErrorType,
-    ExchangeOperationError,
     classify_bot_error,
     clear_bot_runtime_error,
     handle_bot_runtime_error,
 )
+from app.bot_engine.exchange.bybit.errors import classify_bybit_failure
+from app.bot_engine.exchange.errors import ExchangeError
 from app.db.base import Base
 from app.models import *  # noqa: F401,F403 - register all relationships for isolated DB
 from app.models.trading_bot import TradingBot
@@ -30,6 +31,11 @@ def db():
     finally:
         session.close()
         engine.dispose()
+
+
+def _bybit_failure(message: str, *, code: int) -> ExchangeError:
+    """What the Bybit adapter hands the engine for a Bybit answer with this code (ADR-0005)."""
+    return classify_bybit_failure(RuntimeError(f"{message} (ErrCode: {code})"))
 
 
 def _bot(db, *, suffix: str) -> TradingBot:
@@ -58,7 +64,7 @@ def _bot(db, *, suffix: str) -> TradingBot:
 
 
 def test_rate_limit_is_retryable_with_backoff():
-    decision = classify_bot_error(ExchangeOperationError("Too many visits", code=10006))
+    decision = classify_bot_error(_bybit_failure("Too many visits", code=10006))
     assert decision.error_type == BotErrorType.RATE_LIMIT
     assert decision.action == BotErrorAction.RETRY_BACKOFF
     assert decision.retryable is True
@@ -69,7 +75,7 @@ def test_insufficient_funds_pauses_bot(db):
     decision = handle_bot_runtime_error(
         db,
         bot,
-        ExchangeOperationError("Wallet balance is insufficient", code=110004),
+        _bybit_failure("Wallet balance is insufficient", code=110004),
     )
     db.refresh(bot)
     assert decision.error_type == BotErrorType.INSUFFICIENT_FUNDS
@@ -85,7 +91,7 @@ def test_order_state_error_requests_resync_and_retry(db):
     decision = handle_bot_runtime_error(
         db,
         bot,
-        ExchangeOperationError("Order does not exist", code=110001),
+        _bybit_failure("Order does not exist", code=110001),
     )
     db.refresh(bot)
     assert decision.action == BotErrorAction.RESYNC_AND_RETRY
@@ -106,7 +112,7 @@ def test_authentication_error_stops_without_retry(db):
     decision = handle_bot_runtime_error(
         db,
         bot,
-        ExchangeOperationError("API key is invalid", code=10003),
+        _bybit_failure("API key is invalid", code=10003),
     )
     db.refresh(bot)
     assert decision.action == BotErrorAction.STOP

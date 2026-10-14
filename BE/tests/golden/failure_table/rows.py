@@ -47,10 +47,6 @@ def build_exception(spec: dict) -> BaseException:
         request = httpx.Request("GET", "http://exchange-emulator:8001/v5/order/realtime")
         response = httpx.Response(spec["http_status"], request=request)
         return httpx.HTTPStatusError(message, request=request, response=response)
-    if kind == "exchange_operation_error":
-        from app.bot_engine.error_handling import ExchangeOperationError
-
-        return ExchangeOperationError(message, code=spec.get("code"), operation=spec.get("operation"))
     if kind == "value_error":
         return ValueError(message)
     if kind == "runtime_error":
@@ -91,7 +87,105 @@ def react_to_failure(exc: BaseException, *, retry_count: int = 0) -> dict:
         db.close()
 
 
-# One-time recording inputs (pre-refactor). Expected reactions are computed from today's code.
+class _Session:
+    """The adapter's client transport, scripted for one failure-table row."""
+
+    def __init__(self, row: dict) -> None:
+        self.row = row
+
+    def __getattr__(self, method: str):
+        def call(**params):
+            origin = self.row["origin"]
+            spec = self.row["exception"]
+            if origin == "transport":
+                raise build_exception(spec)
+            if origin == "rejection" and method == "place_order":
+                return {"retCode": spec["code"], "retMsg": spec["message"], "result": {}}
+            return {"retCode": 0, "retMsg": "OK", "result": {"list": []}}
+
+        return call
+
+
+def react_on_a_tick(row: dict, monkeypatch) -> dict:
+    """Replay one row inside a real worker tick of a running bot and read back what was stored.
+
+    Exchange rows enter at the Bybit adapter's client transport; engine rows are raised by the
+    strategy step; the placement rejection goes through the adapter's placement and the
+    strategy's acceptance check.
+    """
+    import asyncio
+    from types import SimpleNamespace
+
+    from app.bot_engine import runtime
+    from app.bot_engine.exchange import registry
+    from app.bot_engine.exchange.bybit.adapter import BybitAdapter
+    from app.bot_engine.exchange.port import NewOrder
+    from app.db.session import SessionLocal
+    from app.models.trading_bot import TradingBot
+    from app.models.trading_bot_event import TradingBotEvent
+    from app.models.user import User
+
+    adapter = BybitAdapter("demo")
+    adapter._session = _Session(row)
+    symbol = row["exception"].get("symbol", "BTCUSDT")
+
+    if row["origin"] == "engine":
+        def strategy_step(db, bot, *, force=False, adapter=None):
+            raise build_exception(row["exception"])
+
+        monkeypatch.setattr(runtime, "tick_bot_once", strategy_step)
+    elif row["origin"] == "rejection":
+        from app.bot_engine.strategies.momentum import _ensure_accepted
+
+        def strategy_step(db, bot, *, force=False, adapter=None):
+            placed = adapter.place_order(bot.category, bot.symbol, NewOrder(
+                side="Buy", order_type="Market", qty=0.001, price=None, client_tag=f"bot-{bot.id}-m1-entry",
+            ))
+            _ensure_accepted(placed, row["exception"]["operation"])
+
+        monkeypatch.setattr(runtime, "tick_bot_once", strategy_step)
+
+    db = SessionLocal()
+    try:
+        user = User(email=f"tick_{uuid.uuid4().hex[:10]}@test.dev", hashed_password="x")
+        db.add(user)
+        db.flush()
+        bot = TradingBot(
+            user_id=user.id, name="failure table tick", exchange="bybit", environment="demo",
+            strategy_type="grid", category="linear", symbol=symbol, order_qty=0.001,
+            grid_orders_count=2, grid_step_percent=1.0, runtime_status="running",
+            settings={}, error_retry_count=row.get("retry_count", 0),
+        )
+        db.add(bot)
+        db.commit()
+        bot_id = bot.id
+    finally:
+        db.close()
+
+    with registry.registered_venue("bybit", "demo", lambda account: adapter):
+        stub = SimpleNamespace(state=SimpleNamespace(bot_worker_locks={}))
+        asyncio.run(runtime.tick_running_bots(stub, bot_ids={bot_id}))
+
+    db = SessionLocal()
+    try:
+        bot = db.get(TradingBot, bot_id)
+        events = db.query(TradingBotEvent).filter(
+            TradingBotEvent.bot_id == bot_id, TradingBotEvent.event_type == "bot_error",
+        ).all()
+        return {
+            "runtime_status": bot.runtime_status,
+            "last_error_type": bot.last_error_type,
+            "last_error_severity": bot.last_error_severity,
+            "last_error_action": bot.last_error_action,
+            "last_error_code": bot.last_error_code,
+            "events": [event.payload for event in events],
+        }
+    finally:
+        db.close()
+
+
+# One-time recording inputs (pre-refactor). Expected reactions were computed from that code; the
+# kinds now name where each failure enters (see `react_on_a_tick`), the recorded reactions stand.
 _INPUTS = [
     ("network_timeout", "bybit", {"kind": "requests_timeout", "message": "HTTPSConnectionPool(host='api.bybit.com', port=443): Read timed out. (read timeout=10)"}),
     ("emulator_network_timeout", "emulator", {"kind": "emulator_timeout", "message": "timed out"}),
@@ -105,10 +199,10 @@ _INPUTS = [
     ("permission", "bybit", {"kind": "pybit_invalid_request", "code": 10005, "message": "Permission denied, please check your API key permissions."}),
     ("ip_rate_limit_http_403", "bybit", {"kind": "pybit_failed_request", "http_status": 403, "message": "You have breached the IP rate limit or your IP is from the USA."}),
     ("insufficient_balance", "bybit", {"kind": "pybit_invalid_request", "code": 110007, "message": "ab not enough for new order"}),
-    ("emulator_insufficient_balance", "emulator", {"kind": "exchange_operation_error", "code": 110007, "operation": "Momentum entry", "message": "Insufficient available balance"}),
+    ("emulator_insufficient_balance", "emulator", {"kind": "placement_rejection", "code": 110007, "operation": "Momentum entry", "message": "Insufficient available balance"}),
     ("rejected_order", "bybit", {"kind": "pybit_invalid_request", "code": 110017, "message": "Reduce-only rule not satisfied"}),
     ("order_below_minimum", "synthetic", {"kind": "value_error", "message": "Order qty 0.0001 is below Bybit minimum 0.001"}),
-    ("invalid_symbol", "bybit", {"kind": "value_error", "message": "Instrument info not found for FOOUSDT"}),
+    ("invalid_symbol", "bybit", {"kind": "empty_instrument_list", "symbol": "FOOUSDT"}),
     ("duplicate_client_tag", "bybit", {"kind": "pybit_invalid_request", "code": 110072, "message": "OrderLinkedID is duplicate"}),
     ("unknown_order", "bybit", {"kind": "pybit_invalid_request", "code": 110001, "message": "Order does not exist."}),
     ("risk_limit", "bybit", {"kind": "pybit_invalid_request", "code": 110013, "message": "Due to risk limit, cannot set leverage"}),

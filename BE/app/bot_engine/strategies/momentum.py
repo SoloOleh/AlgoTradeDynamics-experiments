@@ -19,7 +19,6 @@ from sqlalchemy import desc
 from app.bot_engine.exchange import registry
 from app.bot_engine.exchange.errors import GuardRefusal
 from app.bot_engine.exchange.port import PlacedOrder
-from app.bot_engine.error_handling import ExchangeOperationError
 from app.bot_engine.events import log_bot_event
 from app.bot_engine.grid_runtime import (
     cancel_all_bot_orders,
@@ -29,6 +28,7 @@ from app.bot_engine.grid_runtime import (
 )
 from app.bot_engine.market_data import get_instrument_rules, get_last_price, get_ticker_snapshot
 from app.bot_engine.orders import (
+    ensure_accepted as _ensure_accepted,
     ACTIVE_ORDER_STATUSES,
     OrderRequest,
     normalize_order_request,
@@ -113,12 +113,6 @@ def _normalize_timeframe(value: Any) -> str:
     normalized = mapping.get(text, str(value or "15").strip())
     return normalized if normalized in _SUPPORTED_TIMEFRAMES else "15"
 
-
-def _ensure_accepted(placed: PlacedOrder, action: str) -> None:
-    if placed.rejection is None:
-        return
-    message = placed.rejection.message or "Unknown exchange error"
-    raise ExchangeOperationError(str(message), code=placed.rejection.raw_code, operation=action)
 
 
 def _interval_seconds(interval: str) -> int:

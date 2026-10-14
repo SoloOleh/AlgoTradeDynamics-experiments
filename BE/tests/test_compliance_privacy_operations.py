@@ -1,6 +1,7 @@
 import uuid
 
-from app.bot_engine.error_handling import ExchangeOperationError, handle_bot_runtime_error
+from app.bot_engine.error_handling import handle_bot_runtime_error
+from app.bot_engine.exchange.bybit.errors import classify_bybit_failure
 from app.db.session import SessionLocal
 from app.models.audit_event import AuditEvent
 from app.models.operations import Incident, OperationLog
@@ -68,7 +69,7 @@ def test_error_incident_is_created_and_exposed(client):
     try:
         item = db.get(TradingBot, bot["id"])
         assert item is not None and item.user_id == user_id
-        handle_bot_runtime_error(db, item, ExchangeOperationError("insufficient balance", code=110007), source="test")
+        handle_bot_runtime_error(db, item, classify_bybit_failure(RuntimeError("insufficient balance (ErrCode: 110007)")), source="test")
     finally:
         db.close()
 

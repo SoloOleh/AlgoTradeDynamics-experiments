@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/error_handling.py", "BE/app/bot_engine/strategie
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T26 — React only to adapter error classes in the engine and replay the failure table through the adapter on a tick

@@ -12,7 +12,8 @@
       "action": "retry_backoff",
       "code": null,
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "emulator_network_timeout",
@@ -27,7 +28,8 @@
       "action": "retry_backoff",
       "code": null,
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "emulator_connect_error",
@@ -42,7 +44,8 @@
       "action": "retry_backoff",
       "code": null,
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "rate_limit",
@@ -58,7 +61,8 @@
       "action": "retry_backoff",
       "code": "10006",
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "exchange_unavailable",
@@ -74,7 +78,8 @@
       "action": "retry_backoff",
       "code": "10016",
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "emulator_http_503",
@@ -90,7 +95,8 @@
       "action": "retry_backoff",
       "code": null,
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "time_sync",
@@ -106,7 +112,8 @@
       "action": "retry_backoff",
       "code": "10002",
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "rejected_credentials",
@@ -122,7 +129,8 @@
       "action": "stop",
       "code": "10003",
       "runtime_status": "error"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "missing_credentials",
@@ -137,7 +145,8 @@
       "action": "stop",
       "code": null,
       "runtime_status": "error"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "permission",
@@ -153,7 +162,8 @@
       "action": "stop",
       "code": "10005",
       "runtime_status": "error"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "ip_rate_limit_http_403",
@@ -169,7 +179,8 @@
       "action": "stop",
       "code": "403",
       "runtime_status": "error"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "insufficient_balance",
@@ -185,13 +196,14 @@
       "action": "pause",
       "code": "110007",
       "runtime_status": "paused"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "emulator_insufficient_balance",
     "source": "emulator",
     "exception": {
-      "kind": "exchange_operation_error",
+      "kind": "placement_rejection",
       "code": 110007,
       "operation": "Momentum entry",
       "message": "Insufficient available balance"
@@ -202,7 +214,8 @@
       "action": "pause",
       "code": "110007",
       "runtime_status": "paused"
-    }
+    },
+    "origin": "rejection"
   },
   {
     "id": "rejected_order",
@@ -218,7 +231,8 @@
       "action": "pause",
       "code": "110017",
       "runtime_status": "paused"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "order_below_minimum",
@@ -233,14 +247,15 @@
       "action": "pause",
       "code": null,
       "runtime_status": "paused"
-    }
+    },
+    "origin": "engine"
   },
   {
     "id": "invalid_symbol",
     "source": "bybit",
     "exception": {
-      "kind": "value_error",
-      "message": "Instrument info not found for FOOUSDT"
+      "kind": "empty_instrument_list",
+      "symbol": "FOOUSDT"
     },
     "expected": {
       "error_type": "invalid_symbol",
@@ -248,7 +263,8 @@
       "action": "pause",
       "code": null,
       "runtime_status": "paused"
-    }
+    },
+    "origin": "response"
   },
   {
     "id": "duplicate_client_tag",
@@ -264,7 +280,8 @@
       "action": "resync_and_retry",
       "code": "110072",
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "unknown_order",
@@ -280,7 +297,8 @@
       "action": "resync_and_retry",
       "code": "110001",
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "risk_limit",
@@ -296,7 +314,8 @@
       "action": "pause",
       "code": "110013",
       "runtime_status": "paused"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "configuration",
@@ -311,7 +330,8 @@
       "action": "pause",
       "code": null,
       "runtime_status": "paused"
-    }
+    },
+    "origin": "engine"
   },
   {
     "id": "internal",
@@ -326,7 +346,8 @@
       "action": "stop",
       "code": null,
       "runtime_status": "error"
-    }
+    },
+    "origin": "engine"
   },
   {
     "id": "retry_limit_exhausted",
@@ -342,7 +363,8 @@
       "action": "pause",
       "code": null,
       "runtime_status": "paused"
-    }
+    },
+    "origin": "transport"
   },
   {
     "id": "failed_order_lookup",
@@ -362,6 +384,7 @@
       "action": "retry_backoff",
       "code": "10006",
       "runtime_status": "retrying"
-    }
+    },
+    "origin": "transport"
   }
 ]

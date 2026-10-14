@@ -44,7 +44,14 @@ class ExchangeError(Exception):
 
 
 class UnclassifiedExchangeFailure(Exception):
-    """A transport failure the adapter could not classify; its message is already scrubbed (ADR-0008)."""
+    """A transport failure the adapter could not classify; its message is already scrubbed (ADR-0008).
+
+    The engine treats it as internal; `raw_code` is only stored, never interpreted (ADR-0005).
+    """
+
+    def __init__(self, message: str, *, raw_code: str | int | None = None) -> None:
+        self.raw_code = None if raw_code is None else str(raw_code)
+        super().__init__(message)
 
 
 class GuardRefusal(Exception):

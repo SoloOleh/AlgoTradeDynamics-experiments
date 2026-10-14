@@ -18,8 +18,7 @@ except ImportError:  # pragma: no cover - Python < 3.11 fallback
         pass
 
 from app.bot_engine.events import log_bot_event
-from app.bot_engine.exchange.bybit.errors import classify_bybit_failure, extract_code
-from app.bot_engine.exchange.errors import CapabilityMissing, ErrorClass, GuardRefusal
+from app.bot_engine.exchange.errors import CapabilityMissing, ErrorClass, ExchangeError, GuardRefusal
 from app.bot_engine.exchange.redaction import scrub
 from app.core.clock import utcnow
 from app.models.trading_bot import TradingBot
@@ -63,17 +62,6 @@ class BotErrorDecision:
     message: str
     code: str | None = None
     retry_after_seconds: int | None = None
-
-
-class ExchangeOperationError(RuntimeError):
-    """Structured non-zero exchange response for deterministic classification."""
-
-    def __init__(self, message: str, *, code: str | int | None = None, operation: str | None = None):
-        self.code = None if code is None else str(code)
-        self.operation = operation
-        prefix = f"{operation}: " if operation else ""
-        suffix = f" (code {self.code})" if self.code is not None else ""
-        super().__init__(f"{prefix}{message}{suffix}")
 
 
 @dataclass(slots=True, frozen=True)
@@ -123,26 +111,41 @@ def _decision(
     )
 
 
+# The engine's own order-rule refusals (orders.validate_order_request and the close-position size
+# check) keep the invalid-order reaction they had before the exchange adapter existed.
+_ORDER_RULE_TEXTS = ("order qty", "order notional", "order quantity")
+_CONFIGURATION_TEXTS = ("configuration", "supports linear", "must be", "cannot be", "inactive")
+
+
 def classify_bot_error(exc: BaseException) -> BotErrorDecision:
     """Map an arbitrary runtime exception to a safe operational policy.
 
-    Exchange failures arrive as `ExchangeError` (or, from call sites not yet on the adapter, as a
-    raw Bybit/emulator exception the Bybit adapter classifies); their error class picks the
-    reaction from `REACTION_TABLE`. Other failures keep the engine's own classification.
+    Exchange failures arrive from the adapter as `ExchangeError`; only their error class picks the
+    reaction from `REACTION_TABLE` - a raw exchange code is stored, never interpreted (ADR-0005).
+    Other failures keep the engine's own classification.
     """
-    exchange_error = classify_bybit_failure(exc)
-    if exchange_error is not None:
-        reaction = REACTION_TABLE[exchange_error.error_class]
-        message = (exchange_error.message or "").strip() or type(exc).__name__
+    if isinstance(exc, ExchangeError):
+        reaction = REACTION_TABLE[exc.error_class]
+        message = (exc.message or "").strip() or type(exc).__name__
         return _decision(
             reaction.error_type, reaction.severity, reaction.action, message,
-            code=exchange_error.raw_code, retry_after_seconds=reaction.retry_after_seconds,
+            code=exc.raw_code, retry_after_seconds=reaction.retry_after_seconds,
         )
 
     message = str(exc).strip() or type(exc).__name__
     lowered = message.lower()
-    code = extract_code(exc)
-    if isinstance(exc, ValueError) and any(token in lowered for token in ("configuration", "supports linear", "must be", "cannot be", "inactive")):
+    code = getattr(exc, "raw_code", None)
+    if isinstance(exc, (ConnectionError, TimeoutError)):
+        # A plain network failure, whoever raised it, is retried as one.
+        reaction = REACTION_TABLE[ErrorClass.NETWORK]
+        return _decision(
+            reaction.error_type, reaction.severity, reaction.action, message,
+            code=code, retry_after_seconds=reaction.retry_after_seconds,
+        )
+    if isinstance(exc, ValueError) and any(token in lowered for token in _ORDER_RULE_TEXTS):
+        reaction = REACTION_TABLE[ErrorClass.INVALID_ORDER]
+        return _decision(reaction.error_type, reaction.severity, reaction.action, message, code=code)
+    if isinstance(exc, ValueError) and any(token in lowered for token in _CONFIGURATION_TEXTS):
         return _decision(BotErrorType.CONFIGURATION, BotErrorSeverity.ERROR, BotErrorAction.PAUSE, message, code=code)
     return _decision(BotErrorType.INTERNAL, BotErrorSeverity.CRITICAL, BotErrorAction.STOP, message, code=code)
 

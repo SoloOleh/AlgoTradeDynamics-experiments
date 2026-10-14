@@ -1057,7 +1057,7 @@ def sync_position_take_profit(db, bot: TradingBot, *, adapter=None) -> tuple[lis
     response = place_order(adapter, category=bot.category,
                            symbol=bot.symbol, order=target_order)
     if _is_duplicate_client_tag(response):
-        log_bot_event(db, bot, "error", "Duplicate position TP orderLinkId rejected by Bybit", {
+        log_bot_event(db, bot, "error", "Duplicate position TP client order tag rejected by the exchange", {
             "order_link_id": target_order.order_link_id,
             "ret_code": response.rejection.raw_code,
         })

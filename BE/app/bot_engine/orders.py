@@ -108,6 +108,22 @@ def validate_order_request(order: OrderRequest, rules: InstrumentRules) -> str |
     return None
 
 
+def ensure_accepted(placed: PlacedOrder, action: str) -> None:
+    """Raise the adapter's classified refusal of a placement, naming the operation (ADR-0005).
+
+    The stored text keeps the shape it had before the adapter existed: `<action>: <message> (code N)`.
+    """
+    rejection = placed.rejection
+    if rejection is None:
+        return
+    message = rejection.message or "Unknown exchange error"
+    suffix = f" (code {rejection.raw_code})" if rejection.raw_code is not None else ""
+    raise ExchangeError(
+        rejection.error_class, raw_code=rejection.raw_code, message=f"{action}: {message}{suffix}",
+        http_status=rejection.http_status,
+    )
+
+
 def place_order(adapter, *, category: str, symbol: str, order: OrderRequest) -> PlacedOrder:
     if _requires_reduce_only(order) and not order.reduce_only:
         raise ValueError(
