@@ -7,6 +7,9 @@ step captures its own).
 
 Recording (one-time, on the pre-refactor commit — ADR-0007):
     GOLDEN_RECORD=1 pytest tests/golden/test_golden_runs.py -k record
+
+Capturing the previous-step starting state (before each strategy migration step, on its parent
+commit): GOLDEN_CAPTURE_PREVIOUS=1 pytest tests/golden/test_golden_runs.py -k capture
 """
 from __future__ import annotations
 
@@ -149,3 +152,19 @@ def test_record_golden_runs(emulator, golden_db):
             "requests": len(durations),
         }
     BASELINE.write_text(json.dumps(baseline, indent=2, sort_keys=True))
+
+
+@pytest.mark.skipif(
+    os.environ.get("GOLDEN_CAPTURE_PREVIOUS") != "1",
+    reason="run on the parent commit before a migration step; set GOLDEN_CAPTURE_PREVIOUS=1",
+)
+def test_capture_previous_step_snapshots(emulator, golden_db):
+    """The mid-cycle state as the current tree leaves it, for the next step's AC-04 replay."""
+    for name, scenario in sorted(SCENARIOS.items()):
+        snapshot = RECORDINGS / name / "mid_cycle_previous_step"
+        run = record_run(
+            scenario, emulator=emulator, db=golden_db,
+            snapshot_after_step=MID_CYCLE_STEP[name], snapshot_dir=snapshot,
+        )
+        _assert_mid_cycle(name, snapshot)
+        assert_equivalent(run, load_recording(RECORDINGS / name / "fresh.json"))

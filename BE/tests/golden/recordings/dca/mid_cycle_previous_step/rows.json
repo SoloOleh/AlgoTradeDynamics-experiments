@@ -1,0 +1,99 @@
+{
+  "bot_id": 1,
+  "after_step": 1,
+  "bot": {
+    "id": 1,
+    "runtime_status": "running",
+    "order_link_generation": 1,
+    "last_error_type": null,
+    "last_error_code": null,
+    "last_error_action": null,
+    "error_retry_count": 0,
+    "settings": {
+      "run_interval_seconds": 0,
+      "dca_volume_multiplier": 1.5,
+      "dca_step_multiplier": 1.2,
+      "take_profit_percent": 1.5
+    }
+  },
+  "orders": [
+    {
+      "id": 1,
+      "order_link_id": "bot-1-g1-dca-entry-1-1",
+      "order_role": "dca_entry_1",
+      "side": "Buy",
+      "order_type": "Market",
+      "status": "Filled",
+      "qty": 1.0,
+      "filled_qty": 1.0,
+      "price": null,
+      "parent_order_id": null,
+      "cycle_completed": false
+    },
+    {
+      "id": 2,
+      "order_link_id": "bot-1-g1-dca-entry-2-1",
+      "order_role": "dca_entry_2",
+      "side": "Buy",
+      "order_type": "Limit",
+      "status": "Filled",
+      "qty": 1.5,
+      "filled_qty": 1.5,
+      "price": 98.5,
+      "parent_order_id": null,
+      "cycle_completed": false
+    },
+    {
+      "id": 3,
+      "order_link_id": "bot-1-g1-dca-entry-3-1",
+      "order_role": "dca_entry_3",
+      "side": "Buy",
+      "order_type": "Limit",
+      "status": "New",
+      "qty": 2.25,
+      "filled_qty": 0.0,
+      "price": 96.7,
+      "parent_order_id": null,
+      "cycle_completed": false
+    },
+    {
+      "id": 4,
+      "order_link_id": "bot-1-g1-dca-entry-4-1",
+      "order_role": "dca_entry_4",
+      "side": "Buy",
+      "order_type": "Limit",
+      "status": "New",
+      "qty": 3.37,
+      "filled_qty": 0.0,
+      "price": 94.54,
+      "parent_order_id": null,
+      "cycle_completed": false
+    },
+    {
+      "id": 5,
+      "order_link_id": "bot-1-g1-position-tp-1767614460000",
+      "order_role": "position_take_profit",
+      "side": "Sell",
+      "order_type": "Limit",
+      "status": "Cancelled",
+      "qty": 1.0,
+      "filled_qty": 0.0,
+      "price": 101.5,
+      "parent_order_id": null,
+      "cycle_completed": false
+    },
+    {
+      "id": 6,
+      "order_link_id": "bot-1-g1-position-tp-1767614520000",
+      "order_role": "position_take_profit",
+      "side": "Sell",
+      "order_type": "Limit",
+      "status": "New",
+      "qty": 2.5,
+      "filled_qty": 0.0,
+      "price": 100.586,
+      "parent_order_id": null,
+      "cycle_completed": false
+    }
+  ]
+}

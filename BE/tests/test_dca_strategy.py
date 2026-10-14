@@ -13,7 +13,7 @@ from app.bot_engine.bot import tick_bot_once
 from app.db.session import SessionLocal
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_order import TradingBotOrder
-from tests.remote_lookup import RemoteStateLookup
+from tests.remote_lookup import RemoteStateExchange
 
 
 def _make_bot(**overrides) -> TradingBot:
@@ -134,12 +134,27 @@ def _mock_dca_runtime(monkeypatch, *, remote_state=None, remote_positions=None, 
             if order.get("orderStatus") in ACTIVE_ORDER_STATUSES
         ]
 
-    for module in ("app.bot_engine.grid_runtime", "app.bot_engine.dca_runtime"):
-        monkeypatch.setattr(f"{module}.get_bybit_session", lambda _bot: object(), raising=False)
-    monkeypatch.setattr("app.bot_engine.dca_runtime.get_last_price", lambda *a, **k: current_price)
-    monkeypatch.setattr("app.bot_engine.dca_runtime.get_instrument_rules", lambda *a, **k: rules)
-    monkeypatch.setattr("app.bot_engine.dca_runtime.place_order",
-                        lambda session, *, category, symbol, order: fake_place_order(session, category=category, symbol=symbol, order=order))
+    def fake_place_neutral(order):
+        status = "Filled" if order.order_type == "Market" else "New"
+        remote_state[order.client_tag] = {
+            "orderLinkId": order.client_tag,
+            "orderId": f"oid-{order.client_tag}",
+            "orderStatus": status,
+            "side": order.side,
+            "orderType": order.order_type,
+            "qty": str(order.qty),
+            "cumExecQty": str(order.qty) if status == "Filled" else "0",
+            "price": str(order.price) if order.price is not None else None,
+            "reduceOnly": order.reduce_only,
+        }
+        return status
+
+    adapter = RemoteStateExchange(
+        remote_state, remote_positions=remote_positions, price=current_price, rules=rules,
+        place=fake_place_neutral, cancel=fake_cancel,
+    )
+    monkeypatch.setattr("app.bot_engine.exchange.registry.exchange_for", lambda _bot, needs=None: adapter)
+    monkeypatch.setattr("app.bot_engine.grid_runtime.get_bybit_session", lambda _bot: object())
     monkeypatch.setattr("app.bot_engine.grid_runtime.get_last_price", lambda *a, **k: current_price)
     monkeypatch.setattr("app.bot_engine.grid_runtime.get_instrument_rules", lambda *a, **k: rules)
     monkeypatch.setattr("app.bot_engine.grid_runtime.get_ticker_snapshot",
@@ -149,8 +164,7 @@ def _mock_dca_runtime(monkeypatch, *, remote_state=None, remote_positions=None, 
     monkeypatch.setattr("app.bot_engine.grid_runtime.get_orders_by_prefix",
                         lambda *a, **k: [order for order in remote_state.values()
                                          if (order.get("orderLinkId") or "").startswith(k["order_link_prefix"])])
-    monkeypatch.setattr("app.bot_engine.grid_runtime._exchange_adapter",
-                        lambda _bot: RemoteStateLookup(remote_state))
+    monkeypatch.setattr("app.bot_engine.grid_runtime._exchange_adapter", lambda _bot: adapter)
     monkeypatch.setattr("app.bot_engine.grid_runtime.place_order",
                         lambda session, *, category, symbol, order: fake_place_order(session, category=category, symbol=symbol, order=order))
     monkeypatch.setattr("app.bot_engine.grid_runtime.cancel_order_by_link_id",

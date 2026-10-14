@@ -10,6 +10,7 @@ from app.core.clock import utcnow as runtime_utcnow
 from app.bot_engine.bybit.client import get_bybit_session
 from app.bot_engine.events import log_bot_event
 from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.port import PlacedOrder
 from app.bot_engine.market_data import get_instrument_rules, get_last_price, get_ticker_snapshot
 from app.bot_engine.orders import (
     ACTIVE_ORDER_STATUSES,
@@ -198,8 +199,12 @@ def _infer_order_fields_from_link_id(order_link_id: str) -> tuple[str, int | Non
     return "recovered", None
 
 
-def _record_order(db, bot: TradingBot, order: OrderRequest, response: dict, *, status_override: str | None = None) -> TradingBotOrder:
-    result = response.get("result", {})
+def _record_order(db, bot: TradingBot, order: OrderRequest, response: dict | PlacedOrder, *, status_override: str | None = None) -> TradingBotOrder:
+    if isinstance(response, PlacedOrder):
+        placed_id, placed_status, response = response.order_id, response.status, response.raw
+    else:
+        result = response.get("result", {})
+        placed_id, placed_status = result.get("orderId"), result.get("orderStatus")
     existing = None
     if order.order_link_id:
         existing = (
@@ -224,10 +229,8 @@ def _record_order(db, bot: TradingBot, order: OrderRequest, response: dict, *, s
         parent_order_id=order.parent_order_id,
     )
     record.price = order.price
-    record.exchange_order_id = result.get(
-        "orderId") or record.exchange_order_id
-    record.status = status_override or result.get(
-        "orderStatus") or record.status or "New"
+    record.exchange_order_id = placed_id or record.exchange_order_id
+    record.status = status_override or placed_status or record.status or "New"
     payload = dict(response or {})
     payload.update({
         "orderLinkId": order.order_link_id,

@@ -39,10 +39,10 @@ class DcaStrategy:
         validate_dca_configuration(bot)
 
     def tick(self, db, bot: TradingBot, *, force: bool = False, adapter=None) -> dict:
-        return tick_dca_bot(db, bot, force=force)
+        return tick_dca_bot(db, bot, force=force, adapter=adapter)
 
     def sync_orders(self, db, bot: TradingBot, *, adapter=None) -> list:
-        return [change["order"] for change in sync_bot_orders(db, bot)]
+        return [change["order"] for change in sync_bot_orders(db, bot, adapter=adapter)]
 
     def cancel_orders(self, db, bot: TradingBot, *, adapter=None) -> list:
         return cancel_all_bot_orders(db, bot)
@@ -51,7 +51,7 @@ class DcaStrategy:
         return get_position_snapshot(db, bot)
 
     def get_risk(self, db, bot: TradingBot, *, adapter=None) -> dict:
-        return get_dca_risk_summary(db, bot)
+        return get_dca_risk_summary(db, bot, adapter=adapter)
 
     def close_position(self, db, bot: TradingBot, *, adapter=None) -> dict:
         return close_bot_position(db, bot)
