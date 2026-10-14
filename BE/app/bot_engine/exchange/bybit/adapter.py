@@ -13,7 +13,7 @@ from app.bot_engine.exchange.bybit.capabilities import BYBIT_CAPABILITIES
 from app.bot_engine.exchange.bybit.client import create_session
 from app.bot_engine.exchange.bybit.errors import classify_bybit_failure
 from app.bot_engine.exchange.capabilities import CapabilitySet
-from app.bot_engine.exchange.errors import ErrorClass, ExchangeError
+from app.bot_engine.exchange.errors import ErrorClass, ExchangeError, UnclassifiedExchangeFailure
 from app.bot_engine.exchange.port import (
     ACTIVE_ORDER_STATUSES,
     Balance,
@@ -177,7 +177,8 @@ class BybitAdapter:
         except Exception as exc:  # noqa: BLE001 - every transport failure is classified
             classified = classify_bybit_failure(exc)
             if classified is None:
-                raise
+                # Not chained: the original exception's text may carry a key (ADR-0008).
+                raise UnclassifiedExchangeFailure(scrub(f"{type(exc).__name__}: {exc}")) from None
             raise classified from exc
 
     # ------------------------------------------------------------------ identity

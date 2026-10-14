@@ -4,6 +4,10 @@ import sys
 
 from app.core.config import get_settings
 
+# uvicorn's error loggers carry exception tracebacks. Its access logger is left alone: its formatter
+# unpacks `record.args` (client, method, path, version, status), which the filter would flatten.
+UVICORN_LOGGERS = ("uvicorn", "uvicorn.error")
+
 
 class ScrubbingFilter(logging.Filter):
     """Pass every log record through the shared scrubber (ADR-0008): keys `****abcd`, secrets never."""
@@ -11,7 +15,11 @@ class ScrubbingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         from app.bot_engine.exchange.redaction import scrub
 
-        record.msg = scrub(record.getMessage())
+        try:
+            message = record.getMessage()
+        except Exception:  # noqa: BLE001 - a malformed record is the handler's to report
+            return True
+        record.msg = scrub(message)
         record.args = None
         if record.exc_info and not record.exc_text:
             record.exc_text = logging.Formatter().formatException(record.exc_info)
@@ -39,6 +47,12 @@ def configure_logging() -> None:
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(level)
+
+    # uvicorn's loggers keep their own handlers and do not propagate to the root one.
+    for name in UVICORN_LOGGERS:
+        for uvicorn_handler in logging.getLogger(name).handlers:
+            if not any(isinstance(item, ScrubbingFilter) for item in uvicorn_handler.filters):
+                uvicorn_handler.addFilter(ScrubbingFilter())
 
     # Tame noisy libs.
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)

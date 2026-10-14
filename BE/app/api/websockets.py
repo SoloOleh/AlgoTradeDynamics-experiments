@@ -96,7 +96,7 @@ def _build_bot_snapshot(bot_id: int, user_id: int, *, refresh_exchange: bool = F
             try:
                 return func()
             except Exception as exc:  # noqa: BLE001
-                errors[name] = str(exc)
+                errors[name] = scrub(str(exc))
                 return default
 
         performance = safe(

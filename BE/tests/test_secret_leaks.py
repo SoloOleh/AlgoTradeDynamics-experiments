@@ -196,3 +196,100 @@ def test_every_log_record_passes_the_scrubber(capsys):
     output = capsys.readouterr().out
     assert "WS failed" in output and "request failed" in output and "Traceback" in output
     assert_clean(output)
+
+
+def test_an_unclassified_transport_failure_leaves_the_adapter_scrubbed():
+    """The adapter scrubs every error it raises (ADR-0008), even one it cannot classify."""
+    import traceback
+
+    from app.bot_engine.exchange.bybit.adapter import BybitAdapter
+
+    class Session:
+        def get_tickers(self, **params):
+            raise KeyError(LEAKY)
+
+    adapter = BybitAdapter("demo")
+    adapter._session = Session()
+    with pytest.raises(Exception) as raised:
+        adapter.ticker("linear", "BTCUSDT")
+
+    assert_clean(raised.value)
+    assert_clean("".join(traceback.format_exception(raised.value)))
+
+
+def test_bot_page_snapshot_stream_errors_are_scrubbed(db, bot, monkeypatch):
+    from app.api import websockets
+
+    def failing(*args, **kwargs):
+        raise RuntimeError(LEAKY)
+
+    for name in ("get_trading_bot_performance", "get_trading_bot_position", "get_trading_bot_risk"):
+        monkeypatch.setattr(websockets, name, failing)
+    snapshot = websockets._build_bot_snapshot(bot.id, bot.user_id)
+
+    assert set(snapshot["stream_errors"]) == {"performance", "position", "risk"}
+    for text in snapshot["stream_errors"].values():
+        assert_clean(text)
+
+
+def test_uvicorns_own_handlers_pass_the_scrubber(capsys):
+    """uvicorn's loggers do not propagate to the root handler; their handlers get the filter too."""
+    import sys
+
+    from app.core.logging import configure_logging
+
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+    error_logger = logging.getLogger("uvicorn.error")
+    saved_error = (list(error_logger.handlers), error_logger.propagate)
+    uvicorn_handler = logging.StreamHandler(sys.stdout)
+    error_logger.handlers[:] = [uvicorn_handler]
+    error_logger.propagate = False
+    try:
+        configure_logging()
+        try:
+            raise RuntimeError(LEAKY)
+        except RuntimeError:
+            error_logger.exception("Exception in ASGI application")
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)
+        error_logger.handlers[:], error_logger.propagate = saved_error
+
+    output = capsys.readouterr().out
+    assert "Exception in ASGI application" in output and "Traceback" in output
+    assert_clean(output)
+
+
+def test_a_malformed_log_record_does_not_raise_into_the_caller():
+    from app.core.logging import ScrubbingFilter
+
+    record = logging.LogRecord("app.x", logging.WARNING, __file__, 1, "%s and %s", ("only one",), None)
+    assert ScrubbingFilter().filter(record) is True
+
+
+def test_uvicorns_access_log_keeps_its_format_arguments(capsys):
+    import sys
+
+    from uvicorn.logging import AccessFormatter
+
+    from app.core.logging import configure_logging
+
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+    access = logging.getLogger("uvicorn.access")
+    saved = (list(access.handlers), access.propagate, access.level)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(AccessFormatter('%(client_addr)s - "%(request_line)s" %(status_code)s', use_colors=False))
+    access.handlers[:] = [handler]
+    access.propagate = False
+    try:
+        configure_logging()
+        access.setLevel(logging.INFO)
+        access.info('%s - "%s %s HTTP/%s" %d', "127.0.0.1:5000", "GET", "/api/health", "1.1", 200)
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)
+        access.handlers[:], access.propagate, access.level = saved
+
+    assert '127.0.0.1:5000 - "GET /api/health HTTP/1.1" 200' in capsys.readouterr().out

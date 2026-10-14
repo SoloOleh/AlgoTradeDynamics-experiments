@@ -43,6 +43,10 @@ class ExchangeError(Exception):
         super().__init__(message or self.error_class.value)
 
 
+class UnclassifiedExchangeFailure(Exception):
+    """A transport failure the adapter could not classify; its message is already scrubbed (ADR-0008)."""
+
+
 class GuardRefusal(Exception):
     """A fail-closed guard refusal: never retried, never routed elsewhere (ADR-0004)."""
 

@@ -30,7 +30,7 @@
 | T22 | Register only real emulator account keys with the shared scrubber | infra | Oleh Solomko | S | T20 | done |
 | T23 | Keep the bot page readable for guard-refused Momentum and Pattern Scalper bots | app | Oleh Solomko | S | T20 | done |
 | T24 | Restore the Pattern Scalper linear-only start check | domain | Oleh Solomko | S | T20 | done |
-| T25 | Scrub the remaining exception sinks | wiring | Oleh Solomko | S | T22 | todo |
+| T25 | Scrub the remaining exception sinks | wiring | Oleh Solomko | S | T22 | done |
 | T26 | React only to adapter error classes in the engine and replay the failure table through the adapter on a tick | app | Oleh Solomko | S | T25 | todo |
 | T27 | Declare every capability each strategy actually uses | domain | Oleh Solomko | S | T20 | todo |
 | T28 | Validate the guard and connection-check responses against the contract file | tests | Oleh Solomko | S | T20 | todo |
