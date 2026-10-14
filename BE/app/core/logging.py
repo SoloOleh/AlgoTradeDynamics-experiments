@@ -5,6 +5,23 @@ import sys
 from app.core.config import get_settings
 
 
+class ScrubbingFilter(logging.Filter):
+    """Pass every log record through the shared scrubber (ADR-0008): keys `****abcd`, secrets never."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        from app.bot_engine.exchange.redaction import scrub
+
+        record.msg = scrub(record.getMessage())
+        record.args = None
+        if record.exc_info and not record.exc_text:
+            record.exc_text = logging.Formatter().formatException(record.exc_info)
+        if record.exc_text:
+            record.exc_text = scrub(record.exc_text)
+        if record.stack_info:
+            record.stack_info = scrub(record.stack_info)
+        return True
+
+
 def configure_logging() -> None:
     """Initialize root logger with a consistent formatter."""
     settings = get_settings()
@@ -16,6 +33,7 @@ def configure_logging() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     handler.setFormatter(formatter)
+    handler.addFilter(ScrubbingFilter())
 
     root = logging.getLogger()
     root.handlers.clear()

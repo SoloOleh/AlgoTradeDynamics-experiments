@@ -10,6 +10,7 @@ from urllib.parse import quote
 import httpx2 as httpx
 from sqlalchemy.orm import Session
 
+from app.bot_engine.exchange.redaction import scrub
 from app.core.clock import utcnow
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -279,7 +280,7 @@ def send_message_sync(chat_id: int, text: str) -> None:
     try:
         response = httpx.post(
             _telegram_url("sendMessage"),
-            json={"chat_id": chat_id, "text": text},
+            json={"chat_id": chat_id, "text": scrub(text)},
             timeout=10.0,
         )
     except httpx.HTTPError:
@@ -291,7 +292,7 @@ async def _send_message(client: httpx.AsyncClient, chat_id: int, text: str) -> N
     try:
         response = await client.post(
             _telegram_url("sendMessage"),
-            json={"chat_id": chat_id, "text": text},
+            json={"chat_id": chat_id, "text": scrub(text)},
         )
     except httpx.HTTPError:
         raise TelegramApiError("Telegram API request failed") from None

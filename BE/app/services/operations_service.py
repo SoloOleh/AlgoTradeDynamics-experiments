@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
+from app.bot_engine.exchange.redaction import scrub
 from app.core.clock import utcnow
 from app.core.config import get_settings
 from app.models.operations import Incident, OperationLog
@@ -44,7 +45,7 @@ def record_operation_log(
         duration_ms=duration_ms,
         exchange=exchange,
         error_type=error_type,
-        message=message[:1000],
+        message=scrub(message)[:1000],
         retention_until=now + timedelta(days=max(settings.operations_log_retention_days, 1)),
     )
     db.add(item)
@@ -85,7 +86,7 @@ def create_bot_incident(
     if existing is not None:
         existing.updated_at = now
         existing.severity = severity
-        existing.description = description[:5000]
+        existing.description = scrub(description)[:5000]
         existing.action_taken = action_taken[:255]
         existing.source_event_id = source_event_id or existing.source_event_id
         db.add(existing)
@@ -104,7 +105,7 @@ def create_bot_incident(
         incident_type=incident_type.upper()[:80],
         status="OPEN",
         title=f"{bot.name}: {incident_type.replace('_', ' ').title()}"[:255],
-        description=description[:5000],
+        description=scrub(description)[:5000],
         action_taken=action_taken[:255],
     )
     db.add(item)

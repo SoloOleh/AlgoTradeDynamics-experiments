@@ -1,6 +1,7 @@
 """Helpers for trading bot runtime event logging."""
 from __future__ import annotations
 
+from app.bot_engine.exchange.redaction import scrub, scrub_value
 from app.core.clock import utcnow
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_event import TradingBotEvent
@@ -12,8 +13,9 @@ def log_bot_event(db, bot: TradingBot, event_type: str, message: str, payload: d
         bot_id=bot.id,
         user_id=bot.user_id,
         event_type=event_type,
-        message=message,
-        payload=payload,
+        # Every event passes the scrubber: no key or secret is ever stored (ADR-0008).
+        message=scrub(message),
+        payload=scrub_value(payload),
     )
     db.add(event)
     db.flush()

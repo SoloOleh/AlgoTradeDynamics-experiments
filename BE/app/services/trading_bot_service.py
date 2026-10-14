@@ -8,6 +8,7 @@ from app.bot_engine.bot import run_bot_once, stop_bot_once, sync_bot_orders_once
 from app.bot_engine.grid_runtime import sync_bot_orders
 from app.bot_engine.error_handling import clear_bot_runtime_error
 from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.redaction import scrub
 from app.bot_engine.performance import get_performance_summary
 from app.bot_engine.strategies import get_strategy
 from app.models.trading_bot import TradingBot
@@ -171,7 +172,7 @@ def clear_trading_bot_history(db: Session, bot: TradingBot, current_user: User) 
         exchange_orders_cancelled = len(cancelled)
         db.flush()
     except Exception as exc:  # noqa: BLE001 - a guard refusal or exchange failure skips only the cancel
-        exchange_cancel_error = str(exc)
+        exchange_cancel_error = scrub(str(exc))
     orders_deleted = db.query(TradingBotOrder).filter(
         TradingBotOrder.bot_id == bot.id, TradingBotOrder.user_id == current_user.id
     ).delete(synchronize_session=False)

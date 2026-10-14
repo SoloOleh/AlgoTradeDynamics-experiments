@@ -6,7 +6,7 @@ resynchronise, pause for user action, or stop.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import Enum
 from typing import Any
@@ -162,6 +162,7 @@ def _retry_delay(bot: TradingBot, decision: BotErrorDecision, retry_count: int) 
 def handle_bot_runtime_error(db, bot: TradingBot, exc: BaseException, *, source: str = "worker") -> BotErrorDecision:
     """Persist the error and apply its recovery action to a live/demo bot."""
     decision = classify_bot_error(exc)
+    decision = replace(decision, message=scrub(decision.message))
     now = utcnow()
     retry_count = int(bot.error_retry_count or 0) + 1 if decision.retryable else 0
     max_retries = max(0, int(_error_setting(bot, "error_max_retries", 5)))
