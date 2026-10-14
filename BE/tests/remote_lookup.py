@@ -86,11 +86,7 @@ class RemoteStateExchange(RemoteStateLookup):
         return []
 
     def positions(self, market_type, symbol):
-        return [
-            Position(symbol=symbol, side=str(item.get("side") or ""), size=float(item.get("size") or 0),
-                     avg_entry_price=float(item["avgPrice"]) if item.get("avgPrice") else None)
-            for item in self.remote_positions if float(item.get("size") or 0) != 0
-        ]
+        return positions_from(self.remote_positions, symbol=symbol)
 
     def balance(self):
         return Balance()
@@ -100,3 +96,33 @@ class RemoteStateExchange(RemoteStateLookup):
 
     def check_connection(self):
         raise NotImplementedError
+
+
+def orders_from(payloads) -> list:
+    """Neutral orders from a test's remote order payloads."""
+    return [order_from_payload(dict(payload)) for payload in payloads]
+
+
+def positions_from(items, *, symbol: str = "BTCUSDT") -> list[Position]:
+    """Neutral open positions (size > 0) from a test's remote position payloads."""
+    return [
+        Position(
+            symbol=symbol, side=str(item.get("side") or ""), size=float(item.get("size") or 0),
+            avg_entry_price=float(item["avgPrice"]) if item.get("avgPrice") else None,
+            liq_price=float(item["liqPrice"]) if item.get("liqPrice") else None,
+            leverage=float(item["leverage"]) if item.get("leverage") else None,
+            margin_mode=item.get("tradeMode") or item.get("marginMode"),
+        )
+        for item in items if float(item.get("size") or 0) != 0
+    ]
+
+
+def placed_from(response: dict, client_tag: str) -> PlacedOrder:
+    """The neutral placement answer for a test's fake exchange response."""
+    result = response.get("result", {})
+    return PlacedOrder(order_id=result.get("orderId"), client_tag=client_tag,
+                       status=result.get("orderStatus"), raw=response)
+
+
+def ticker_at(price) -> Ticker:
+    return Ticker(symbol="BTCUSDT", last_price=float(price), mark_price=float(price))

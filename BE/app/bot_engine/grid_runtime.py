@@ -7,10 +7,10 @@ import re
 from sqlalchemy import desc
 
 from app.core.clock import utcnow as runtime_utcnow
-from app.bot_engine.bybit.client import get_bybit_session
 from app.bot_engine.events import log_bot_event
 from app.bot_engine.exchange import registry
-from app.bot_engine.exchange.port import PlacedOrder
+from app.bot_engine.exchange.errors import ErrorClass
+from app.bot_engine.exchange.port import Order, PlacedOrder
 from app.bot_engine.market_data import get_instrument_rules, get_last_price, get_ticker_snapshot
 from app.bot_engine.orders import (
     ACTIVE_ORDER_STATUSES,
@@ -199,12 +199,7 @@ def _infer_order_fields_from_link_id(order_link_id: str) -> tuple[str, int | Non
     return "recovered", None
 
 
-def _record_order(db, bot: TradingBot, order: OrderRequest, response: dict | PlacedOrder, *, status_override: str | None = None) -> TradingBotOrder:
-    if isinstance(response, PlacedOrder):
-        placed_id, placed_status, response = response.order_id, response.status, response.raw
-    else:
-        result = response.get("result", {})
-        placed_id, placed_status = result.get("orderId"), result.get("orderStatus")
+def _record_order(db, bot: TradingBot, order: OrderRequest, placed: PlacedOrder, *, status_override: str | None = None) -> TradingBotOrder:
     existing = None
     if order.order_link_id:
         existing = (
@@ -229,9 +224,9 @@ def _record_order(db, bot: TradingBot, order: OrderRequest, response: dict | Pla
         parent_order_id=order.parent_order_id,
     )
     record.price = order.price
-    record.exchange_order_id = placed_id or record.exchange_order_id
-    record.status = status_override or placed_status or record.status or "New"
-    payload = dict(response or {})
+    record.exchange_order_id = placed.order_id or record.exchange_order_id
+    record.status = status_override or placed.status or record.status or "New"
+    payload = dict(placed.raw or {})
     payload.update({
         "orderLinkId": order.order_link_id,
         "side": order.side,
@@ -246,8 +241,8 @@ def _record_order(db, bot: TradingBot, order: OrderRequest, response: dict | Pla
     return record
 
 
-def _update_local_order_from_exchange(record: TradingBotOrder, payload: dict) -> None:
-    apply_exchange_order(record, payload)
+def _update_local_order_from_exchange(record: TradingBotOrder, remote: Order) -> None:
+    apply_exchange_order(record, remote)
 
 
 def _mark_order_filled_logged(record: TradingBotOrder) -> None:
@@ -280,33 +275,19 @@ def _build_grid_entry_order(db, bot: TradingBot, level_index: int, current_price
     )
 
 
-def _get_current_long_position(session, *, category: str, symbol: str) -> dict | None:
-    for position in get_open_positions(session, category=category, symbol=symbol):
-        try:
-            size = float(position.get("size") or position.get("qty") or 0)
-        except (TypeError, ValueError):
+def _get_current_long_position(adapter, *, category: str, symbol: str) -> dict | None:
+    for position in get_open_positions(adapter, category=category, symbol=symbol):
+        if position.size <= 0:
             continue
-        if size <= 0:
-            continue
-
-        side = str(position.get("side") or position.get(
-            "positionSide") or "").lower()
+        side = position.side.lower()
         if side and side not in {"buy", "long"}:
             continue
-
-        avg_entry_value = position.get(
-            "avgPrice") or position.get("avgEntryPrice") or 0
-        try:
-            avg_entry_price = float(avg_entry_value)
-        except (TypeError, ValueError):
+        if not position.avg_entry_price or position.avg_entry_price <= 0:
             continue
-        if avg_entry_price <= 0:
-            continue
-
         return {
-            "size": size,
-            "avg_entry_price": avg_entry_price,
-            "raw": position,
+            "size": position.size,
+            "avg_entry_price": position.avg_entry_price,
+            "position": position,
         }
     return None
 
@@ -402,7 +383,7 @@ def _get_bot_owned_long_position(
     return {
         "size": position_qty,
         "avg_entry_price": avg_entry_price,
-        "raw": (exchange_position or {}).get("raw", {}),
+        "position": (exchange_position or {}).get("position"),
     }
 
 
@@ -524,12 +505,16 @@ def _pending_completed_position_take_profit_orders(db, bot: TradingBot) -> list[
     ]
 
 
-def _current_generation_open_orders(session, bot: TradingBot) -> list[dict]:
+def _current_generation_open_orders(adapter, bot: TradingBot) -> list[Order]:
     return [
         order
-        for order in get_open_orders(session, category=bot.category, symbol=bot.symbol)
-        if _is_current_generation_link_id(bot, order.get("orderLinkId"))
+        for order in get_open_orders(adapter, category=bot.category, symbol=bot.symbol)
+        if _is_current_generation_link_id(bot, order.client_tag)
     ]
+
+
+def _pending_buy_qty(open_orders: list[Order]) -> float:
+    return sum(_safe_float(order.qty) for order in open_orders if order.side == "Buy")
 
 
 def _risk_block_payload(bot: TradingBot, *, current_position_qty: float, pending_buy_qty: float, current_open_orders: int, current_price: float | None) -> dict:
@@ -570,23 +555,24 @@ def ensure_live_trading_allowed(db, bot: TradingBot) -> str | None:
     return None
 
 
-def _find_active_position_take_profit_order(db, bot: TradingBot, session=None) -> TradingBotOrder | None:
-    if session is not None:
-        _sync_exchange_open_position_take_profit_orders(db, bot, session)
+def _find_active_position_take_profit_order(db, bot: TradingBot, adapter=None) -> TradingBotOrder | None:
+    if adapter is not None:
+        _sync_exchange_open_position_take_profit_orders(db, bot, adapter)
     active_tps = _active_position_take_profit_orders(db, bot)
     return active_tps[0] if active_tps else None
 
 
-def get_position_snapshot(db, bot: TradingBot) -> dict:
-    session = get_bybit_session(bot)
+def get_position_snapshot(db, bot: TradingBot, *, adapter=None) -> dict:
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
     ticker = get_ticker_snapshot(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     exchange_position = _get_current_long_position(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     position = _get_bot_owned_long_position(
         db, bot, exchange_position=exchange_position)
-    active_tp = _find_active_position_take_profit_order(db, bot, session)
-    mark_price_value = ticker.get("markPrice") or ticker.get("lastPrice")
+    active_tp = _find_active_position_take_profit_order(db, bot, adapter)
+    mark_price_value = ticker.mark_price if ticker.mark_price is not None else ticker.last_price
     mark_price = _safe_float(
         mark_price_value, 0.0) if mark_price_value is not None else None
 
@@ -607,7 +593,7 @@ def get_position_snapshot(db, bot: TradingBot) -> dict:
             "take_profit": None,
         }
 
-    raw = position.get("raw") or {}
+    exchange = position.get("position")
     size = position["size"]
     avg_entry_price = position.get("avg_entry_price")
     position_value = size * mark_price if mark_price is not None else None
@@ -637,33 +623,30 @@ def get_position_snapshot(db, bot: TradingBot) -> dict:
         "size": _format_optional_number(size),
         "avg_entry_price": _format_optional_number(avg_entry_price),
         "mark_price": _format_optional_number(mark_price_value),
-        "liq_price": _format_optional_number(raw.get("liqPrice")),
+        "liq_price": _format_optional_number(exchange.liq_price if exchange else None),
         "unrealized_pnl": _format_optional_number(unrealized_pnl),
         "unrealized_pnl_percent": _format_optional_number(unrealized_pnl_percent),
-        "leverage": _format_optional_number(raw.get("leverage")),
-        "margin_mode": raw.get("tradeMode") or raw.get("marginMode"),
+        "leverage": _format_optional_number(exchange.leverage if exchange else None),
+        "margin_mode": exchange.margin_mode if exchange else None,
         "position_value": _format_optional_number(position_value),
         "take_profit": take_profit,
     }
 
 
-def get_risk_summary(db, bot: TradingBot) -> dict:
-    session = get_bybit_session(bot)
+def get_risk_summary(db, bot: TradingBot, *, adapter=None) -> dict:
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
     settings = get_effective_bot_settings(bot)
     exchange_position = _get_current_long_position(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     position = _get_bot_owned_long_position(
         db, bot, exchange_position=exchange_position)
     current_position_qty = position["size"] if position is not None else 0.0
-    open_orders = _current_generation_open_orders(session, bot)
-    pending_buy_qty = sum(
-        _safe_float(order.get("qty"))
-        for order in open_orders
-        if order.get("side") == "Buy"
-    )
+    open_orders = _current_generation_open_orders(adapter, bot)
+    pending_buy_qty = _pending_buy_qty(open_orders)
     current_open_orders = len(open_orders)
     current_price = get_last_price(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     potential_total_qty = current_position_qty + pending_buy_qty
     estimated_notional = potential_total_qty * current_price
 
@@ -733,7 +716,7 @@ def get_runtime_state(db, bot: TradingBot) -> tuple[str, str | None]:
     return "running", last_risk_message
 
 
-def _evaluate_new_buy_order_risk(db, bot: TradingBot, *, session, current_price: float, current_position_size: float, pending_buy_qty: float, current_open_orders: int, new_order_qty: float) -> tuple[str | None, dict]:
+def _evaluate_new_buy_order_risk(db, bot: TradingBot, *, current_price: float, current_position_size: float, pending_buy_qty: float, current_open_orders: int, new_order_qty: float) -> tuple[str | None, dict]:
     settings = get_effective_bot_settings(bot)
     potential_total_qty = current_position_size + pending_buy_qty + new_order_qty
     estimated_notional = potential_total_qty * current_price
@@ -763,9 +746,9 @@ def _evaluate_new_buy_order_risk(db, bot: TradingBot, *, session, current_price:
     return None, payload
 
 
-def _cancel_local_order(db, bot: TradingBot, session, order: TradingBotOrder, *, event_type: str, message: str) -> TradingBotOrder:
+def _cancel_local_order(db, bot: TradingBot, adapter, order: TradingBotOrder, *, event_type: str, message: str) -> TradingBotOrder:
     response = cancel_order_by_link_id(
-        session,
+        adapter,
         category=bot.category,
         symbol=bot.symbol,
         order_link_id=order.order_link_id,
@@ -786,6 +769,7 @@ def _rollover_completed_take_profit_cycle(
     *,
     entry_role_prefix: str = "grid_entry_",
     event_prefix: str = "grid",
+    adapter=None,
 ) -> tuple[list[TradingBotOrder], bool, bool]:
     """Cancel the previous grid after a filled position TP before starting a new cycle.
 
@@ -799,7 +783,8 @@ def _rollover_completed_take_profit_cycle(
     if not completed_tps:
         return [], False, True
 
-    session = get_bybit_session(bot)
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
     stale_entries = _active_grid_entry_orders(db, bot, entry_role_prefix)
     changed_orders: list[TradingBotOrder] = []
 
@@ -808,7 +793,7 @@ def _rollover_completed_take_profit_cycle(
             _cancel_local_order(
                 db,
                 bot,
-                session,
+                adapter,
                 entry,
                 event_type=f"{event_prefix}_entry_cancelled_after_take_profit",
                 message="Cancelled stale entry order after position take-profit",
@@ -819,10 +804,10 @@ def _rollover_completed_take_profit_cycle(
         entry.order_link_id for entry in stale_entries if entry.order_link_id
     }
     remaining_open_orders = {
-        remote.get("orderLinkId"): remote
-        for remote in _current_generation_open_orders(session, bot)
-        if remote.get("orderLinkId") in cancelled_link_ids
-        and (remote.get("orderStatus") or "") in ACTIVE_ORDER_STATUSES
+        remote.client_tag: remote
+        for remote in _current_generation_open_orders(adapter, bot)
+        if remote.client_tag in cancelled_link_ids
+        and (remote.status or "") in ACTIVE_ORDER_STATUSES
     }
 
     if remaining_open_orders:
@@ -876,19 +861,12 @@ def _order_matches_target(order: TradingBotOrder, target: OrderRequest) -> bool:
     return price_matches and qty_matches and reduce_only
 
 
-def _response_ret_code(response: dict) -> str | None:
-    ret_code = response.get("retCode")
-    if ret_code is None:
-        return None
-    return str(ret_code)
+def _is_duplicate_client_tag(placed: PlacedOrder) -> bool:
+    return placed.rejection is not None and placed.rejection.error_class is ErrorClass.DUPLICATE_CLIENT_TAG
 
 
-def _is_duplicate_order_link_error(response: dict) -> bool:
-    return _response_ret_code(response) == "110072"
-
-
-def _upsert_remote_order(db, bot: TradingBot, remote: dict) -> TradingBotOrder | None:
-    order_link_id = remote.get("orderLinkId")
+def _upsert_remote_order(db, bot: TradingBot, remote: Order) -> TradingBotOrder | None:
+    order_link_id = remote.client_tag
     if not order_link_id:
         return None
     record = (
@@ -906,14 +884,14 @@ def _upsert_remote_order(db, bot: TradingBot, remote: dict) -> TradingBotOrder |
             environment=bot.environment,
             category=bot.category,
             symbol=bot.symbol,
-            side=remote.get("side") or "Buy",
-            order_type=remote.get("orderType") or "Limit",
+            side=remote.side or "Buy",
+            order_type=remote.order_type or "Limit",
             order_role=inferred_role,
             order_link_id=order_link_id,
-            qty=float(remote.get("qty") or 0),
+            qty=float(remote.qty or 0),
             parent_order_id=parent_order_id,
-            status=remote.get("orderStatus") or "New",
-            raw_response=remote,
+            status=remote.status or "New",
+            raw_response=dict(remote.raw),
         )
         db.add(record)
         db.flush()
@@ -922,17 +900,16 @@ def _upsert_remote_order(db, bot: TradingBot, remote: dict) -> TradingBotOrder |
     return record
 
 
-def _sync_exchange_open_position_take_profit_orders(db, bot: TradingBot, session) -> list[TradingBotOrder]:
+def _sync_exchange_open_position_take_profit_orders(db, bot: TradingBot, adapter) -> list[TradingBotOrder]:
     synced: list[TradingBotOrder] = []
-    for remote in get_open_orders(session, category=bot.category, symbol=bot.symbol):
-        order_link_id = remote.get("orderLinkId")
-        if not _is_position_tp_link_id_for_bot(bot, order_link_id):
+    for remote in get_open_orders(adapter, category=bot.category, symbol=bot.symbol):
+        if not _is_position_tp_link_id_for_bot(bot, remote.client_tag):
             continue
-        if remote.get("side") != "Sell":
+        if remote.side != "Sell":
             continue
-        if not bool(remote.get("reduceOnly")):
+        if not remote.reduce_only:
             continue
-        if (remote.get("orderStatus") or "") not in ACTIVE_ORDER_STATUSES:
+        if (remote.status or "") not in ACTIVE_ORDER_STATUSES:
             continue
         record = _upsert_remote_order(db, bot, remote)
         if record is not None:
@@ -941,16 +918,17 @@ def _sync_exchange_open_position_take_profit_orders(db, bot: TradingBot, session
     return synced
 
 
-def sync_position_take_profit(db, bot: TradingBot) -> tuple[list[TradingBotOrder], float]:
-    session = get_bybit_session(bot)
+def sync_position_take_profit(db, bot: TradingBot, *, adapter=None) -> tuple[list[TradingBotOrder], float]:
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
     rules = get_instrument_rules(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     exchange_position = _get_current_long_position(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     position = _get_bot_owned_long_position(
         db, bot, exchange_position=exchange_position)
 
-    _sync_exchange_open_position_take_profit_orders(db, bot, session)
+    _sync_exchange_open_position_take_profit_orders(db, bot, adapter)
 
     active_position_tps = _active_position_take_profit_orders(db, bot)
     legacy_tp_orders = _active_legacy_take_profit_orders(db, bot)
@@ -961,7 +939,7 @@ def sync_position_take_profit(db, bot: TradingBot) -> tuple[list[TradingBotOrder
             _cancel_local_order(
                 db,
                 bot,
-                session,
+                adapter,
                 legacy_order,
                 event_type="position_take_profit_cancelled",
                 message="Cancelled legacy take-profit order",
@@ -978,7 +956,7 @@ def sync_position_take_profit(db, bot: TradingBot) -> tuple[list[TradingBotOrder
                 _cancel_local_order(
                     db,
                     bot,
-                    session,
+                    adapter,
                     active_tp,
                     event_type="position_take_profit_cancelled",
                     message="Cancelled position take-profit order",
@@ -993,7 +971,7 @@ def sync_position_take_profit(db, bot: TradingBot) -> tuple[list[TradingBotOrder
                 _cancel_local_order(
                     db,
                     bot,
-                    session,
+                    adapter,
                     active_tp,
                     event_type="position_take_profit_cancelled",
                     message="Cancelled position take-profit order because exchange position is closed",
@@ -1066,7 +1044,7 @@ def sync_position_take_profit(db, bot: TradingBot) -> tuple[list[TradingBotOrder
             _cancel_local_order(
                 db,
                 bot,
-                session,
+                adapter,
                 active_tp,
                 event_type="position_take_profit_cancelled",
                 message="Cancelled outdated position take-profit order",
@@ -1076,12 +1054,12 @@ def sync_position_take_profit(db, bot: TradingBot) -> tuple[list[TradingBotOrder
     if matching_tp is not None:
         return changed_orders, owned_size
 
-    response = place_order(session, category=bot.category,
+    response = place_order(adapter, category=bot.category,
                            symbol=bot.symbol, order=target_order)
-    if _is_duplicate_order_link_error(response):
+    if _is_duplicate_client_tag(response):
         log_bot_event(db, bot, "error", "Duplicate position TP orderLinkId rejected by Bybit", {
             "order_link_id": target_order.order_link_id,
-            "ret_code": _response_ret_code(response),
+            "ret_code": response.rejection.raw_code,
         })
         return changed_orders, owned_size
     created = _record_order(db, bot, target_order, response)
@@ -1128,18 +1106,14 @@ def _mark_order_missing_from_exchange(
     return _status_change_payload(order, old_status, order.status)
 
 
-def _exchange_adapter(bot: TradingBot):
-    return registry.exchange_for(bot)
-
-
 def sync_bot_orders(db, bot: TradingBot, *, include_legacy: bool = False, adapter=None) -> list[dict]:
     if adapter is None:
-        adapter = _exchange_adapter(bot)
+        adapter = registry.exchange_for(bot)
     prefixes = [get_order_link_prefix(bot)]
     if include_legacy:
         prefixes.append(get_legacy_order_link_prefix(bot))
 
-    remote_by_link: dict[str, dict] = {}
+    remote_by_link: dict[str, Order] = {}
     for prefix in prefixes:
         for remote in get_orders_by_prefix(
             adapter,
@@ -1147,7 +1121,7 @@ def sync_bot_orders(db, bot: TradingBot, *, include_legacy: bool = False, adapte
             symbol=bot.symbol,
             order_link_prefix=prefix,
         ):
-            order_link_id = remote.get("orderLinkId")
+            order_link_id = remote.client_tag
             if not order_link_id:
                 continue
             if not include_legacy and not _is_current_generation_link_id(bot, order_link_id):
@@ -1208,13 +1182,16 @@ def sync_bot_orders(db, bot: TradingBot, *, include_legacy: bool = False, adapte
     return changes
 
 
-def create_missing_grid_entries(db, bot: TradingBot, current_position_size: float = 0.0) -> list[TradingBotOrder]:
+def create_missing_grid_entries(
+    db, bot: TradingBot, current_position_size: float = 0.0, *, adapter=None,
+) -> list[TradingBotOrder]:
     created_orders: list[TradingBotOrder] = []
-    session = get_bybit_session(bot)
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
     current_price = get_last_price(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     rules = get_instrument_rules(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     settings = get_effective_bot_settings(bot)
     active_local_orders = (
         db.query(TradingBotOrder)
@@ -1224,12 +1201,8 @@ def create_missing_grid_entries(db, bot: TradingBot, current_position_size: floa
         )
         .all()
     )
-    open_exchange_orders = _current_generation_open_orders(session, bot)
-    pending_buy_qty = sum(
-        _safe_float(order.get("qty"))
-        for order in open_exchange_orders
-        if order.get("side") == "Buy"
-    )
+    open_exchange_orders = _current_generation_open_orders(adapter, bot)
+    pending_buy_qty = _pending_buy_qty(open_exchange_orders)
     current_open_orders = len(open_exchange_orders)
     max_grid_levels = min(bot.grid_orders_count, settings["max_grid_levels"])
 
@@ -1253,7 +1226,6 @@ def create_missing_grid_entries(db, bot: TradingBot, current_position_size: floa
         risk_message, risk_payload = _evaluate_new_buy_order_risk(
             db,
             bot,
-            session=session,
             current_price=current_price,
             current_position_size=current_position_size,
             pending_buy_qty=pending_buy_qty,
@@ -1272,7 +1244,7 @@ def create_missing_grid_entries(db, bot: TradingBot, current_position_size: floa
             continue
 
         response = place_order(
-            session, category=bot.category, symbol=bot.symbol, order=order)
+            adapter, category=bot.category, symbol=bot.symbol, order=order)
         created = _record_order(db, bot, order, response)
         created_orders.append(created)
         pending_buy_qty += created.qty
@@ -1287,8 +1259,9 @@ def create_missing_grid_entries(db, bot: TradingBot, current_position_size: floa
     return created_orders
 
 
-def cancel_all_bot_orders(db, bot: TradingBot) -> list[TradingBotOrder]:
-    session = get_bybit_session(bot)
+def cancel_all_bot_orders(db, bot: TradingBot, *, adapter=None) -> list[TradingBotOrder]:
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
     cancelled: list[TradingBotOrder] = []
     active_orders = (
         db.query(TradingBotOrder)
@@ -1301,7 +1274,7 @@ def cancel_all_bot_orders(db, bot: TradingBot) -> list[TradingBotOrder]:
     )
     for order in active_orders:
         response = cancel_order_by_link_id(
-            session,
+            adapter,
             category=bot.category,
             symbol=bot.symbol,
             order_link_id=order.order_link_id,
@@ -1315,12 +1288,13 @@ def cancel_all_bot_orders(db, bot: TradingBot) -> list[TradingBotOrder]:
     return cancelled
 
 
-def close_bot_position(db, bot: TradingBot) -> dict:
-    session = get_bybit_session(bot)
+def close_bot_position(db, bot: TradingBot, *, adapter=None) -> dict:
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
     rules = get_instrument_rules(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     exchange_position = _get_current_long_position(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     position = _get_bot_owned_long_position(
         db, bot, exchange_position=exchange_position)
     if position is None:
@@ -1336,7 +1310,7 @@ def close_bot_position(db, bot: TradingBot) -> dict:
         _cancel_local_order(
             db,
             bot,
-            session,
+            adapter,
             active_tp,
             event_type="position_take_profit_cancelled",
             message="Cancelled position take-profit order before closing position",
@@ -1359,7 +1333,7 @@ def close_bot_position(db, bot: TradingBot) -> dict:
         "position_size": position["size"],
         "exchange_position_size": exchange_position["size"],
     })
-    response = place_order(session, category=bot.category,
+    response = place_order(adapter, category=bot.category,
                            symbol=bot.symbol, order=close_order)
     created = _record_order(db, bot, close_order, response)
     if created.exchange_order_id is not None:
@@ -1371,7 +1345,7 @@ def close_bot_position(db, bot: TradingBot) -> dict:
     db.flush()
     return {"message": "Position close order submitted", "order": created}
 
-def tick_grid_bot(db, bot: TradingBot) -> dict:
+def tick_grid_bot(db, bot: TradingBot, *, adapter=None) -> dict:
     if bot.runtime_status != "running":
         return {"orders": [], "events": 0, "message": "Bot is not running"}
     if not bot.is_active:
@@ -1393,7 +1367,9 @@ def tick_grid_bot(db, bot: TradingBot) -> dict:
         return {"orders": [], "events": 1, "message": live_message}
 
     try:
-        synced = sync_bot_orders(db, bot)
+        if adapter is None:
+            adapter = registry.exchange_for(bot)
+        synced = sync_bot_orders(db, bot, adapter=adapter)
 
         for change in synced:
             order = change["order"]
@@ -1427,7 +1403,7 @@ def tick_grid_bot(db, bot: TradingBot) -> dict:
                 })
 
         rollover_changes, rollover_triggered, cancellation_confirmed = (
-            _rollover_completed_take_profit_cycle(db, bot)
+            _rollover_completed_take_profit_cycle(db, bot, adapter=adapter)
         )
         if rollover_triggered and not cancellation_confirmed:
             bot.last_run_at = _utcnow()
@@ -1440,9 +1416,9 @@ def tick_grid_bot(db, bot: TradingBot) -> dict:
                 "message": "Waiting for previous grid cancellation confirmation",
             }
 
-        tp_changes, current_position_size = sync_position_take_profit(db, bot)
+        tp_changes, current_position_size = sync_position_take_profit(db, bot, adapter=adapter)
         created_entries = create_missing_grid_entries(
-            db, bot, current_position_size)
+            db, bot, current_position_size, adapter=adapter)
 
         bot.last_run_at = _utcnow()
         bot.last_error = None

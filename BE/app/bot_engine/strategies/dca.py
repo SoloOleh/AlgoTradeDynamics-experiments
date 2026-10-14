@@ -45,13 +45,13 @@ class DcaStrategy:
         return [change["order"] for change in sync_bot_orders(db, bot, adapter=adapter)]
 
     def cancel_orders(self, db, bot: TradingBot, *, adapter=None) -> list:
-        return cancel_all_bot_orders(db, bot)
+        return cancel_all_bot_orders(db, bot, adapter=adapter)
 
     def get_position(self, db, bot: TradingBot, *, adapter=None) -> dict:
-        return get_position_snapshot(db, bot)
+        return get_position_snapshot(db, bot, adapter=adapter)
 
     def get_risk(self, db, bot: TradingBot, *, adapter=None) -> dict:
         return get_dca_risk_summary(db, bot, adapter=adapter)
 
     def close_position(self, db, bot: TradingBot, *, adapter=None) -> dict:
-        return close_bot_position(db, bot)
+        return close_bot_position(db, bot, adapter=adapter)

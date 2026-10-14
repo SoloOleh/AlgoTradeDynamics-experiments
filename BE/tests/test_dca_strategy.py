@@ -93,28 +93,6 @@ def _mock_dca_runtime(monkeypatch, *, remote_state=None, remote_positions=None, 
     if order_log is None:
         order_log = []
 
-    def fake_place_order(session, *, category, symbol, order):
-        order_log.append({
-            "order_role": order.order_role,
-            "side": order.side,
-            "order_type": order.order_type,
-            "qty": order.qty,
-            "price": order.price,
-        })
-        status = "Filled" if order.order_type == "Market" else "New"
-        remote_state[order.order_link_id] = {
-            "orderLinkId": order.order_link_id,
-            "orderId": f"oid-{order.order_link_id}",
-            "orderStatus": status,
-            "side": order.side,
-            "orderType": order.order_type,
-            "qty": str(order.qty),
-            "cumExecQty": str(order.qty) if status == "Filled" else "0",
-            "price": str(order.price) if order.price is not None else None,
-            "reduceOnly": order.reduce_only,
-        }
-        return {"result": {"orderId": f"oid-{order.order_link_id}", "orderStatus": status}}
-
     def fake_cancel(remote_link_id):
         entry = remote_state.get(remote_link_id)
         if entry is not None:
@@ -128,13 +106,14 @@ def _mock_dca_runtime(monkeypatch, *, remote_state=None, remote_positions=None, 
         "min_notional_value": 0,
     })()
 
-    def open_orders(_state):
-        return [
-            dict(order) for order in _state.values()
-            if order.get("orderStatus") in ACTIVE_ORDER_STATUSES
-        ]
-
     def fake_place_neutral(order):
+        order_log.append({
+            "client_tag": order.client_tag,
+            "side": order.side,
+            "order_type": order.order_type,
+            "qty": order.qty,
+            "price": order.price,
+        })
         status = "Filled" if order.order_type == "Market" else "New"
         remote_state[order.client_tag] = {
             "orderLinkId": order.client_tag,
@@ -154,21 +133,6 @@ def _mock_dca_runtime(monkeypatch, *, remote_state=None, remote_positions=None, 
         place=fake_place_neutral, cancel=fake_cancel,
     )
     monkeypatch.setattr("app.bot_engine.exchange.registry.exchange_for", lambda _bot, needs=None: adapter)
-    monkeypatch.setattr("app.bot_engine.grid_runtime.get_bybit_session", lambda _bot: object())
-    monkeypatch.setattr("app.bot_engine.grid_runtime.get_last_price", lambda *a, **k: current_price)
-    monkeypatch.setattr("app.bot_engine.grid_runtime.get_instrument_rules", lambda *a, **k: rules)
-    monkeypatch.setattr("app.bot_engine.grid_runtime.get_ticker_snapshot",
-                        lambda *a, **k: {"lastPrice": str(current_price), "markPrice": str(current_price)})
-    monkeypatch.setattr("app.bot_engine.grid_runtime.get_open_positions", lambda *a, **k: list(remote_positions))
-    monkeypatch.setattr("app.bot_engine.grid_runtime.get_open_orders", lambda *a, **k: open_orders(remote_state))
-    monkeypatch.setattr("app.bot_engine.grid_runtime.get_orders_by_prefix",
-                        lambda *a, **k: [order for order in remote_state.values()
-                                         if (order.get("orderLinkId") or "").startswith(k["order_link_prefix"])])
-    monkeypatch.setattr("app.bot_engine.grid_runtime._exchange_adapter", lambda _bot: adapter)
-    monkeypatch.setattr("app.bot_engine.grid_runtime.place_order",
-                        lambda session, *, category, symbol, order: fake_place_order(session, category=category, symbol=symbol, order=order))
-    monkeypatch.setattr("app.bot_engine.grid_runtime.cancel_order_by_link_id",
-                        lambda *a, **k: fake_cancel(k["order_link_id"]))
     return remote_state, remote_positions, order_log
 
 

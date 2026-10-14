@@ -46,11 +46,11 @@ def get_open_orders(session, *, category: str, symbol: str) -> list[dict] | list
     return response.get("result", {}).get("list", [])
 
 
-def get_orders_by_prefix(session, *, category: str, symbol: str, order_link_prefix: str) -> list[dict]:
-    """Today's reconciliation page (open orders + the last 50 history items) as payload dicts."""
+def get_orders_by_prefix(session, *, category: str, symbol: str, order_link_prefix: str) -> list[dict] | list[Order]:
+    """Today's reconciliation page: open orders + the last 50 history items with the tag prefix."""
     if is_exchange_adapter(session):
         orders = session.open_orders(category, symbol) + session.order_history(category, symbol, limit=50)
-        return [order.raw for order in orders if (order.client_tag or "").startswith(order_link_prefix)]
+        return [order for order in orders if (order.client_tag or "").startswith(order_link_prefix)]
     open_orders = get_open_orders(session, category=category, symbol=symbol)
     matched_open = [
         item for item in open_orders if (item.get("orderLinkId") or "").startswith(order_link_prefix)
@@ -247,26 +247,23 @@ class OrderResolution:
     order: Order | None = None
 
 
-def apply_exchange_order(record, payload: dict) -> None:
-    """Copy an exchange order payload onto the stored order row (today's reconciliation update)."""
-    record.exchange_order_id = payload.get("orderId") or record.exchange_order_id
-    record.order_link_id = payload.get("orderLinkId") or record.order_link_id
-    record.side = payload.get("side") or record.side
-    record.order_type = payload.get("orderType") or record.order_type
-    record.status = payload.get("orderStatus") or record.status
-    if payload.get("qty") is not None:
-        record.qty = float(payload["qty"])
-    if payload.get("cumExecQty") is not None:
-        record.filled_qty = float(payload["cumExecQty"])
-    elif payload.get("leavesQty") is not None:
-        try:
-            record.filled_qty = max(record.qty - float(payload["leavesQty"]), 0)
-        except (TypeError, ValueError):
-            pass
-    if payload.get("price"):
-        record.price = float(payload["price"])
+def apply_exchange_order(record, order: Order) -> None:
+    """Copy an exchange order onto the stored order row (today's reconciliation update)."""
+    record.exchange_order_id = order.order_id or record.exchange_order_id
+    record.order_link_id = order.client_tag or record.order_link_id
+    record.side = order.side or record.side
+    record.order_type = order.order_type or record.order_type
+    record.status = order.status or record.status
+    if order.qty is not None:
+        record.qty = order.qty
+    if order.filled_qty is not None:
+        record.filled_qty = order.filled_qty
+    elif order.leaves_qty is not None:
+        record.filled_qty = max(record.qty - order.leaves_qty, 0)
+    if order.price:
+        record.price = order.price
     existing_payload = dict(record.raw_response or {})
-    existing_payload.update(payload)
+    existing_payload.update(order.raw)
     record.raw_response = existing_payload
 
 
@@ -325,6 +322,6 @@ def resolve_order_state(db, bot, adapter, order_row) -> OrderResolution:
     if lookup.is_not_found:
         mark_order_missing_from_exchange(db, bot, order_row)
         return OrderResolution("gone")
-    apply_exchange_order(order_row, lookup.order.raw)
+    apply_exchange_order(order_row, lookup.order)
     db.add(order_row)
     return OrderResolution(lookup.state, lookup.order)

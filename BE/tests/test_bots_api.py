@@ -8,7 +8,7 @@ from app.db.session import SessionLocal
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_order import TradingBotOrder
-from tests.remote_lookup import RemoteStateLookup
+from tests.remote_lookup import RemoteStateLookup, orders_from, placed_from, positions_from, ticker_at
 
 
 def test_bots_require_auth(client):
@@ -398,7 +398,7 @@ def test_position_take_profit_fill_cancels_old_grid_and_rebuilds_from_current_pr
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_ticker_snapshot",
-        lambda *args, **kwargs: {"lastPrice": "105.0", "markPrice": "105.0"},
+        lambda *args, **kwargs: ticker_at(105.0),
     )
 
     result = _tick_bot(bot["id"])
@@ -1053,15 +1053,13 @@ def _mock_runtime(monkeypatch, *, min_qty=0.001, remote_state=None, remote_posit
     if order_log is None:
         order_log = []
     monkeypatch.setattr(
-        "app.bot_engine.grid_runtime.get_bybit_session", lambda _bot: object())
-    monkeypatch.setattr(
-        "app.bot_engine.grid_runtime.get_orders_by_prefix",
-        lambda *args, **kwargs: _mock_get_orders_by_prefix(
-            remote_state, kwargs["order_link_prefix"]),
+        "app.bot_engine.exchange.registry.exchange_for",
+        lambda _bot, needs=None: RemoteStateLookup(remote_state),
     )
     monkeypatch.setattr(
-        "app.bot_engine.grid_runtime._exchange_adapter",
-        lambda _bot: RemoteStateLookup(remote_state),
+        "app.bot_engine.grid_runtime.get_orders_by_prefix",
+        lambda *args, **kwargs: orders_from(_mock_get_orders_by_prefix(
+            remote_state, kwargs["order_link_prefix"])),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_last_price",
@@ -1069,10 +1067,7 @@ def _mock_runtime(monkeypatch, *, min_qty=0.001, remote_state=None, remote_posit
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_ticker_snapshot",
-        lambda *args, **kwargs: {
-            "lastPrice": str(current_price),
-            "markPrice": str(current_price),
-        },
+        lambda *args, **kwargs: ticker_at(current_price),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_instrument_rules",
@@ -1085,16 +1080,16 @@ def _mock_runtime(monkeypatch, *, min_qty=0.001, remote_state=None, remote_posit
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_open_positions",
-        lambda *args, **kwargs: list(remote_positions),
+        lambda *args, **kwargs: positions_from(remote_positions),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_open_orders",
-        lambda *args, **kwargs: _mock_get_open_orders(remote_state),
+        lambda *args, **kwargs: orders_from(_mock_get_open_orders(remote_state)),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.place_order",
-        lambda *args, **kwargs: _mock_place_order(
-            remote_state, kwargs["order"], order_log),
+        lambda *args, **kwargs: placed_from(_mock_place_order(
+            remote_state, kwargs["order"], order_log), kwargs["order"].order_link_id),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.cancel_order_by_link_id",
