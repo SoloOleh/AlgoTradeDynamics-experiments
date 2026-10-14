@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/strategies/grid.py", "BE/app/bot_engine/strategi
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T27 — Declare every capability each strategy actually uses

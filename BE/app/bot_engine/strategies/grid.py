@@ -27,7 +27,8 @@ class GridStrategy:
         return get_runtime_state(db, bot)
 
     def required_capabilities(self, bot: TradingBot) -> frozenset[Capability]:
-        return COMMON_CAPABILITIES | {Capability.POSITION_READS}
+        # Market orders: close-position and close-on-stop exit at market.
+        return COMMON_CAPABILITIES | {Capability.POSITION_READS, Capability.MARKET_ORDERS}
 
     def validate_start(self, db, bot: TradingBot) -> None:
         message = ensure_live_trading_allowed(db, bot)

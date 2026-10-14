@@ -194,9 +194,9 @@ BE/tests/golden/                 NEW — harness, 8 recordings, reference failur
 | Capability | Meaning | Required by (today's usage) | Bybit declares on |
 |---|---|---|---|
 | `limit_orders` | Place limit orders with a client tag | Grid, DCA, Momentum, Pattern Scalper | spot, linear, inverse |
-| `market_orders` | Place market orders with a client tag | DCA (market entry), Momentum, Pattern Scalper | spot, linear, inverse |
+| `market_orders` | Place market orders with a client tag | Grid (close-position and close-on-stop exits), DCA (market entry), Momentum, Pattern Scalper | spot, linear, inverse |
 | `reduce_only_orders` | Mark an exit as reduce-only | Grid, DCA (take-profit roles), Momentum, Pattern Scalper | spot, linear, inverse |
-| `position_reads` | Report open position size, side, entry, mark, liq price, leverage, margin mode | Grid, Momentum, Pattern Scalper | spot, linear, inverse |
+| `position_reads` | Report open position size, side, entry, mark, liq price, leverage, margin mode | Grid, DCA (long position for its take-profit, every tick), Momentum, Pattern Scalper | spot, linear, inverse |
 | `short_selling` | Open short exposure | Momentum when the market type is not spot **and** `position_side` ∈ {`both`, `short`} (exactly `_short_trading_supported`, `momentum.py:583-585`; a spot Momentum bot with the default `both` never shorts and does not require it), Pattern Scalper | linear, inverse (not spot; Momentum already refuses spot + short at `momentum.py:811`) |
 | `execution_pnl` | Executions carry realised PnL and fee per fill | Grid, DCA (performance), Momentum, Pattern Scalper | spot, linear, inverse |
 | `wallet_balance` | Read the account's available balance | Momentum, Pattern Scalper (risk guards) | spot, linear, inverse |

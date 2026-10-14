@@ -30,7 +30,8 @@ class DcaStrategy:
         return get_runtime_state(db, bot)
 
     def required_capabilities(self, bot: TradingBot) -> frozenset[Capability]:
-        return COMMON_CAPABILITIES | {Capability.MARKET_ORDERS}
+        # Position reads: every tick reads the long position to size its take-profit.
+        return COMMON_CAPABILITIES | {Capability.MARKET_ORDERS, Capability.POSITION_READS}
 
     def validate_start(self, db, bot: TradingBot) -> None:
         message = ensure_live_trading_allowed(db, bot)

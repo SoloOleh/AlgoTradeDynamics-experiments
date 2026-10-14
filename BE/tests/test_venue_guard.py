@@ -102,8 +102,10 @@ def test_momentum_needs_short_selling_only_when_it_can_short(category, position_
 
 
 @pytest.mark.parametrize("strategy_type,expected", [
-    ("grid", {"limit_orders", "reduce_only_orders", "position_reads", "execution_pnl", "order_lookup_by_tag", "private_event_stream"}),
-    ("dca", {"limit_orders", "market_orders", "reduce_only_orders", "execution_pnl", "order_lookup_by_tag", "private_event_stream"}),
+    ("grid", {"limit_orders", "market_orders", "reduce_only_orders", "position_reads", "execution_pnl", "order_lookup_by_tag",
+              "private_event_stream"}),
+    ("dca", {"limit_orders", "market_orders", "reduce_only_orders", "position_reads", "execution_pnl", "order_lookup_by_tag",
+             "private_event_stream"}),
     ("pattern_scalper", {"limit_orders", "market_orders", "reduce_only_orders", "position_reads", "short_selling",
                          "execution_pnl", "wallet_balance", "candles", "order_lookup_by_tag", "private_event_stream"}),
 ])
@@ -147,3 +149,25 @@ def test_strategies_accept_an_adapter_keyword():
         strategy = get_strategy(strategy_type)
         for method in ("tick", "sync_orders", "cancel_orders", "get_position", "get_risk", "close_position"):
             assert "adapter" in inspect.signature(getattr(strategy, method)).parameters, (strategy_type, method)
+
+
+@pytest.mark.parametrize("strategy, capability", [
+    ("grid", "market_orders"),     # close-position and close-on-stop place Market orders
+    ("dca", "position_reads"),     # every tick reads the long position for its take-profit
+])
+def test_a_venue_without_a_capability_the_strategy_uses_refuses_it(strategy, capability):
+    from app.bot_engine.exchange.bybit.capabilities import BYBIT_CAPABILITIES
+    from app.bot_engine.exchange.capabilities import Capability, CapabilitySet, MarketType
+    from app.bot_engine.exchange.errors import CapabilityMissing
+
+    lacking = CapabilitySet({MarketType.LINEAR: BYBIT_CAPABILITIES.for_market_type("linear") - {Capability(capability)}})
+
+    class Venue:
+        def capabilities(self):
+            return lacking
+
+    bot = _bot(exchange="stand-in", environment="demo", strategy_type=strategy, category="linear")
+    with registry.registered_venue("stand-in", "demo", lambda account: Venue()):
+        with pytest.raises(CapabilityMissing) as refused:
+            registry.exchange_for(bot)
+    assert refused.value.details["capability"] == capability
