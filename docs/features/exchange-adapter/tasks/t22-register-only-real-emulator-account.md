@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/exchange/bybit/adapter.py", "BE/app/bot_engine/e
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T22 — Register only real emulator account keys with the shared scrubber

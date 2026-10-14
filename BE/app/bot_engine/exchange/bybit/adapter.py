@@ -6,6 +6,7 @@ transport failure is re-raised as an `ExchangeError` via the Bybit classifier (A
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.bot_engine.exchange.bybit.capabilities import BYBIT_CAPABILITIES
@@ -29,6 +30,10 @@ from app.bot_engine.exchange.port import (
     Venue,
 )
 from app.bot_engine.exchange.redaction import get_scrubber, scrub
+
+# The emulator issues `emu_` + a url-safe token (EXCHANGE_EMULATOR make_api_key); nothing else but
+# the configured default key can authenticate there.
+_EMULATOR_ISSUED_KEY = re.compile(r"emu_[A-Za-z0-9_-]{16,}")
 
 EXECUTION_PAGE_LIMIT = 100
 EXECUTION_MAX_PAGES = 100
@@ -149,8 +154,12 @@ class BybitAdapter:
         if environment == "emulator":
             from app.core.config import get_settings
 
-            self.account_key = str(emulator_api_key or get_settings().exchange_emulator_default_api_key)
-            get_scrubber().add_key(self.account_key)
+            default_key = get_settings().exchange_emulator_default_api_key
+            self.account_key = str(emulator_api_key or default_key)
+            # A bot's key is free-form input: only a key that can be a real account joins the
+            # process-wide scrubber, so one bot cannot mask words in every user's texts.
+            if self.account_key == default_key or _EMULATOR_ISSUED_KEY.fullmatch(self.account_key):
+                get_scrubber().add_key(self.account_key)
         else:
             self.account_key = None
 
