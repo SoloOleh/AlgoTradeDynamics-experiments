@@ -9,17 +9,20 @@ from sqlalchemy import desc
 from app.core.clock import utcnow as runtime_utcnow
 from app.bot_engine.bybit.client import get_bybit_session
 from app.bot_engine.events import log_bot_event
+from app.bot_engine.exchange import registry
 from app.bot_engine.market_data import get_instrument_rules, get_last_price, get_ticker_snapshot
 from app.bot_engine.orders import (
     ACTIVE_ORDER_STATUSES,
     FINAL_ORDER_STATUSES,
     OrderRequest,
     cancel_order_by_link_id,
+    apply_exchange_order,
     get_open_orders,
-    get_order_status_by_link_id,
     get_orders_by_prefix,
+    mark_order_missing_from_exchange,
     normalize_order_request,
     place_order,
+    resolve_order_state,
     validate_order_request,
 )
 from app.bot_engine.positions import get_open_positions
@@ -241,27 +244,7 @@ def _record_order(db, bot: TradingBot, order: OrderRequest, response: dict, *, s
 
 
 def _update_local_order_from_exchange(record: TradingBotOrder, payload: dict) -> None:
-    record.exchange_order_id = payload.get(
-        "orderId") or record.exchange_order_id
-    record.order_link_id = payload.get("orderLinkId") or record.order_link_id
-    record.side = payload.get("side") or record.side
-    record.order_type = payload.get("orderType") or record.order_type
-    record.status = payload.get("orderStatus") or record.status
-    if payload.get("qty") is not None:
-        record.qty = float(payload["qty"])
-    if payload.get("cumExecQty") is not None:
-        record.filled_qty = float(payload["cumExecQty"])
-    elif payload.get("leavesQty") is not None:
-        try:
-            record.filled_qty = max(
-                record.qty - float(payload["leavesQty"]), 0)
-        except (TypeError, ValueError):
-            pass
-    if payload.get("price"):
-        record.price = float(payload["price"])
-    existing_payload = dict(record.raw_response or {})
-    existing_payload.update(payload)
-    record.raw_response = existing_payload
+    apply_exchange_order(record, payload)
 
 
 def _mark_order_filled_logged(record: TradingBotOrder) -> None:
@@ -1138,39 +1121,17 @@ def _is_reconciliation_candidate(
 def _mark_order_missing_from_exchange(
     db, bot: TradingBot, order: TradingBotOrder
 ) -> dict:
-    old_status = order.status
-    reconciled_at = _utcnow()
-    order.status = "Cancelled"
-    payload = dict(order.raw_response or {})
-    payload.update(
-        {
-            "orderStatus": "Cancelled",
-            "reconciliation": {
-                "reason": "missing_from_exchange",
-                "previousStatus": old_status,
-                "reconciledAt": reconciled_at.isoformat(),
-            },
-        }
-    )
-    order.raw_response = payload
-    db.add(order)
-    log_bot_event(
-        db,
-        bot,
-        "order_reconciled_missing",
-        "Marked local active order as cancelled because it is missing from the exchange",
-        {
-            "order_link_id": order.order_link_id,
-            "order_role": order.order_role,
-            "previous_status": old_status,
-            "new_status": order.status,
-        },
-    )
+    old_status = mark_order_missing_from_exchange(db, bot, order)
     return _status_change_payload(order, old_status, order.status)
 
 
-def sync_bot_orders(db, bot: TradingBot, *, include_legacy: bool = False) -> list[dict]:
-    session = get_bybit_session(bot)
+def _exchange_adapter(bot: TradingBot):
+    return registry.exchange_for(bot)
+
+
+def sync_bot_orders(db, bot: TradingBot, *, include_legacy: bool = False, adapter=None) -> list[dict]:
+    if adapter is None:
+        adapter = _exchange_adapter(bot)
     prefixes = [get_order_link_prefix(bot)]
     if include_legacy:
         prefixes.append(get_legacy_order_link_prefix(bot))
@@ -1178,7 +1139,7 @@ def sync_bot_orders(db, bot: TradingBot, *, include_legacy: bool = False) -> lis
     remote_by_link: dict[str, dict] = {}
     for prefix in prefixes:
         for remote in get_orders_by_prefix(
-            session,
+            adapter,
             category=bot.category,
             symbol=bot.symbol,
             order_link_prefix=prefix,
@@ -1232,23 +1193,13 @@ def sync_bot_orders(db, bot: TradingBot, *, include_legacy: bool = False) -> lis
         if order_link_id in remote_by_link:
             continue
 
-        exact_remote = get_order_status_by_link_id(
-            session,
-            category=bot.category,
-            symbol=bot.symbol,
-            order_link_id=order_link_id,
-        )
-        if exact_remote:
-            old_status = record.status
-            _update_local_order_from_exchange(record, exact_remote)
-            db.add(record)
-            remote_by_link[order_link_id] = exact_remote
-            changes.append(
-                _status_change_payload(record, old_status, record.status)
-            )
-            continue
-
-        changes.append(_mark_order_missing_from_exchange(db, bot, record))
+        # AC-08: only an exchange answer can mark the order gone; a failed
+        # lookup raises and leaves the order active for the next tick.
+        old_status = record.status
+        resolution = resolve_order_state(db, bot, adapter, record)
+        if resolution.order is not None:
+            remote_by_link[order_link_id] = resolution.order.raw
+        changes.append(_status_change_payload(record, old_status, record.status))
 
     db.flush()
     return changes

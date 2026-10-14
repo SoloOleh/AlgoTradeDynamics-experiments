@@ -78,3 +78,56 @@ def test_row_passes_through_the_adapter_classifier_then_the_engine_table(row):
     assert reaction.error_type.value == expected["error_type"]
     if row.get("retry_count", 0) == 0:
         assert (reaction.severity.value, reaction.action.value) == (expected["severity"], expected["action"])
+
+
+def test_failed_lookup_row_keeps_the_order_active_through_the_lookup_rule():
+    """AC-08 row: the classified lookup failure leaves the order active and reaches the reaction."""
+    import uuid
+
+    from app.bot_engine.exchange.bybit.errors import classify_bybit_failure
+    from app.bot_engine.exchange.errors import ExchangeError
+    from app.bot_engine.orders import resolve_order_state
+    from app.db.session import SessionLocal
+    from app.models.trading_bot import TradingBot
+    from app.models.trading_bot_order import TradingBotOrder
+    from app.models.user import User
+
+    row = next(row for row in ROWS if row.get("deviation") == "AC-08")
+    assert row["keeps_order_active"] is True
+    failure = classify_bybit_failure(build_exception(row["exception"]))
+
+    class FailingLookup:
+        def lookup_order(self, market_type, symbol, client_tag):
+            raise failure
+
+    db = SessionLocal()
+    try:
+        user = User(email=f"table_{uuid.uuid4().hex[:10]}@test.dev", hashed_password="x")
+        db.add(user)
+        db.flush()
+        bot = TradingBot(
+            user_id=user.id, name="lookup row", strategy_type="grid", category="linear", symbol="BTCUSDT",
+            order_qty=0.01, grid_orders_count=2, grid_step_percent=1.0, runtime_status="running",
+            exchange="bybit", environment="emulator", settings={},
+        )
+        db.add(bot)
+        db.flush()
+        order = TradingBotOrder(
+            bot_id=bot.id, user_id=user.id, exchange="bybit", environment="emulator", category="linear",
+            symbol="BTCUSDT", side="Buy", order_type="Limit", order_role="grid_entry_2",
+            order_link_id="bot-1-g1-entry-2-1", qty=0.01, price=60000.0, status="New", raw_response={},
+        )
+        db.add(order)
+        db.commit()
+
+        with pytest.raises(ExchangeError) as raised:
+            resolve_order_state(db, bot, FailingLookup(), order)
+        db.rollback()
+        assert db.get(TradingBotOrder, order.id).status == "New"
+        outcome = react_to_failure(raised.value)
+        assert (outcome["error_type"], outcome["action"], outcome["runtime_status"]) == (
+            row["expected"]["error_type"], row["expected"]["action"], row["expected"]["runtime_status"],
+        )
+    finally:
+        db.rollback()
+        db.close()

@@ -8,6 +8,7 @@ from app.db.session import SessionLocal
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_order import TradingBotOrder
+from tests.remote_lookup import RemoteStateLookup
 
 
 def test_bots_require_auth(client):
@@ -1059,10 +1060,8 @@ def _mock_runtime(monkeypatch, *, min_qty=0.001, remote_state=None, remote_posit
             remote_state, kwargs["order_link_prefix"]),
     )
     monkeypatch.setattr(
-        "app.bot_engine.grid_runtime.get_order_status_by_link_id",
-        lambda *args, **kwargs: dict(
-            remote_state.get(kwargs["order_link_id"], {})
-        ),
+        "app.bot_engine.grid_runtime._exchange_adapter",
+        lambda _bot: RemoteStateLookup(remote_state),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_last_price",

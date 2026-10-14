@@ -142,9 +142,10 @@ def record_rows() -> list[dict]:
         "deviation": "AC-08",
         "note": (
             "Expected reaction is the AC-08 deviation: a lookup that fails for any reason other than "
-            "the unknown-order class keeps the order active and retries up to the limit. Today the "
-            "emulator client returns an empty list on such a failure and the order is marked "
-            "missing; the order-lookup rule is enforced by T10 (test_order_lookup_rule.py)."
+            "the unknown-order class keeps the order active, places and cancels nothing tied to it "
+            "and retries up to the limit, then pauses. Before the adapter, a failed lookup could "
+            "leave the order marked missing. Enforced by the engine's order-lookup rule "
+            "(orders.resolve_order_state), not by the class table (ADR-0005)."
         ),
         "exception": lookup_spec,
         "keeps_order_active": True,

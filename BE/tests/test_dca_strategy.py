@@ -13,6 +13,7 @@ from app.bot_engine.bot import tick_bot_once
 from app.db.session import SessionLocal
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_order import TradingBotOrder
+from tests.remote_lookup import RemoteStateLookup
 
 
 def _make_bot(**overrides) -> TradingBot:
@@ -148,8 +149,8 @@ def _mock_dca_runtime(monkeypatch, *, remote_state=None, remote_positions=None, 
     monkeypatch.setattr("app.bot_engine.grid_runtime.get_orders_by_prefix",
                         lambda *a, **k: [order for order in remote_state.values()
                                          if (order.get("orderLinkId") or "").startswith(k["order_link_prefix"])])
-    monkeypatch.setattr("app.bot_engine.grid_runtime.get_order_status_by_link_id",
-                        lambda *a, **k: dict(remote_state.get(k["order_link_id"], {})))
+    monkeypatch.setattr("app.bot_engine.grid_runtime._exchange_adapter",
+                        lambda _bot: RemoteStateLookup(remote_state))
     monkeypatch.setattr("app.bot_engine.grid_runtime.place_order",
                         lambda session, *, category, symbol, order: fake_place_order(session, category=category, symbol=symbol, order=order))
     monkeypatch.setattr("app.bot_engine.grid_runtime.cancel_order_by_link_id",
