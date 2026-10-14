@@ -313,3 +313,25 @@ def test_v4_detects_triangle_compression_breakout():
     assert signal is not None
     assert signal.side == "Buy"
     assert signal.pattern == "triangle_breakout"
+
+
+def test_start_needs_short_selling_on_the_bots_market_type():
+    import pytest
+
+    from app.bot_engine.exchange import registry
+    from app.bot_engine.exchange.bybit.capabilities import BYBIT_CAPABILITIES
+    from app.bot_engine.exchange.capabilities import Capability, CapabilitySet, MarketType
+    from app.bot_engine.strategies.pattern_scalper import PatternScalperStrategy
+
+    no_shorts = CapabilitySet({MarketType.LINEAR: BYBIT_CAPABILITIES.for_market_type("linear") - {Capability.SHORT_SELLING}})
+
+    class Venue:
+        def capabilities(self):
+            return no_shorts
+
+    bot = TradingBot(exchange="stand-in", environment="demo", category="linear", symbol="BTCUSDT",
+                     strategy_type="pattern_scalper", order_qty=0.01, grid_orders_count=1,
+                     grid_step_percent=0, settings={})
+    with registry.registered_venue("stand-in", "demo", lambda account: Venue()):
+        with pytest.raises(ValueError, match="supports linear perpetuals only"):
+            PatternScalperStrategy().validate_start(None, bot)

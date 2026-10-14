@@ -19,7 +19,7 @@
 | T11 | Migrate the DCA strategy and runtime onto the exchange adapter | app | Oleh Solomko | M | T08, T09, T10 | done |
 | T12 | Migrate the Grid strategy and runtime onto the exchange adapter | app | Oleh Solomko | L | T11 | done |
 | T13 | Migrate the Momentum strategy onto the exchange adapter | app | Oleh Solomko | L | T12 | done |
-| T14 | Migrate the Pattern Scalper strategy onto the exchange adapter | app | Oleh Solomko | L | T13 | todo |
+| T14 | Migrate the Pattern Scalper strategy onto the exchange adapter | app | Oleh Solomko | L | T13 | done |
 | T15 | Build bot performance from neutral executions through the adapter | app | Oleh Solomko | M | T10 | todo |
 | T16 | Move live exchange streams behind the adapter and make the stream supervisor and UI live stream exchange-neutral | infra | Oleh Solomko | L | T07, T09 | todo |
 | T17 | Scrub keys and secrets at every sink and in the root logging filter | wiring | Oleh Solomko | M | T04, T08, T09 | todo |
