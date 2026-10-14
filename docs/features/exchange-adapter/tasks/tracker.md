@@ -21,7 +21,7 @@
 | T13 | Migrate the Momentum strategy onto the exchange adapter | app | Oleh Solomko | L | T12 | done |
 | T14 | Migrate the Pattern Scalper strategy onto the exchange adapter | app | Oleh Solomko | L | T13 | done |
 | T15 | Build bot performance from neutral executions through the adapter | app | Oleh Solomko | M | T10 | done |
-| T16 | Move live exchange streams behind the adapter and make the stream supervisor and UI live stream exchange-neutral | infra | Oleh Solomko | L | T07, T09 | todo |
+| T16 | Move live exchange streams behind the adapter and make the stream supervisor and UI live stream exchange-neutral | infra | Oleh Solomko | L | T07, T09 | done |
 | T17 | Scrub keys and secrets at every sink and in the root logging filter | wiring | Oleh Solomko | M | T04, T08, T09 | todo |
 | T18 | Replace the Bybit-demo test route with an authenticated per-venue connection check | ports | Oleh Solomko | M | T04, T07 | todo |
 | T19 | Prove every strategy runs unchanged through a stand-in adapter on a test venue | tests | Oleh Solomko | M | T14 | todo |

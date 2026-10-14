@@ -1,32 +1,29 @@
-"""Unified real-time exchange streams for Bybit and the local emulator.
+"""Real-time exchange streams for running bots, exchange-neutral.
 
-Both sources expose the same topics to the runtime:
+Each bot's venue adapter (through the guard) owns its streams: endpoints, authentication and the
+translation of exchange topics into neutral events (ADR-0001). The runtime sees the same topics as
+before:
   - tickers.{SYMBOL}
   - order
   - execution
   - position
   - wallet
 
-REST remains the source of truth for commands and periodic reconciliation.  WS
-messages wake the strategy worker immediately instead of waiting for the old
-fixed polling cadence.
+REST remains the source of truth for commands and periodic reconciliation. WS messages wake the
+strategy worker immediately instead of waiting for the fixed polling cadence.
 """
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import hmac
-import json
 import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
-from urllib.parse import urlencode, urlparse, urlunparse
 
-import websockets
-
-from app.bot_engine.bybit.client import get_bybit_credentials
-from app.core.config import get_settings
+from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.capabilities import Capability
+from app.bot_engine.exchange.port import StreamEvent
+from app.bot_engine.exchange.redaction import scrub
 from app.db.session import SessionLocal
 from app.models.trading_bot import TradingBot
 
@@ -44,219 +41,76 @@ class ExchangeStreamEvent:
     received_at: float
 
 
-@dataclass(slots=True)
-class StreamEndpoints:
-    public_url: str
-    private_url: str
-    api_key: str | None
-    api_secret: str | None
-    emulator: bool
+def _envelope_topic(event: StreamEvent) -> str:
+    return f"tickers.{event.symbol}" if event.kind == "ticker" else event.kind
 
 
-def _http_to_ws(base_url: str) -> str:
-    parsed = urlparse(base_url.rstrip("/"))
-    scheme = "wss" if parsed.scheme == "https" else "ws"
-    return urlunparse((scheme, parsed.netloc, parsed.path.rstrip("/"), "", "", ""))
+def _wants_private_stream(adapter, bot: TradingBot) -> bool:
+    return adapter.capabilities().supports(Capability.PRIVATE_EVENT_STREAM, bot.category)
 
 
-def _emulator_key(bot: TradingBot) -> str:
-    settings = get_settings()
-    return str((bot.settings or {}).get("emulator_api_key") or settings.exchange_emulator_default_api_key)
-
-
-def stream_endpoints(bot: TradingBot) -> StreamEndpoints:
-    if bot.environment == "emulator":
-        base = _http_to_ws(get_settings().exchange_emulator_url)
-        api_key = _emulator_key(bot)
-        query = urlencode({"api_key": api_key})
-        return StreamEndpoints(
-            public_url=f"{base}/v5/public/{bot.category}?{query}",
-            private_url=f"{base}/v5/private?{query}",
-            api_key=api_key,
-            api_secret=None,
-            emulator=True,
-        )
-
-    api_key, api_secret = get_bybit_credentials(bot.environment)
-    if not api_key or not api_secret:
-        raise ValueError(f"Bybit {bot.environment} API credentials are not configured")
-
-    if bot.environment == "testnet":
-        public_host = "wss://stream-testnet.bybit.com"
-        private_host = "wss://stream-testnet.bybit.com"
-    elif bot.environment == "demo":
-        # Demo has a private demo stream; public prices come from mainnet.
-        public_host = "wss://stream.bybit.com"
-        private_host = "wss://stream-demo.bybit.com"
-    else:
-        public_host = "wss://stream.bybit.com"
-        private_host = "wss://stream.bybit.com"
-
-    return StreamEndpoints(
-        public_url=f"{public_host}/v5/public/{bot.category}",
-        private_url=f"{private_host}/v5/private",
-        api_key=api_key,
-        api_secret=api_secret,
-        emulator=False,
-    )
-
-
-def stream_signature(bot: TradingBot) -> tuple[Any, ...]:
-    endpoints = stream_endpoints(bot)
+def stream_signature(bot: TradingBot, adapter) -> tuple[Any, ...]:
     return (
+        bot.exchange,
         bot.environment,
-        bot.category,
-        bot.symbol,
-        endpoints.public_url,
-        endpoints.private_url,
-        endpoints.api_key,
+        _wants_private_stream(adapter, bot),
+        adapter.streams().signature(bot.category, bot.symbol),
     )
-
-
-def _auth_payload(api_key: str, api_secret: str) -> dict[str, Any]:
-    expires = int(time.time() * 1000) + 10_000
-    raw = f"GET/realtime{expires}"
-    signature = hmac.new(api_secret.encode(), raw.encode(), hashlib.sha256).hexdigest()
-    return {"op": "auth", "args": [api_key, expires, signature]}
-
-
-def _topic_matches_symbol(topic: str, data: Any, symbol: str) -> bool:
-    if topic.startswith("tickers.") or topic.startswith("kline."):
-        return topic.endswith(f".{symbol}") or topic == f"tickers.{symbol}"
-    if topic == "wallet":
-        return True
-    items = data if isinstance(data, list) else [data]
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        item_symbol = str(item.get("symbol") or "").upper()
-        if not item_symbol or item_symbol == symbol:
-            return True
-    return False
 
 
 class BotExchangeStream:
     def __init__(
         self,
         bot: TradingBot,
+        adapter,
         on_event: Callable[[ExchangeStreamEvent], Awaitable[None]],
     ) -> None:
         self.bot_id = bot.id
         self.symbol = bot.symbol.upper()
-        self.endpoints = stream_endpoints(bot)
+        self.streams = adapter.streams()
+        self.sources = self.streams.sources(bot.category, self.symbol, private=_wants_private_stream(adapter, bot))
         self._on_event = on_event
         self._tasks: list[asyncio.Task] = []
-        self._stopping = False
 
     def start(self) -> None:
         if self._tasks:
             return
-        self._stopping = False
         self._tasks = [
-            asyncio.create_task(self._run_public(), name=f"exchange-ws-public-{self.bot_id}"),
-            asyncio.create_task(self._run_private(), name=f"exchange-ws-private-{self.bot_id}"),
+            asyncio.create_task(
+                self.streams.run(
+                    source,
+                    self.symbol,
+                    on_event=self._emit,
+                    on_connected=self._connected,
+                    context=f"bot={self.bot_id}",
+                ),
+                name=f"exchange-ws-{source.label}-{self.bot_id}",
+            )
+            for source in self.sources
         ]
 
     async def stop(self) -> None:
-        self._stopping = True
         tasks, self._tasks = self._tasks, []
         for task in tasks:
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _emit(self, message: dict[str, Any]) -> None:
-        topic = str(message.get("topic") or "")
-        if not topic:
-            return
-        data = message.get("data")
-        if not _topic_matches_symbol(topic, data, self.symbol):
-            return
+    async def _emit(self, event: StreamEvent) -> None:
         await self._on_event(ExchangeStreamEvent(
             bot_id=self.bot_id,
-            topic=topic,
-            data=data,
+            topic=_envelope_topic(event),
+            data=event,
             received_at=time.time(),
         ))
 
-    async def _receive_loop(self, websocket) -> None:
-        while not self._stopping:
-            try:
-                raw = await asyncio.wait_for(websocket.recv(), timeout=20)
-            except asyncio.TimeoutError:
-                await websocket.send(json.dumps({"op": "ping"}))
-                continue
-            message = json.loads(raw)
-            if isinstance(message, dict):
-                await self._emit(message)
-
-    async def _connect_forever(
-        self,
-        *,
-        url: str,
-        subscribe_topics: list[str],
-        authenticate: bool,
-        label: str,
-    ) -> None:
-        delay = 1.0
-        while not self._stopping:
-            try:
-                async with websockets.connect(
-                    url,
-                    ping_interval=20,
-                    ping_timeout=20,
-                    close_timeout=5,
-                    max_queue=256,
-                ) as websocket:
-                    if authenticate:
-                        if not self.endpoints.api_key or not self.endpoints.api_secret:
-                            raise ValueError("Private Bybit WebSocket credentials are missing")
-                        await websocket.send(json.dumps(_auth_payload(
-                            self.endpoints.api_key,
-                            self.endpoints.api_secret,
-                        )))
-                        # Bybit sends an auth acknowledgement before subscriptions.
-                        auth_raw = await asyncio.wait_for(websocket.recv(), timeout=10)
-                        auth_message = json.loads(auth_raw)
-                        if not bool(auth_message.get("success")):
-                            raise RuntimeError(f"Bybit WebSocket auth failed: {auth_message}")
-                    await websocket.send(json.dumps({"op": "subscribe", "args": subscribe_topics}))
-                    delay = 1.0
-                    logger.info("Exchange WS connected: bot=%s stream=%s", self.bot_id, label)
-                    await self._on_event(ExchangeStreamEvent(
-                        bot_id=self.bot_id,
-                        topic="system.connected",
-                        data={"stream": label},
-                        received_at=time.time(),
-                    ))
-                    await self._receive_loop(websocket)
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:  # noqa: BLE001
-                if self._stopping:
-                    return
-                logger.warning(
-                    "Exchange WS disconnected: bot=%s stream=%s error=%s; retrying in %.1fs",
-                    self.bot_id, label, exc, delay,
-                )
-                await asyncio.sleep(delay)
-                delay = min(delay * 2, 15.0)
-
-    async def _run_public(self) -> None:
-        await self._connect_forever(
-            url=self.endpoints.public_url,
-            subscribe_topics=[f"tickers.{self.symbol}"],
-            authenticate=False,
-            label="public",
-        )
-
-    async def _run_private(self) -> None:
-        await self._connect_forever(
-            url=self.endpoints.private_url,
-            subscribe_topics=list(PRIVATE_TOPICS),
-            authenticate=not self.endpoints.emulator,
-            label="private",
-        )
+    async def _connected(self, label: str) -> None:
+        await self._on_event(ExchangeStreamEvent(
+            bot_id=self.bot_id,
+            topic="system.connected",
+            data={"stream": label},
+            received_at=time.time(),
+        ))
 
 
 class ExchangeStreamSupervisor:
@@ -325,16 +179,23 @@ class ExchangeStreamSupervisor:
                 ))
                 self._ticker_intervals[bot.id] = max(min(run_interval, 10.0), 0.5)
                 try:
-                    signature = stream_signature(bot)
+                    # The guard refuses an unknown venue or a missing capability in memory; the
+                    # bot's next tick then pauses it (ADR-0004). No stream is opened meanwhile.
+                    adapter = registry.exchange_for(bot)
+                    signature = stream_signature(bot, adapter)
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("Cannot configure Exchange WS for bot=%s: %s", bot.id, exc)
+                    logger.warning("Cannot configure Exchange WS for bot=%s: %s", bot.id, scrub(str(exc)))
+                    old = self._streams.pop(bot.id, None)
+                    self._signatures.pop(bot.id, None)
+                    if old is not None:
+                        await old.stop()
                     continue
                 if self._signatures.get(bot.id) == signature and bot.id in self._streams:
                     continue
                 old = self._streams.pop(bot.id, None)
                 if old is not None:
                     await old.stop()
-                stream = BotExchangeStream(bot, self.on_event)
+                stream = BotExchangeStream(bot, adapter, self.on_event)
                 self._streams[bot.id] = stream
                 self._signatures[bot.id] = signature
                 stream.start()

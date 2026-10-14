@@ -98,6 +98,45 @@ def order_from_payload(payload: dict) -> Order:
     )
 
 
+def position_from_payload(item: dict) -> Position | None:
+    """An open position, or `None` for a flat or unreadable one."""
+    size_value = item.get("size") or item.get("qty") or "0"
+    try:
+        size = float(size_value)
+    except (TypeError, ValueError):
+        return None
+    if size == 0:
+        return None
+    return Position(
+        symbol=item.get("symbol"),
+        side=str(item.get("side") or item.get("positionSide") or ""),
+        size=size,
+        avg_entry_price=_usable_float(item.get("avgPrice") or item.get("avgEntryPrice")),
+        mark_price=_usable_float(item.get("markPrice")),
+        liq_price=_usable_float(item.get("liqPrice")),
+        leverage=_usable_float(item.get("leverage")),
+        margin_mode=item.get("tradeMode") or item.get("marginMode"),
+        position_value=_parsed_float(item.get("positionValue")),
+        unrealised_pnl=_parsed_float(item.get("unrealisedPnl") or item.get("unrealizedPnl")),
+    )
+
+
+def balance_from_account(account: dict) -> Balance:
+    coin = next(
+        (item for item in account.get("coin") or [] if str(item.get("coin") or "").upper() == "USDT"),
+        {},
+    )
+    return Balance(
+        total_available=_usable_float(account.get("totalAvailableBalance")),
+        total_equity=_usable_float(account.get("totalEquity")),
+        total_wallet=_usable_float(account.get("totalWalletBalance")),
+        wallet=_usable_float(account.get("walletBalance")),
+        coin_available=_usable_float(coin.get("availableToWithdraw")),
+        coin_equity=_usable_float(coin.get("equity")),
+        coin_wallet=_usable_float(coin.get("walletBalance")),
+    )
+
+
 class BybitAdapter:
     """One Bybit venue (emulator, demo, testnet or live) bound to one exchange account."""
 
@@ -298,52 +337,22 @@ class BybitAdapter:
         )
 
     def positions(self, market_type: str, symbol: str) -> list[Position]:
-        positions: list[Position] = []
-        for item in _list(self._request("get_positions", category=market_type, symbol=symbol)):
-            size_value = item.get("size") or item.get("qty") or "0"
-            try:
-                size = float(size_value)
-            except (TypeError, ValueError):
-                continue
-            if size == 0:
-                continue
-            positions.append(Position(
-                symbol=item.get("symbol"),
-                side=str(item.get("side") or item.get("positionSide") or ""),
-                size=size,
-                avg_entry_price=_usable_float(item.get("avgPrice") or item.get("avgEntryPrice")),
-                mark_price=_usable_float(item.get("markPrice")),
-                liq_price=_usable_float(item.get("liqPrice")),
-                leverage=_usable_float(item.get("leverage")),
-                margin_mode=item.get("tradeMode") or item.get("marginMode"),
-                position_value=_parsed_float(item.get("positionValue")),
-                unrealised_pnl=_parsed_float(item.get("unrealisedPnl") or item.get("unrealizedPnl")),
-            ))
-        return positions
+        positions = (
+            position_from_payload(item)
+            for item in _list(self._request("get_positions", category=market_type, symbol=symbol))
+        )
+        return [position for position in positions if position is not None]
 
     def balance(self) -> Balance:
         accounts = _list(self._request("get_wallet_balance", accountType="UNIFIED"))
-        if not accounts:
-            return Balance()
-        account = accounts[0]
-        coin = next(
-            (item for item in account.get("coin") or [] if str(item.get("coin") or "").upper() == "USDT"),
-            {},
-        )
-        return Balance(
-            total_available=_usable_float(account.get("totalAvailableBalance")),
-            total_equity=_usable_float(account.get("totalEquity")),
-            total_wallet=_usable_float(account.get("totalWalletBalance")),
-            wallet=_usable_float(account.get("walletBalance")),
-            coin_available=_usable_float(coin.get("availableToWithdraw")),
-            coin_equity=_usable_float(coin.get("equity")),
-            coin_wallet=_usable_float(coin.get("walletBalance")),
-        )
+        return balance_from_account(accounts[0]) if accounts else Balance()
 
     # ------------------------------------------------------------------ streams + connection
 
     def streams(self) -> Any:
-        raise NotImplementedError("live streams move behind the adapter in T16")
+        from app.bot_engine.exchange.bybit.streams import BybitStreams
+
+        return BybitStreams(self.environment, account_key=self.account_key)
 
     def check_connection(self) -> ConnectionStatus:
         raise NotImplementedError("the connection check moves behind the adapter in T18")

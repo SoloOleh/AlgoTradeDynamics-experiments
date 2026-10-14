@@ -2,18 +2,15 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urlencode, urlparse, urlunparse
 
-import httpx2 as httpx
 import jwt
-import websockets
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 
-from app.core.config import get_settings
+from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.redaction import scrub
 from app.core.security import decode_access_token
 from app.db.session import SessionLocal
 from app.models.user import User
@@ -161,64 +158,22 @@ async def bot_browser_stream(websocket: WebSocket, bot_id: int) -> None:
         bot_ui_stream_hub.unsubscribe(bot_id, subscription_id)
 
 
-def _http_to_ws(base_url: str) -> str:
-    parsed = urlparse(base_url.rstrip("/"))
-    return urlunparse(("wss" if parsed.scheme == "https" else "ws", parsed.netloc, parsed.path.rstrip("/"), "", "", ""))
+async def _forward_emulator_source(browser: WebSocket, send_lock: asyncio.Lock, streams, source) -> None:
+    """Relay one emulator stream to the browser; the adapter owns the connection (ADR-0001)."""
 
+    async def forward(message: dict[str, Any]) -> None:
+        async with send_lock:
+            await browser.send_json({"type": "emulator.event", "source": source.label, "ts": _utc_ms(), "data": message})
 
-async def _emulator_api_key(account_id: int) -> str | None:
-    settings = get_settings()
-    async with httpx.AsyncClient(timeout=8.0) as client:
-        response = await client.get(f"{settings.exchange_emulator_url.rstrip('/')}/api/admin/accounts")
-        response.raise_for_status()
-        for account in response.json():
-            if int(account.get("id") or 0) == account_id:
-                return str(account.get("api_key") or "") or None
-    return None
+    async def status(state: str, error: str | None) -> None:
+        payload = {"type": "emulator.stream_status", "source": source.label, "status": state}
+        if error is not None:
+            payload["message"] = error
+        payload["ts"] = _utc_ms()
+        async with send_lock:
+            await browser.send_json(payload)
 
-
-async def _forward_emulator_source(
-    browser: WebSocket,
-    send_lock: asyncio.Lock,
-    *,
-    source: str,
-    url: str,
-    topics: list[str],
-) -> None:
-    delay = 1.0
-    while True:
-        try:
-            async with websockets.connect(
-                url,
-                ping_interval=20,
-                ping_timeout=20,
-                close_timeout=5,
-                max_queue=256,
-            ) as downstream:
-                await downstream.send(json.dumps({"op": "subscribe", "args": topics}))
-                async with send_lock:
-                    await browser.send_json({"type": "emulator.stream_status", "source": source, "status": "live", "ts": _utc_ms()})
-                delay = 1.0
-                while True:
-                    raw = await downstream.recv()
-                    message = json.loads(raw)
-                    if not isinstance(message, dict) or not message.get("topic"):
-                        continue
-                    async with send_lock:
-                        await browser.send_json({"type": "emulator.event", "source": source, "ts": _utc_ms(), "data": message})
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            async with send_lock:
-                await browser.send_json({
-                    "type": "emulator.stream_status",
-                    "source": source,
-                    "status": "reconnecting",
-                    "message": str(exc),
-                    "ts": _utc_ms(),
-                })
-            await asyncio.sleep(delay)
-            delay = min(delay * 2, 10.0)
+    await streams.relay(source, on_message=forward, on_status=status)
 
 
 @router.websocket("/ws/emulator")
@@ -233,32 +188,25 @@ async def emulator_browser_stream(
 
     # Emulator is a shared authenticated lab in the MVP. Bot ownership remains
     # strictly user-scoped; emulator account ownership is not modeled yet.
+    # Stream endpoints come from the emulator venue's adapter, resolved through the registry.
     try:
-        api_key = await _emulator_api_key(account_id)
+        venue = registry.adapter_for_venue("bybit", "emulator")
+        account_key = await venue.streams().emulator_account_key(account_id)
     except Exception as exc:  # noqa: BLE001
-        await websocket.send_json({"type": "emulator.error", "message": f"Emulator unavailable: {exc}"})
+        await websocket.send_json({"type": "emulator.error", "message": f"Emulator unavailable: {scrub(str(exc))}"})
         await websocket.close(code=1011, reason="Emulator unavailable")
         return
-    if not api_key:
+    if not account_key:
         await websocket.send_json({"type": "access.denied", "message": "Emulator account not found"})
         await websocket.close(code=4404, reason="Emulator account not found")
         return
 
-    base = _http_to_ws(get_settings().exchange_emulator_url)
-    query = urlencode({"api_key": api_key})
-    normalized_symbol = symbol.upper()
+    adapter = registry.adapter_for_venue("bybit", "emulator", account=registry.Account(account_key))
+    streams = adapter.streams()
     send_lock = asyncio.Lock()
     tasks = {
-        asyncio.create_task(_forward_emulator_source(
-            websocket, send_lock, source="public",
-            url=f"{base}/v5/public/linear?{query}",
-            topics=[f"tickers.{normalized_symbol}"],
-        )),
-        asyncio.create_task(_forward_emulator_source(
-            websocket, send_lock, source="private",
-            url=f"{base}/v5/private?{query}",
-            topics=["order", "execution", "position", "wallet"],
-        )),
+        asyncio.create_task(_forward_emulator_source(websocket, send_lock, streams, source))
+        for source in streams.sources("linear", symbol.upper())
     }
 
     async def wait_for_browser_disconnect() -> None:
