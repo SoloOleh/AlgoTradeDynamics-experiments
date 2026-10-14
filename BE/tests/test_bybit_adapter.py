@@ -215,3 +215,23 @@ def test_capability_declaration_matches_the_catalogue():
         assert everywhere <= declared
         assert (Capability.SHORT_SELLING in declared) == (market_type != MarketType.SPOT)
     assert BYBIT_CAPABILITIES.client_tag_max_length == 36
+
+
+def test_position_carries_value_and_unrealised_pnl(monkeypatch):
+    adapter = BybitAdapter("demo")
+
+    class Session:
+        def get_positions(self, **params):
+            return {"retCode": 0, "result": {"list": [
+                {"symbol": "BTCUSDT", "side": "Buy", "size": "0.02", "avgPrice": "100.0",
+                 "positionValue": "2.0", "unrealisedPnl": "0.4", "liqPrice": "", "leverage": "10",
+                 "tradeMode": 0},
+                {"symbol": "BTCUSDT", "side": "Sell", "size": "0.01", "avgPrice": "101.0",
+                 "unrealizedPnl": "-0.1"},
+            ]}}
+
+    adapter._session = Session()
+    first, second = adapter.positions("linear", "BTCUSDT")
+
+    assert (first.position_value, first.unrealised_pnl, first.liq_price, first.leverage) == (2.0, 0.4, None, 10.0)
+    assert (second.position_value, second.unrealised_pnl) == (None, -0.1)

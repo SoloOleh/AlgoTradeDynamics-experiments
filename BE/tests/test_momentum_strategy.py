@@ -117,3 +117,12 @@ def test_momentum_close_orders_must_be_reduce_only():
 
     assert validate_order_request(order, rules) == "Position close orders must be reduce-only"
 
+
+
+def test_order_record_reduce_only_reads_the_stored_payload_including_legacy_rows():
+    from app.models.trading_bot_order import TradingBotOrder
+
+    assert TradingBotOrder(raw_response={"reduceOnly": True}).is_reduce_only is True
+    assert TradingBotOrder(raw_response={"reduceOnly": False}).is_reduce_only is False
+    assert TradingBotOrder(raw_response={}).is_reduce_only is False
+    assert TradingBotOrder(raw_response=None).is_reduce_only is False

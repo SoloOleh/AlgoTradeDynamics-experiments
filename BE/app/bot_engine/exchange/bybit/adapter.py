@@ -316,6 +316,8 @@ class BybitAdapter:
                 liq_price=_usable_float(item.get("liqPrice")),
                 leverage=_usable_float(item.get("leverage")),
                 margin_mode=item.get("tradeMode") or item.get("marginMode"),
+                position_value=_parsed_float(item.get("positionValue")),
+                unrealised_pnl=_parsed_float(item.get("unrealisedPnl") or item.get("unrealizedPnl")),
             ))
         return positions
 

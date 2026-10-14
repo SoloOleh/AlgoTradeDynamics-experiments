@@ -112,6 +112,8 @@ def positions_from(items, *, symbol: str = "BTCUSDT") -> list[Position]:
             liq_price=float(item["liqPrice"]) if item.get("liqPrice") else None,
             leverage=float(item["leverage"]) if item.get("leverage") else None,
             margin_mode=item.get("tradeMode") or item.get("marginMode"),
+            position_value=float(item["positionValue"]) if item.get("positionValue") else None,
+            unrealised_pnl=float(item["unrealisedPnl"]) if item.get("unrealisedPnl") else None,
         )
         for item in items if float(item.get("size") or 0) != 0
     ]

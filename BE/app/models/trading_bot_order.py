@@ -67,3 +67,12 @@ class TradingBotOrder(Base):
     parent_order: Mapped["TradingBotOrder | None"] = relationship(
         "TradingBotOrder", remote_side="TradingBotOrder.id"
     )
+
+    @property
+    def is_reduce_only(self) -> bool:
+        """Whether the order only reduces a position.
+
+        Read from the stored order payload, which every version of the bot has written the flag
+        into (rows from before the exchange adapter included); there is no separate column.
+        """
+        return bool((self.raw_response or {}).get("reduceOnly"))

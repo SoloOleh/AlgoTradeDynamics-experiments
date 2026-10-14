@@ -161,6 +161,8 @@ class Position:
     liq_price: float | None = None
     leverage: float | None = None
     margin_mode: Any = None
+    position_value: float | None = None
+    unrealised_pnl: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

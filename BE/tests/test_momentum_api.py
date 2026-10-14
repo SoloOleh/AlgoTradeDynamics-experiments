@@ -4,6 +4,7 @@ from app.bot_engine.bot import tick_bot_once
 from app.db.session import SessionLocal
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_order import TradingBotOrder
+from tests.remote_lookup import RemoteStateExchange, placed_from, positions_from, ticker_at
 
 
 def _trend_candles(direction: int, count: int = 90):
@@ -102,11 +103,13 @@ def _mock_momentum_runtime(monkeypatch, *, remote_positions=None, current_price=
 
     monkeypatch.setattr("app.bot_engine.strategies.momentum.ensure_live_trading_allowed", lambda *args, **kwargs: None)
     monkeypatch.setattr("app.bot_engine.strategies.momentum.sync_bot_orders", lambda *args, **kwargs: [])
-    monkeypatch.setattr("app.bot_engine.strategies.momentum.get_bybit_session", lambda _bot: object())
+    monkeypatch.setattr("app.bot_engine.exchange.registry.exchange_for",
+                        lambda _bot, needs=None: RemoteStateExchange({}, remote_positions=remote_positions,
+                                                                    price=current_price))
     monkeypatch.setattr("app.bot_engine.strategies.momentum.get_last_price", lambda *args, **kwargs: current_price)
     monkeypatch.setattr(
         "app.bot_engine.strategies.momentum.get_ticker_snapshot",
-        lambda *args, **kwargs: {"lastPrice": str(current_price), "markPrice": str(current_price)},
+        lambda *args, **kwargs: ticker_at(current_price),
     )
     monkeypatch.setattr(
         "app.bot_engine.strategies.momentum.get_instrument_rules",
@@ -119,7 +122,7 @@ def _mock_momentum_runtime(monkeypatch, *, remote_positions=None, current_price=
     )
     monkeypatch.setattr(
         "app.bot_engine.strategies.momentum.get_open_positions",
-        lambda *args, **kwargs: list(remote_positions),
+        lambda *args, **kwargs: positions_from(remote_positions),
     )
     monkeypatch.setattr(
         "app.bot_engine.strategies.momentum._closed_candles",
@@ -134,14 +137,14 @@ def _mock_momentum_runtime(monkeypatch, *, remote_positions=None, current_price=
             "reduce_only": order.reduce_only,
             "qty": order.qty,
         })
-        return {
+        return placed_from({
             "retCode": 0,
             "retMsg": "OK",
             "result": {
                 "orderId": f"oid-{order.order_link_id}",
                 "orderStatus": "Filled" if order.reduce_only else "New",
             },
-        }
+        }, order.order_link_id)
 
     monkeypatch.setattr("app.bot_engine.strategies.momentum.place_order", _place_order)
     return order_log
