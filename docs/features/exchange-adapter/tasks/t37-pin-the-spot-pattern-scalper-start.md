@@ -8,7 +8,7 @@ files_hint: ["BE/tests/test_bots_guard_api.py", "docs/features/exchange-adapter/
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15"
-status: "todo"
+status: "done"
 ---
 
 # T37 — Pin the spot Pattern Scalper start refusal and correct the T24 DoD

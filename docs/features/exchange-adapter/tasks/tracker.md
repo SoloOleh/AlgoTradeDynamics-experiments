@@ -42,7 +42,7 @@
 | T34 | Remove leftover dead code and give the pre-merge gate its own test database | wiring | Oleh Solomko | S | T26 | done |
 | T35 | Scrub a log record the handler cannot format | wiring | Oleh Solomko | S | T34 | done |
 | T36 | Record the port's Decimal numbers in ADR-0001 and the SAD debt list | docs | Oleh Solomko | S | T34 | done |
-| T37 | Pin the spot Pattern Scalper start refusal and correct the T24 DoD | tests | Oleh Solomko | S | T34 | todo |
+| T37 | Pin the spot Pattern Scalper start refusal and correct the T24 DoD | tests | Oleh Solomko | S | T34 | done |
 | T38 | Name no exchange in the engine's own order-rule refusals | app | Oleh Solomko | S | T34 | todo |
 | T39 | Build the stand-in adapter's prices as Decimals like the port declares | tests | Oleh Solomko | S | T34 | todo |
 | T40 | Skip a stream frame that is not JSON instead of reconnecting | infra | Oleh Solomko | S | T34 | todo |

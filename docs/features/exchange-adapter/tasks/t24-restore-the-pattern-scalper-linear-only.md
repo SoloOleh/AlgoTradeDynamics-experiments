@@ -22,4 +22,4 @@ Follow-up task from the independent review — [`_review/review-2026-10-14.md`](
 ## Acceptance
 
 - AC: AC-15 — full text in [spec.md §5](../spec.md).
-- **Definition of Done:** An inverse or spot Pattern Scalper bot is refused at start with today's `{detail}` text and sends no request; the capability guard still runs on top.
+- **Definition of Done:** An inverse Pattern Scalper bot is refused at start with today's `{detail}` text and sends no request; the capability guard still runs first, so a spot Pattern Scalper bot gets the guard's `exchange.capability_missing` body (short_selling on spot, `StartRefused` in openapi.yaml) — corrected 2026-10-15 (review finding 3), pinned by T37.

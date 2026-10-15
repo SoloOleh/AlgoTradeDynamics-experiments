@@ -231,3 +231,20 @@ def test_an_inverse_pattern_scalper_bot_keeps_todays_linear_only_refusal(client,
     assert response.status_code == 422
     assert response.json() == {"detail": "Pattern Scalper currently supports linear perpetuals only"}
     assert _status(bot_id) != "running"
+
+
+def test_a_spot_pattern_scalper_bot_is_refused_by_the_guard_for_short_selling(client, no_exchange_traffic):
+    """The guard runs before the strategy's own start check, so spot gets the capability body (StartRefused)."""
+    headers = _headers(client)
+    bot_id = _bot(client, headers, strategy_type="pattern_scalper", category="spot")
+
+    response = client.post(f"/api/bots/{bot_id}/start", headers=headers)
+
+    assert response.status_code == 422
+    assert_response_matches("startBot", response)
+    assert response.json() == {
+        "detail": "Capability short_selling is not available on market type spot for venue bybit/emulator",
+        "code": "exchange.capability_missing",
+        "details": {"exchange": "bybit", "environment": "emulator", "capability": "short_selling", "market_type": "spot"},
+    }
+    assert _status(bot_id) == "stopped"

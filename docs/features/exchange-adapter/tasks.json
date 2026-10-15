@@ -496,7 +496,7 @@
       "acs": [
         "AC-15"
       ],
-      "dod": "An inverse or spot Pattern Scalper bot is refused at start with today's `{detail}` text and sends no request; the capability guard still runs on top.",
+      "dod": "An inverse Pattern Scalper bot is refused at start with today's `{detail}` text and sends no request; a spot one gets the guard's capability_missing body (short_selling on spot), since the guard runs first.",
       "files_hint": [
         "BE/app/bot_engine/strategies/pattern_scalper.py",
         "BE/tests/test_pattern_scalper.py"
