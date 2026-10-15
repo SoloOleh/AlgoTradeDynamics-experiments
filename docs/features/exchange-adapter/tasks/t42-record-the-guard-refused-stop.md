@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/adr/0004-resolve-adapters-by-venue-
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15-2"
-status: "todo"
+status: "done"
 ---
 
 # T42 — Record the guard-refused stop in ADR-0004 and carry the api-sync gaps forward

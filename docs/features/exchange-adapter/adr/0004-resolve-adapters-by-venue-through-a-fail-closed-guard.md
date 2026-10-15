@@ -49,6 +49,8 @@ Today `get_bybit_session(bot)` keys only on `bot.environment`. An emulator bot g
 **Neutral**
 - A `venue` column can still be added later (for example for per-operator keys) without changing the guard's contract.
 
+**Amendment (2026-10-15).** A stop on a bot the guard refuses is refused like every other exchange-reaching action: the API answers 422 `GuardRefusal` with the venue or capability named, the bot stays `paused`, and nothing is cancelled or closed (`bot.py` `stop_bot_once`, `stopBot` in openapi.yaml). The "stop moves the bot to `stopped`" consequence above is superseded. The Operator gets such a bot out of the way by clearing its history, whose exchange cancel is best-effort and is skipped on a guard refusal, or by deleting it, which reaches no exchange. Review 2026-10-15-2, finding 2 (T42).
+
 ## Links
 
 - Spec: [[../spec.md]] US-04, US-06, AC-09, AC-10, AC-11, AC-15, AC-15b

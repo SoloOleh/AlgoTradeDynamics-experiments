@@ -396,9 +396,14 @@ sequenceDiagram
     else own bot
         DB-->>API: bot
         API->>SEAM: resolve adapter for the bot with the capabilities this action needs
-        alt venue has no adapter or a capability is missing
+        alt venue has no adapter or a capability is missing, and the action is the bot page read
             SEAM-->>API: refused, venue or capability and market type named
-            API-->>C: action refused with the reason, nothing sent to any exchange
+            API->>DB: read the stored performance figures
+            DB-->>API: stored figures
+            API-->>C: page with the stored figures, no refresh, nothing sent to any exchange (AC-02, AC-10)
+        else venue has no adapter or a capability is missing, any other action
+            SEAM-->>API: refused, venue or capability and market type named
+            API-->>C: action refused with the reason (422), bot and orders left as they are, nothing sent to any exchange
         else guard passes
             SEAM-->>API: adapter
             opt open the bot page
