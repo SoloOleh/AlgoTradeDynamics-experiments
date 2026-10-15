@@ -210,7 +210,15 @@ class BybitStreams:
                                 continue
                         else:
                             raw = await websocket.recv()
-                        message = json.loads(raw)
+                        try:
+                            message = json.loads(raw)
+                        except ValueError:
+                            # One junk frame must not drop the connection; its text may carry a key.
+                            logger.warning(
+                                "Exchange WS message skipped: venue=bybit/%s stream=%s error=frame is not JSON",
+                                self.environment, source.label,
+                            )
+                            continue
                         if isinstance(message, dict):
                             await on_message(message)
             except asyncio.CancelledError:

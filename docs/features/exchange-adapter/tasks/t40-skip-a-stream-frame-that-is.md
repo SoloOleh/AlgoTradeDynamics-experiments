@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/exchange/bybit/streams.py", "BE/tests/test_excha
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15"
-status: "todo"
+status: "done"
 ---
 
 # T40 — Skip a stream frame that is not JSON instead of reconnecting
