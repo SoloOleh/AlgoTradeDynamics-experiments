@@ -696,6 +696,107 @@
         "scripts/premerge.sh"
       ],
       "file": "docs/features/exchange-adapter/tasks/t34-remove-leftover-dead-code-and.md"
+    },
+    {
+      "id": "T35",
+      "title": "Scrub a log record the handler cannot format",
+      "layer": "wiring",
+      "deps": [
+        "T34"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "A log record whose message cannot be formatted (format/argument mismatch) reaches no handler output with a key or secret in clear: msg, args, exc_text and stack_info are scrubbed and args cleared; the test emits through a real handler and asserts stdout and stderr clean.",
+      "files_hint": [
+        "BE/app/core/logging.py",
+        "BE/tests/test_secret_leaks.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t35-scrub-a-log-record-the-handler.md"
+    },
+    {
+      "id": "T36",
+      "title": "Record the port's Decimal numbers in ADR-0001 and the SAD debt list",
+      "layer": "docs",
+      "deps": [
+        "T34"
+      ],
+      "acs": [],
+      "dod": "ADR-0001 carries a dated amendment that ticker/position prices and execution figures are Decimals built from the exchange text (T31, T33); sad.md §11 accepted-debt line matches §8. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/adr/0001-define-a-typed-exchange-neutral-adapter-port.md",
+        "docs/features/exchange-adapter/sad.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t36-record-the-ports-decimal-numbers.md"
+    },
+    {
+      "id": "T37",
+      "title": "Pin the spot Pattern Scalper start refusal and correct the T24 DoD",
+      "layer": "tests",
+      "deps": [
+        "T34"
+      ],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "An API test proves a Bybit spot Pattern Scalper start is refused with 422, `exchange.capability_missing` for short_selling on spot, validated against `startBot` in openapi.yaml, sending no exchange request; the T24 DoD names inverse only and records that spot gets the guard body.",
+      "files_hint": [
+        "BE/tests/test_bots_guard_api.py",
+        "docs/features/exchange-adapter/tasks/t24-restore-the-pattern-scalper-linear-only.md",
+        "docs/features/exchange-adapter/tasks.json"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t37-pin-the-spot-pattern-scalper-start.md"
+    },
+    {
+      "id": "T38",
+      "title": "Name no exchange in the engine's own order-rule refusals",
+      "layer": "app",
+      "deps": [
+        "T34"
+      ],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "The live engine's minimum-quantity and minimum-notional refusals say \"below the exchange minimum\"; they still classify as invalid_order/pause. Backtest texts (a Bybit-only simulator) stay unchanged.",
+      "files_hint": [
+        "BE/app/bot_engine/orders.py",
+        "BE/app/bot_engine/strategies/momentum.py",
+        "BE/app/bot_engine/strategies/pattern_scalper.py",
+        "BE/tests/test_engine_reaction.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t38-name-no-exchange-in-the-engines.md"
+    },
+    {
+      "id": "T39",
+      "title": "Build the stand-in adapter's prices as Decimals like the port declares",
+      "layer": "tests",
+      "deps": [
+        "T34"
+      ],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "The stand-in adapter builds Ticker last/mark price and Position mark/liq price and leverage with `_decimal()`, so a position page reads the same through the stand-in as through Bybit (\"10\", not \"10.0\").",
+      "files_hint": [
+        "BE/tests/golden/stand_in_adapter.py",
+        "BE/tests/golden/test_stand_in_adapter.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t39-build-the-stand-in-adapters-prices.md"
+    },
+    {
+      "id": "T40",
+      "title": "Skip a stream frame that is not JSON instead of reconnecting",
+      "layer": "infra",
+      "deps": [
+        "T34"
+      ],
+      "acs": [],
+      "dod": "A text frame that is not valid JSON is logged scrubbed and skipped; the connection is not reopened and the next event is delivered.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/bybit/streams.py",
+        "BE/tests/test_exchange_streams.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t40-skip-a-stream-frame-that-is.md"
     }
   ]
 }

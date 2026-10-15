@@ -40,6 +40,12 @@
 | T32 | Skip a malformed stream message instead of dropping the connection | infra | Oleh Solomko | S | T20 | done |
 | T33 | Rebuild performance figures from exact decimal execution values | app | Oleh Solomko | S | T20 | done |
 | T34 | Remove leftover dead code and give the pre-merge gate its own test database | wiring | Oleh Solomko | S | T26 | done |
-**Total:** 34 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d).
+| T35 | Scrub a log record the handler cannot format | wiring | Oleh Solomko | S | T34 | done |
+| T36 | Record the port's Decimal numbers in ADR-0001 and the SAD debt list | docs | Oleh Solomko | S | T34 | todo |
+| T37 | Pin the spot Pattern Scalper start refusal and correct the T24 DoD | tests | Oleh Solomko | S | T34 | todo |
+| T38 | Name no exchange in the engine's own order-rule refusals | app | Oleh Solomko | S | T34 | todo |
+| T39 | Build the stand-in adapter's prices as Decimals like the port declares | tests | Oleh Solomko | S | T34 | todo |
+| T40 | Skip a stream frame that is not JSON instead of reconnecting | infra | Oleh Solomko | S | T34 | todo |
+**Total:** 34 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S).
 
 **Ship precondition (review 2026-10-15, finding 5):** before `/sdd:ship`, run and record in the PR description: (1) a real connection check against Bybit demo (AC-12, test-plan.md:66), and (2) a manual mid-cycle smoke run on `docker compose` with PostgreSQL (test-plan.md:102, T20).

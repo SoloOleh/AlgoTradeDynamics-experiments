@@ -268,6 +268,29 @@ def test_a_malformed_log_record_does_not_raise_into_the_caller():
     assert ScrubbingFilter().filter(record) is True
 
 
+def test_a_malformed_log_record_reaches_no_output_unscrubbed(capsys):
+    """A format/argument mismatch makes the handler report the raw record on stderr (Handler.handleError)."""
+    from app.core.logging import configure_logging
+
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+    try:
+        configure_logging()
+        logging.getLogger("app.anything").warning("key=%s secret=%s on %s", KEY, LEAKY)
+        try:
+            raise RuntimeError(LEAKY)
+        except RuntimeError:
+            logging.getLogger("app.anything").exception("request %s failed: %d", SECRET)
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)
+
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
+    assert "key=" in output and "request" in output
+    assert_clean(output)
+
+
 def test_uvicorns_access_log_keeps_its_format_arguments(capsys):
     import sys
 

@@ -17,8 +17,9 @@ class ScrubbingFilter(logging.Filter):
 
         try:
             message = record.getMessage()
-        except Exception:  # noqa: BLE001 - a malformed record is the handler's to report
-            return True
+        except Exception:  # noqa: BLE001 - a format/argument mismatch must not reach the handler raw
+            # Left as is, Handler.handleError would print the raw msg and args to stderr.
+            message = f"{record.msg} (unformattable log arguments: {record.args!r})"
         record.msg = scrub(message)
         record.args = None
         if record.exc_info and not record.exc_text:
