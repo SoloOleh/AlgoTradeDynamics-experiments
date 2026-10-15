@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/adr/0001-define-a-typed-exchange-ne
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15"
-status: "todo"
+status: "done"
 ---
 
 # T36 — Record the port's Decimal numbers in ADR-0001 and the SAD debt list

@@ -925,7 +925,7 @@ Each top-3 goal from §1 is expanded into a full scenario. QG-4 is the performan
 - **Risk guards fail open** on unreadable balance or daily result (Momentum, Pattern Scalper). Preserved for trading equivalence. To be fixed before Binance bots run live, or with step 9.
 - **Bybit keeps its recovery policy:** resync and retry on inconsistent order state, with no lookup before resend and no pause on unexplained divergence. The new guarantees reach Bybit in roadmap step 9 (spec §3).
 - **The stored vocabulary looks Bybit-shaped** (`New`, `Filled`…, ADR-0003). Other adapters map into it.
-- **Floats, not Decimal**, for prices, quantities, fees and PnL (SAD §8).
+- **Floats, not Decimal**, for prices, quantities, fees and PnL, except where the exchange's text reaches the page or performance unchanged: ticker and position prices and execution figures are `Decimal`s built from that text (SAD §8, ADR-0001 amendment 2026-10-15).
 - **Bybit's capability declarations are loose** (for example `position_reads` on spot) because they mirror today's usage. To be tightened by the strategy × market × mode matrix (decision D2).
 
 ## 12. Glossary

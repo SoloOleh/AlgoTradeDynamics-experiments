@@ -48,6 +48,8 @@ Strategies and runtimes reach Bybit directly. About 22 sites call `get_bybit_ses
 **Neutral**
 - Numeric fields keep today's float conversion (SAD §8). Moving to `Decimal` is a later, separate decision.
 
+**Amendment (2026-10-15).** Two parts of the port carry `Decimal` after all. Neither is a general move to `Decimal`; both keep today's numbers exactly. First, where the exchange's text reached the page unchanged (ticker and position prices, leverage), the port carries it as a `Decimal` built from that text, so the response strings stay the same (`"10"`, not `"10.0"`) — T31, review 2026-10-14 finding 16. Second, execution qty, price, fee and realised P&L are `Decimal`s from the exchange text, as performance read them before the adapter — T33, finding 19. Every other numeric field keeps the float conversion. See SAD §8 «Numbers».
+
 ## Links
 
 - Spec: [[../spec.md]] US-08, AC-17, §6 «Exchange access outside adapters», §7 KPIs
