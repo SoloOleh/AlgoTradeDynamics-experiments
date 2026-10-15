@@ -41,3 +41,5 @@
 | T33 | Rebuild performance figures from exact decimal execution values | app | Oleh Solomko | S | T20 | done |
 | T34 | Remove leftover dead code and give the pre-merge gate its own test database | wiring | Oleh Solomko | S | T26 | done |
 **Total:** 34 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d).
+
+**Ship precondition (review 2026-10-15, finding 5):** before `/sdd:ship`, run and record in the PR description: (1) a real connection check against Bybit demo (AC-12, test-plan.md:66), and (2) a manual mid-cycle smoke run on `docker compose` with PostgreSQL (test-plan.md:102, T20).
