@@ -545,9 +545,9 @@ sequenceDiagram
         AD-->>ST: not found
         ST->>DB: order marked gone
         Note over ST,DB: persists bot order row status by bot and client tag
-    else lookup fails with any other error class
+    else lookup fails with a class the bot already retries (rate limited, network, exchange unavailable, time sync, order-state conflict, duplicate client tag)
         EX-->>AD: error code, error text or timeout
-        AD-->>ST: exchange error, error class is not unknown-order
+        AD-->>ST: exchange error, retryable class
         ST->>ST: keep the order active, place and cancel nothing tied to it
         ST-->>WK: lookup failed, ask again later
         Note over WK,EX: ask again on later ticks up to the existing retry limit (default 5)
@@ -555,6 +555,13 @@ sequenceDiagram
             WK->>DB: bot paused as today
             Note over WK,DB: persists bot status and bot event
         end
+    else lookup fails with any other class (rejected credentials, denied permission, invalid symbol, unclassified, …)
+        EX-->>AD: error code or error text
+        AD-->>ST: exchange error, non-retryable class
+        ST->>ST: keep the order active, place and cancel nothing tied to it
+        ST-->>WK: lookup failed with that class
+        WK->>DB: that class's AC-06 reaction at once (credentials, permission or unclassified stop; invalid symbol pauses)
+        Note over WK,DB: persists bot status and bot event; the order row stays active
     end
     Note over ST,EX: Postcondition: a failed lookup is never proof that an order is gone (AC-08, deliberate deviation)
 ```
@@ -821,7 +828,7 @@ No user story or AC is uncovered, and none is non-runtime N/A. The flows agree w
 | Secrets | One scrubber knows every configured key and secret of every venue plus the emulator account keys in use. It is applied by the adapter to every `ExchangeError` and again by every sink (`log_bot_event` → Telegram, `record_operation_log`, `create_bot_incident`, the connection check). Keys appear at most as `****abcd`, secrets never (AC-16). Records stored before the deploy are not rewritten | ADR-0008 |
 | Authentication / authorization | JWT via the existing API dependencies. Bot ownership is checked by `get_trading_bot(db, bot_id, user_id)` → 404 «Trading bot not found» **before** any venue routing or guard, so another user's bot reveals no venue or state (AC-11). The connection check requires a signed-in operator (AC-14) and stays under the existing per-user in-memory rate limit (`app.core.rate_limit`) | `BE/app/api/deps.py`, `BE/app/api/bots.py` |
 | Error handling | The adapter raises `ExchangeError(error_class, raw_code, scrubbed message)`. The engine maps error class → (stored error type, severity, action, retry delay) with today's values. Non-exchange failures (configuration, internal) are classified as today. Guard refusals (`VenueNotSupported`, `CapabilityMissing`) are a separate path: a refused start at the API, or a pause with the reason while running, never retried | ADR-0004, ADR-0005; `bot_engine/error_handling.py` |
-| Order lookup (AC-08) | The adapter's `lookup_order(tag)` answers `open`, `final(filled / cancelled / …)` or `not_found`, searching the exchange's open orders and order history **by client tag** (not today's «last 50 history items», `orders.py:39-50`). If a lookup fails with any class other than `unknown_order`, the order stays active, nothing tied to it is placed or cancelled, and the bot asks again up to the existing `error_max_retries` (default 5), then pauses as today. An order is gone only on `unknown_order` or `not_found`, and a `final` answer gives its final state. This is the deliberate AC-08 deviation, introduced in one migration step and recorded as such in the reference failure table | `bot_engine/exchange/port.py`; ADR-0005 |
+| Order lookup (AC-08) | The adapter's `lookup_order(tag)` answers `open`, `final(filled / cancelled / …)` or `not_found`, searching the exchange's open orders and order history **by client tag** (not today's «last 50 history items», `orders.py:39-50`). If a lookup fails with any class other than `unknown_order`, the order stays active and nothing tied to it is placed or cancelled. A class the bot already retries (rate limited, network, exchange unavailable, time sync, order-state conflict, duplicate client tag) asks again up to the existing `error_max_retries` (default 5), then pauses as today; any other class takes its AC-06 reaction at once (credentials, permission or unclassified stop; invalid symbol pauses), per the AC-08 clarification. An order is gone only on `unknown_order` or `not_found`, and a `final` answer gives its final state. This is the deliberate AC-08 deviation, introduced in one migration step and recorded as such in the reference failure table | `bot_engine/exchange/port.py`; ADR-0005 |
 | ID strategy | Integer autoincrement PKs. Client order tags stay `bot-{id}-g{generation}-…` plus today's deterministic suffixes. The maximum tag length is a declared capability value (Bybit: 36) | ADR-0003, ADR-0006 |
 | Numbers | Prices, quantities, fees and PnL stay floats converted exactly as today. Rounding stays `round_to_step` (Decimal internally) over neutral `InstrumentRules` (`qty_step`, `tick_size`, `min_order_qty`, `min_notional_value`). No move to Decimal in this step (it would change AC-02 figures). Exception: where the exchange's text reached the page unchanged, the port carries it as a `Decimal` built from that text, so the strings stay the same: ticker and position prices (T31). Execution qty, price, fee and realised P&L are Decimals from the exchange text too, as performance read them before the adapter (T33) | `bot_engine/orders.py:53-98` |
 | Time | `app.core.clock.utcnow` everywhere. The golden-run harness pins the simulated clock for replays and uses the wall clock for latency (spec §6) | `BE/app/core/clock.py`; ADR-0007 |

@@ -918,6 +918,74 @@
         "BE/app/services/backtest_service.py"
       ],
       "file": "docs/features/exchange-adapter/tasks/t47-scrub-the-backtest-error-sinks.md"
+    },
+    {
+      "id": "T48",
+      "title": "Align the design docs with the clarified AC-08 lookup reaction",
+      "layer": "docs",
+      "deps": [
+        "T47"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "sad.md Flow 5 splits the \"any other error class\" branch: a retryable class retries up to the limit and then pauses; any other class takes its AC-06 reaction at once with the order kept active and nothing tied to it placed or cancelled. The sad.md §8 order-lookup row and ux-flows.md say the same. The AC-08 clarification lists `duplicate_client_tag` among the retried classes. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/sad.md",
+        "docs/features/exchange-adapter/ux-flows.md",
+        "docs/features/exchange-adapter/spec.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t48-align-the-design-docs-with-ac08.md"
+    },
+    {
+      "id": "T49",
+      "title": "Carry clear-history into the design (api-sync F-4)",
+      "layer": "docs",
+      "deps": [
+        "T47"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-16"
+      ],
+      "dod": "sad.md Flow 2 has a clear-history branch matching `trading_bot_service.py` (guard refused → local history cleared, exchange cancel skipped, scrubbed reason returned); clear-history is in the pillar 4 guard entry-point list and in the §8 Secrets sink list. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/sad.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t49-carry-clear-history-into-the-design.md"
+    },
+    {
+      "id": "T50",
+      "title": "Sweep the stale cross-references and task statuses",
+      "layer": "docs",
+      "deps": [
+        "T47"
+      ],
+      "acs": [],
+      "dod": "Each stale reference points at its resolution (data-model guard-pause note, ADR-0004 amendment, test-plan «CI placement»); t01–t20 carry `status: \"done\"`. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/contracts/events.md",
+        "docs/features/exchange-adapter/sad.md",
+        "docs/features/exchange-adapter/tasks/"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t50-sweep-stale-cross-references.md"
+    },
+    {
+      "id": "T51",
+      "title": "Keep malformed exception info from raising out of the log filter",
+      "layer": "wiring",
+      "deps": [
+        "T47"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "The `formatException` call is in its own `try`; on failure the record carries `exc_text = \"unformattable exception info\"` and `exc_info = None`. A test logs a malformed `exc_info` through the real handler: no exception reaches the caller and the message is still emitted.",
+      "files_hint": [
+        "BE/app/core/logging.py",
+        "BE/tests/test_secret_leaks.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t51-keep-malformed-exc-info-from-raising.md"
     }
   ]
 }

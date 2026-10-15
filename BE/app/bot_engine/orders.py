@@ -219,7 +219,8 @@ def resolve_order_state(db, bot, adapter, order_row) -> OrderResolution:
     `open` keeps it active, `final` takes its final state from history, `not_found` or the
     `unknown_order` class marks it gone. Any other failure is re-raised with the order row
     untouched: the tick aborts, so nothing tied to the order is placed or cancelled, and the
-    worker's error handler retries within `error_max_retries` and then pauses (AC-08).
+    worker's error handler applies the class's reaction: a retried class retries within
+    `error_max_retries` and then pauses, any other class stops or pauses at once (AC-08).
     """
     try:
         lookup = adapter.lookup_order(bot.category, bot.symbol, order_row.order_link_id)
