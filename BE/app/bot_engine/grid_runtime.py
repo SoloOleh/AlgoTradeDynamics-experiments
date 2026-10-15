@@ -28,6 +28,7 @@ from app.bot_engine.positions import get_open_positions
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot_order import TradingBotOrder
+from app.bot_engine.exchange.redaction import scrub
 
 
 def _utcnow() -> datetime:
@@ -1419,10 +1420,11 @@ def tick_grid_bot(db, bot: TradingBot, *, adapter=None) -> dict:
         if not bot.is_backtest:
             raise
         bot.last_run_at = _utcnow()
-        bot.last_error = str(exc)
+        error = scrub(str(exc))
+        bot.last_error = error
         if get_effective_bot_settings(bot)["stop_bot_on_error"]:
             bot.runtime_status = "stopped"
-        log_bot_event(db, bot, "error", str(exc))
+        log_bot_event(db, bot, "error", error)
         db.add(bot)
         db.commit()
-        return {"orders": [], "events": 1, "message": str(exc)}
+        return {"orders": [], "events": 1, "message": error}

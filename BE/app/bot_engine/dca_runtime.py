@@ -46,6 +46,7 @@ from app.bot_engine.orders import (
 )
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_order import TradingBotOrder
+from app.bot_engine.exchange.redaction import scrub
 
 DCA_ENTRY_ROLE_PREFIX = "dca_entry_"
 
@@ -404,10 +405,11 @@ def tick_dca_bot(db, bot: TradingBot, *, force: bool = False, adapter=None) -> d
         if not bot.is_backtest:
             raise
         bot.last_run_at = _utcnow()
-        bot.last_error = str(exc)
+        error = scrub(str(exc))
+        bot.last_error = error
         if get_effective_dca_settings(bot)["stop_bot_on_error"]:
             bot.runtime_status = "stopped"
-        log_bot_event(db, bot, "error", str(exc))
+        log_bot_event(db, bot, "error", error)
         db.add(bot)
         db.commit()
-        return {"orders": [], "events": 1, "message": str(exc)}
+        return {"orders": [], "events": 1, "message": error}

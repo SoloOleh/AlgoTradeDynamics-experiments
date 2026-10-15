@@ -348,3 +348,92 @@ def test_uvicorns_access_log_keeps_its_format_arguments(capsys):
         access.handlers[:], access.propagate, access.level = saved
 
     assert '127.0.0.1:5000 - "GET /api/health HTTP/1.1" 200' in capsys.readouterr().out
+
+
+class _LeakyAdapter:
+    """Every exchange call fails with a text holding a key and a secret."""
+
+    def __getattr__(self, name):
+        def fail(*args, **kwargs):
+            raise RuntimeError(LEAKY)
+        return fail
+
+
+def _tick_grid(db, bot):
+    from app.bot_engine.grid_runtime import tick_grid_bot
+    return tick_grid_bot(db, bot, adapter=_LeakyAdapter())
+
+
+def _tick_dca(db, bot):
+    from app.bot_engine.dca_runtime import tick_dca_bot
+    return tick_dca_bot(db, bot, force=True, adapter=_LeakyAdapter())
+
+
+def _tick_strategy(name):
+    def tick(db, bot):
+        from app.bot_engine.strategies import get_strategy
+        return get_strategy(name).tick(db, bot, force=True, adapter=_LeakyAdapter())
+    return tick
+
+
+@pytest.mark.parametrize(("strategy", "tick"), [
+    ("grid", _tick_grid), ("dca", _tick_dca),
+    ("momentum", _tick_strategy("momentum")), ("pattern_scalper", _tick_strategy("pattern_scalper")),
+])
+def test_a_backtest_bots_tick_error_is_scrubbed(db, bot, strategy, tick):
+    from app.models.trading_bot_event import TradingBotEvent
+
+    bot.strategy_type, bot.is_backtest, bot.is_active = strategy, True, True
+    db.commit()
+
+    result = tick(db, bot)
+
+    assert_clean(result["message"])
+    assert_clean(bot.last_error)
+    events = db.query(TradingBotEvent).filter(TradingBotEvent.bot_id == bot.id, TradingBotEvent.event_type == "error").all()
+    assert events and all(KEY not in event.message and SECRET not in event.message for event in events)
+
+
+def _queued_run(db, user_id: int, strategy: str):
+    from app.models.backtest import BacktestRun
+
+    run = BacktestRun(
+        user_id=user_id, dataset_id=1, dataset_name=strategy, name=strategy, bot_name=strategy, symbol="BTCUSDT",
+        interval="1", start_time=0, end_time=60_000, initial_balance=10_000, fee_rate=0.0002,
+        slippage_percent=0.01, path_mode="conservative", end_behavior="force_close", status="queued",
+        total_candles=1, configuration={}, metrics={},
+        bot_snapshot={"strategy_type": strategy, "category": "linear", "symbol": "BTCUSDT", "order_qty": 1.0,
+                      "grid_orders_count": 1, "grid_step_percent": 0, "settings": {}},
+    )
+    db.add(run)
+    db.commit()
+    return run.id
+
+
+@pytest.mark.parametrize(("module", "job", "target"), [
+    ("app.services.backtest_service", "_run_emulator_backtest_job", "BacktestEmulatorClient.create_account"),
+    ("app.services.fast_momentum_backtest", "run_fast_momentum_backtest_job", "FastMomentumBacktestEngine.__init__"),
+    ("app.services.fast_scalper_backtest", "run_fast_scalper_backtest_job", "FastScalperBacktestEngine.__init__"),
+])
+def test_a_failed_backtest_runs_error_is_scrubbed(db, bot, monkeypatch, module, job, target):
+    import importlib
+
+    from app.models.backtest import BacktestRun
+    from app.services.ui_stream_service import backtest_ui_stream_hub
+
+    mod = importlib.import_module(module)
+    owner, attr = target.split(".")
+
+    def fail(*args, **kwargs):
+        raise RuntimeError(LEAKY)
+
+    monkeypatch.setattr(getattr(mod, owner), attr, fail)
+    monkeypatch.setattr(backtest_ui_stream_hub, "publish", lambda *args, **kwargs: None)
+    run_id = _queued_run(db, bot.user_id, "grid")
+
+    getattr(mod, job)(run_id)
+
+    db.expire_all()
+    run = db.get(BacktestRun, run_id)
+    assert run.status == "failed"
+    assert_clean(run.error)

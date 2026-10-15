@@ -27,6 +27,7 @@ from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot_order import TradingBotOrder
 from app.services.backtest_emulator import BacktestEmulatorClient, emulator_instrument_rules, emulator_venue
 from app.services.ui_stream_service import backtest_ui_stream_hub
+from app.bot_engine.exchange.redaction import scrub
 
 MAX_CHART_POINTS = 1800
 DEFAULT_LEVERAGE = 10.0
@@ -1130,7 +1131,7 @@ def run_fast_scalper_backtest_job(run_id: int) -> None:
         run = db.get(BacktestRun, run_id)
         if run is not None and run.status != "cancelled":
             run.status = "failed"
-            run.error = str(exc)
+            run.error = scrub(str(exc))
             run.completed_at = _utcnow()
             if run.temp_bot_id:
                 failed_bot = db.get(TradingBot, run.temp_bot_id)

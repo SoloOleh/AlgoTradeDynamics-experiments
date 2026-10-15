@@ -43,6 +43,7 @@ from app.bot_engine.strategies.base import COMMON_CAPABILITIES
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot_order import TradingBotOrder
+from app.bot_engine.exchange.redaction import scrub
 
 
 @dataclass(slots=True)
@@ -1553,8 +1554,9 @@ class PatternScalperStrategy:
         except Exception as exc:  # noqa: BLE001
             if not bot.is_backtest:
                 raise
-            bot.last_run_at = utcnow(); bot.last_error = str(exc)
+            error = scrub(str(exc))
+            bot.last_run_at = utcnow(); bot.last_error = error
             if bool(settings.get("stop_bot_on_error", True)):
                 bot.runtime_status = "stopped"
-            log_bot_event(db, bot, "error", str(exc)); db.add(bot); db.commit()
-            return {"orders": [], "events": 1, "message": str(exc)}
+            log_bot_event(db, bot, "error", error); db.add(bot); db.commit()
+            return {"orders": [], "events": 1, "message": error}

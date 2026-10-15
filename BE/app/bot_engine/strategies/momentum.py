@@ -43,6 +43,7 @@ from app.bot_engine.strategies.base import COMMON_CAPABILITIES
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot_order import TradingBotOrder
+from app.bot_engine.exchange.redaction import scrub
 
 _SIGNAL_HISTORY_LIMIT = 30
 _SUPPORTED_TIMEFRAMES = {"1", "3", "5", "15", "30", "60", "120", "240", "360", "720", "D", "W", "M"}
@@ -1166,12 +1167,13 @@ class MomentumStrategy:
             if not bot.is_backtest:
                 raise
             bot.last_run_at = utcnow()
-            bot.last_error = str(exc)
+            error = scrub(str(exc))
+            bot.last_error = error
             if bool(settings.get("stop_bot_on_error", True)):
                 bot.runtime_status = "stopped"
-            log_bot_event(db, bot, "error", str(exc))
+            log_bot_event(db, bot, "error", error)
             db.add(bot)
             db.commit()
-            return {"orders": [], "events": 1, "message": str(exc)}
+            return {"orders": [], "events": 1, "message": error}
 
 
