@@ -64,3 +64,32 @@ def test_performance_figures_are_unchanged(name, emulator, golden_db):
 
     assert figures == expected
     assert int(expected["closed_cycles"]) >= 0 and expected["total_fees"] is not None
+
+
+# ------------------------------------------------- exact decimal execution values (T33)
+
+LONG_TEXTS = {"execQty": "0.123456789012345678", "execPrice": "65000.1234567890123", "execFee": "0.0000123456789012345678",
+              "closedPnl": "-1.23456789012345678"}
+
+
+def test_executions_carry_the_exchanges_decimal_text_exactly():
+    from decimal import Decimal
+
+    from app.bot_engine.exchange.bybit.adapter import BybitAdapter
+
+    execution = BybitAdapter._execution({"execId": "e1", "side": "Sell", **LONG_TEXTS})
+
+    assert (execution.qty, execution.price, execution.fee, execution.realised_pnl) == tuple(
+        Decimal(LONG_TEXTS[key]) for key in ("execQty", "execPrice", "execFee", "closedPnl")
+    )
+    assert str(execution.price) == "65000.1234567890123"
+
+
+def test_unreadable_execution_numbers_keep_todays_defaults():
+    from decimal import Decimal
+
+    from app.bot_engine.exchange.bybit.adapter import BybitAdapter
+
+    execution = BybitAdapter._execution({"execQty": "", "execPrice": "abc", "execFee": None, "closedPnl": ""})
+
+    assert (execution.qty, execution.price, execution.fee, execution.realised_pnl) == (Decimal(0), Decimal(0), Decimal(0), None)

@@ -7,6 +7,7 @@ same capabilities as the Bybit adapter. Strategies receive it through the guard 
 from __future__ import annotations
 
 from contextlib import contextmanager
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import httpx2
@@ -45,6 +46,13 @@ def _number(value: Any) -> float | None:
     try:
         return None if value in (None, "") else float(value)
     except (TypeError, ValueError):
+        return None
+
+
+def _decimal(value: Any) -> Decimal | None:
+    try:
+        return None if value in (None, "") else Decimal(str(value))
+    except InvalidOperation:
         return None
 
 
@@ -214,9 +222,9 @@ class StandInAdapter:
             for item in result.get("list") or []:
                 found.append(Execution(
                     exec_id=item.get("execId"), order_id=item.get("orderId"), client_tag=item.get("orderLinkId"),
-                    side=item.get("side"), qty=_number(item.get("execQty")) or 0.0,
-                    price=_number(item.get("execPrice")) or 0.0, fee=_number(item.get("execFee")) or 0.0,
-                    realised_pnl=_number(item.get("closedPnl")),
+                    side=item.get("side"), qty=_decimal(item.get("execQty")) or Decimal(0),
+                    price=_decimal(item.get("execPrice")) or Decimal(0), fee=_decimal(item.get("execFee")) or Decimal(0),
+                    realised_pnl=_decimal(item.get("closedPnl")),
                     exec_time_ms=int(item["execTime"]) if item.get("execTime") else None,
                     exec_seq=int(item["execSeq"]) if item.get("execSeq") not in (None, "") else None,
                 ))

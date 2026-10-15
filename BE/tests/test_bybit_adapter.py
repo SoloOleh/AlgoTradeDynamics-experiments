@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import pytest
 
@@ -199,9 +200,9 @@ def test_executions_carry_fees_and_realised_pnl_exactly(emulator, emulator_url):
     sell = next(item for item in executions if item.side == "Sell")
     raw = adapter._request("get_executions", category="linear", symbol="BTCUSDT", limit=100)["result"]["list"]
     raw_sell = next(item for item in raw if item["side"] == "Sell")
-    assert sell.fee == float(raw_sell["execFee"])
-    assert sell.realised_pnl == float(raw_sell["closedPnl"])
-    assert sell.qty == 0.01 and sell.price == float(raw_sell["execPrice"])
+    assert sell.fee == Decimal(raw_sell["execFee"])
+    assert sell.realised_pnl == Decimal(raw_sell["closedPnl"])
+    assert sell.qty == Decimal("0.01") and sell.price == Decimal(raw_sell["execPrice"])
     assert sell.exec_seq == raw_sell["execSeq"]
 
 

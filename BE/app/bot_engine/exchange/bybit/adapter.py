@@ -67,15 +67,20 @@ def _usable_float(value: Any) -> float | None:
         return None
 
 
-def _usable_decimal(value: Any) -> Decimal | None:
-    """The exchange's number text as a Decimal; `None` where `_usable_float` gives `None`."""
-    if _usable_float(value) is None:
+def _decimal_or_none(value: Any) -> Decimal | None:
+    """The exchange's number text as a Decimal; `None` for an absent, empty or non-numeric field."""
+    if value is None or value == "":
         return None
     try:
         number = Decimal(str(value).strip())
     except InvalidOperation:
         return None
     return number if number.is_finite() else None
+
+
+def _usable_decimal(value: Any) -> Decimal | None:
+    """The exchange's number text as a Decimal; `None` where `_usable_float` gives `None`."""
+    return None if _usable_float(value) is None else _decimal_or_none(value)
 
 
 def _list(response: dict) -> list:
@@ -339,11 +344,8 @@ class BybitAdapter:
 
     @staticmethod
     def _execution(item: dict) -> Execution:
-        def number(key: str) -> float:
-            try:
-                return float(item.get(key) or 0)
-            except (TypeError, ValueError):
-                return 0.0
+        def number(key: str) -> Decimal:
+            return _decimal_or_none(item.get(key)) or Decimal(0)
 
         exec_time = item.get("execTime")
         exec_seq = item.get("execSeq")
@@ -355,7 +357,7 @@ class BybitAdapter:
             qty=number("execQty"),
             price=number("execPrice"),
             fee=number("execFee"),
-            realised_pnl=_parsed_float(item.get("closedPnl")),
+            realised_pnl=_decimal_or_none(item.get("closedPnl")),
             exec_time_ms=int(exec_time) if exec_time not in (None, "") else None,
             exec_seq=int(exec_seq) if exec_seq not in (None, "") else None,
         )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from decimal import Decimal
 import hmac
 import time
 from types import SimpleNamespace
@@ -110,7 +111,8 @@ def _streams():
     ({"topic": "execution", "data": [{"symbol": "BTCUSDT", "execId": "e1", "orderLinkId": "bot-1-g1-entry-1-1",
                                        "side": "Buy", "execQty": "0.01", "execPrice": "60000", "execFee": "0.03",
                                        "closedPnl": "0", "execTime": "1700000000000"}]},
-     "execution", lambda payload: payload["executions"][0].fee == 0.03 and payload["executions"][0].qty == 0.01),
+     "execution", lambda payload: payload["executions"][0].fee == Decimal("0.03")
+     and payload["executions"][0].qty == Decimal("0.01")),
     ({"topic": "position", "data": [{"symbol": "BTCUSDT", "side": "Buy", "size": "0.02", "avgPrice": "60000"}]},
      "position", lambda payload: isinstance(payload["positions"][0], Position) and payload["positions"][0].size == 0.02),
     ({"topic": "wallet", "data": [{"accountType": "UNIFIED", "totalEquity": "1000"}]},

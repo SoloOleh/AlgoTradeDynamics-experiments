@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/exchange/port.py", "BE/app/bot_engine/exchange/b
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T33 — Rebuild performance figures from exact decimal execution values

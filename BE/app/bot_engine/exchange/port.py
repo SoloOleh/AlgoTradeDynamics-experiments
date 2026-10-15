@@ -1,7 +1,8 @@
 """The exchange-neutral adapter port and its neutral types (ADR-0001).
 
 Numbers keep today's float conversion (sad.md §8), except the ticker and position prices a bot
-page shows: those are `Decimal`s built from the exchange's text, so the page keeps its strings. Order statuses use the stored platform
+page shows and the execution values performance adds up: those are `Decimal`s built from the
+exchange's text, so the page keeps its strings and performance its figures. Order statuses use the stored platform
 vocabulary (`New`, `PartiallyFilled`, `Filled`, `Cancelled`, `Rejected`, ... — ADR-0003); every
 adapter maps into it. `raw` fields carry the exchange payload only where it is stored as is
 (`trading_bot_orders.raw_response`).
@@ -137,16 +138,17 @@ class OrderLookup:
 
 @dataclass(frozen=True, slots=True)
 class Execution:
-    """One fill. Carries what performance needs to rebuild today's numbers exactly."""
+    """One fill. Carries what performance needs to rebuild today's numbers exactly: the numbers are
+    Decimals built from the exchange's text, as performance read them before the adapter."""
 
     exec_id: str | None
     order_id: str | None
     client_tag: str | None
     side: str | None
-    qty: float
-    price: float
-    fee: float
-    realised_pnl: float | None
+    qty: Decimal
+    price: Decimal
+    fee: Decimal
+    realised_pnl: Decimal | None
     exec_time_ms: int | None
     exec_seq: int | None = None
 
