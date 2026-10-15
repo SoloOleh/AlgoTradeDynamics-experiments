@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
 
 from app.bot_engine.exchange import registry
 from app.bot_engine.exchange.capabilities import Capability, CapabilitySet, MarketType
-from app.bot_engine.runtime import tick_running_bots
+from app.bot_engine.runtime import _retry_is_due, tick_running_bots
 from app.db.session import SessionLocal
 from app.models.operations import Incident
 from app.models.trading_bot import TradingBot
@@ -177,8 +178,45 @@ def test_a_guard_paused_bot_is_not_paused_twice(no_exchange_traffic, notified):
     assert notified[bot_id] == ["venue_unsupported"]
 
 
-def test_guard_refusals_never_reach_the_reaction_table():
-    from app.bot_engine.error_handling import pause_bot_for_guard  # noqa: F401 - the separate pause path exists
+def test_guard_pause_events_are_notified_as_errors():
     from app.services.telegram_notifications import ERROR_EVENTS
 
     assert {"venue_unsupported", "capability_missing"} <= ERROR_EVENTS
+
+
+def _naive_utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _retrying_bot(next_retry_at: datetime) -> int:
+    bot_id = _running_bot(exchange="binance", environment="live")
+    db = SessionLocal()
+    try:
+        bot = db.get(TradingBot, bot_id)
+        bot.runtime_status = "retrying"
+        bot.next_retry_at = next_retry_at
+        db.commit()
+    finally:
+        db.close()
+    return bot_id
+
+
+def test_a_stored_naive_retry_time_is_read_as_utc():
+    """SQLite hands `next_retry_at` back without a timezone; the worker clock is aware (UTC)."""
+    now = _naive_utcnow()
+    assert _retry_is_due(SimpleNamespace(next_retry_at=now - timedelta(minutes=1)))
+    assert not _retry_is_due(SimpleNamespace(next_retry_at=now + timedelta(minutes=1)))
+    assert _retry_is_due(SimpleNamespace(next_retry_at=None))
+
+
+def test_a_scheduled_tick_pauses_alongside_a_bot_still_waiting_to_retry(no_exchange_traffic, notified):
+    waiting_id = _retrying_bot(_naive_utcnow() + timedelta(hours=1))
+    bot_id = _running_bot(exchange="binance", environment="live")
+
+    _tick(None)
+
+    waiting, _, _, _ = _state(waiting_id)
+    bot, _, _, _ = _state(bot_id)
+    assert waiting.runtime_status == "retrying", "a retry that is not due yet is left alone"
+    assert bot.runtime_status == "paused"
+    assert notified[bot_id] == ["venue_unsupported"]

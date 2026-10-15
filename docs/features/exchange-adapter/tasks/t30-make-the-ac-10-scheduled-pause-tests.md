@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/runtime.py", "BE/tests/test_guard_pause.py"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T30 — Make the AC-10 scheduled-pause tests order-independent

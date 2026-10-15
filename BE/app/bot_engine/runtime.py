@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import timezone
 
 from app.bot_engine.bot import tick_bot_once
 from app.bot_engine.error_handling import clear_bot_runtime_error, handle_bot_runtime_error, pause_bot_for_guard
@@ -52,7 +53,13 @@ async def _tick_safely(app, **kwargs) -> None:
 
 
 def _retry_is_due(bot: TradingBot) -> bool:
-    return bot.next_retry_at is None or bot.next_retry_at <= utcnow()
+    retry_at = bot.next_retry_at
+    if retry_at is None:
+        return True
+    if retry_at.tzinfo is None:
+        # SQLite returns stored datetimes without a timezone; they are written in UTC.
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    return retry_at <= utcnow()
 
 
 async def tick_running_bots(
