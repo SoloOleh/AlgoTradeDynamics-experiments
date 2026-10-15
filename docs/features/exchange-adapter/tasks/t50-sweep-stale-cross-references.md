@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/contracts/events.md", "docs/feature
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15-3"
-status: "todo"
+status: "done"
 ---
 
 # T50 — Sweep the stale cross-references and task statuses

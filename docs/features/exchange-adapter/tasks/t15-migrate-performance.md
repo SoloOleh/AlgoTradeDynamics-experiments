@@ -9,7 +9,7 @@ files_hint: ["BE/app/bot_engine/performance.py", "BE/tests/test_performance_equi
 owner: "Oleh Solomko"
 estimate: "M"
 context_budget: "S"
-status: "todo"
+status: "done"
 ---
 
 <!-- To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous,

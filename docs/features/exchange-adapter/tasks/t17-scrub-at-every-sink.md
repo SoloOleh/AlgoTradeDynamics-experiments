@@ -9,7 +9,7 @@ files_hint: ["BE/app/bot_engine/events.py", "BE/app/bot_engine/error_handling.py
 owner: "Oleh Solomko"
 estimate: "M"
 context_budget: "S"
-status: "todo"
+status: "done"
 ---
 
 <!-- To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous,

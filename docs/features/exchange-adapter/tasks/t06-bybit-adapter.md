@@ -9,7 +9,7 @@ files_hint: ["BE/app/bot_engine/exchange/bybit/adapter.py", "BE/app/bot_engine/e
 owner: "Oleh Solomko"
 estimate: "L"
 context_budget: "M"
-status: "todo"
+status: "done"
 ---
 
 <!-- To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous,

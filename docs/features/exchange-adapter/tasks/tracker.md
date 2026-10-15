@@ -55,7 +55,7 @@
 | T47 | Scrub the backtest error sinks | wiring | Oleh Solomko | S | T40 | done |
 | T48 | Align the design docs with the clarified AC-08 lookup reaction | docs | Oleh Solomko | S | T47 | done |
 | T49 | Carry clear-history into the design (api-sync F-4) | docs | Oleh Solomko | S | T47 | done |
-| T50 | Sweep the stale cross-references and task statuses | docs | Oleh Solomko | S | T47 | todo |
+| T50 | Sweep the stale cross-references and task statuses | docs | Oleh Solomko | S | T47 | done |
 | T51 | Keep malformed exception info from raising out of the log filter | wiring | Oleh Solomko | S | T47 | todo |
 **Total:** 51 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S), plus T41–T47, review follow-ups from `_review/review-2026-10-15-2.md` (7 × S), plus T48–T51, review follow-ups from `_review/review-2026-10-15-3.md` (4 × S).
 

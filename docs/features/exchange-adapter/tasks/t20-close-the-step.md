@@ -9,7 +9,7 @@ files_hint: ["BE/app/services/backtest_service.py", "BE/app/services/fast_moment
 owner: "Oleh Solomko"
 estimate: "M"
 context_budget: "S"
-status: "todo"
+status: "done"
 ---
 
 <!-- To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous,

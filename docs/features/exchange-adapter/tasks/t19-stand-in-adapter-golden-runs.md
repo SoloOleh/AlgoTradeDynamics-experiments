@@ -9,7 +9,7 @@ files_hint: ["BE/tests/golden/stand_in_adapter.py", "BE/tests/golden/test_stand_
 owner: "Oleh Solomko"
 estimate: "M"
 context_budget: "S"
-status: "todo"
+status: "done"
 ---
 
 <!-- To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous,

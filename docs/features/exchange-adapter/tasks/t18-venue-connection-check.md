@@ -9,7 +9,7 @@ files_hint: ["BE/app/api/venues.py", "BE/app/api/bybit.py", "BE/app/main.py", "B
 owner: "Oleh Solomko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
+status: "done"
 ---
 
 <!-- To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous,

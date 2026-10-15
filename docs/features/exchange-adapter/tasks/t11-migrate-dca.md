@@ -9,7 +9,7 @@ files_hint: ["BE/app/bot_engine/dca_runtime.py", "BE/app/bot_engine/strategies/d
 owner: "Oleh Solomko"
 estimate: "M"
 context_budget: "M"
-status: "todo"
+status: "done"
 ---
 
 <!-- To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous,
