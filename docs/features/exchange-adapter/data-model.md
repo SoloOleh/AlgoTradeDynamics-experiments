@@ -129,9 +129,10 @@ outside the aggregate.
 | `last_error_code` | VARCHAR(40) | NULL | Raw exchange code, kept for diagnosis (AC-06) |
 | `error_retry_count`, `next_retry_at` | INTEGER, TIMESTAMPTZ | NOT NULL / NULL | Back-off and the AC-08 lookup retry share the existing `error_max_retries` budget |
 
-<!-- TBD: does a guard pause (venue unsupported / capability missing) also write `last_error_type` /
-`last_error_action`, or only the event and incident? Any value ≤ 40 chars fits; it is a `tasks`-level
-choice, not a schema one. -->
+**Guard pause (resolved in code; recorded by T43).** A guard pause (venue unsupported / capability missing)
+writes the error columns as well as the event and incident: `last_error_type` = `configuration`,
+`last_error_severity` = `error`, `last_error_action` = `pause`, `last_error_code` = NULL,
+`error_retry_count` = 0 and `next_retry_at` = NULL (`error_handling.py` `pause_bot_for_guard`).
 
 #### `trading_bot_orders` — read natively across a deploy, status updated by bot + client tag
 

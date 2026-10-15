@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/spec.md", "docs/features/exchange-a
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15-2"
-status: "todo"
+status: "done"
 ---
 
 # T43 — Close the resolved spec §8 questions and the data-model guard-pause TBD
