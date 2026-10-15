@@ -170,7 +170,7 @@ def apply_exchange_order(record, order: Order) -> None:
         record.filled_qty = order.filled_qty
     elif order.leaves_qty is not None:
         record.filled_qty = max(record.qty - order.leaves_qty, 0)
-    if order.price:
+    if order.price is not None:
         record.price = order.price
     existing_payload = dict(record.raw_response or {})
     existing_payload.update(order.raw)

@@ -1392,7 +1392,7 @@ class PatternScalperStrategy:
             tp = {"order_id": None, "order_link_id": trade.get("entry_order_link_id"), "price": _fmt(trade["take_profit"]),
                   "qty": _fmt(size), "status": "ManagedByStrategy", "reduce_only": True}
         return {"symbol": bot.symbol, "category": bot.category, "side": position["side"], "size": _fmt(size),
-                "avg_entry_price": _fmt(average), "mark_price": _fmt(mark), "liq_price": _fmt(exchange.liq_price),
+                "avg_entry_price": _fmt(average), "mark_price": _fmt(mark), "liq_price": _fmt(exchange.liq_price) or "0",
                 "unrealized_pnl": _fmt(unrealized), "unrealized_pnl_percent": _fmt(unrealized / value * 100 if value else None),
                 "leverage": _fmt(exchange.leverage), "margin_mode": exchange.margin_mode,
                 "position_value": _fmt(value), "take_profit": tp}

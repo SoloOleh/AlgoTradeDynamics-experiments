@@ -1,6 +1,7 @@
 """The exchange-neutral adapter port and its neutral types (ADR-0001).
 
-Numbers keep today's float conversion (sad.md §8). Order statuses use the stored platform
+Numbers keep today's float conversion (sad.md §8), except the ticker and position prices a bot
+page shows: those are `Decimal`s built from the exchange's text, so the page keeps its strings. Order statuses use the stored platform
 vocabulary (`New`, `PartiallyFilled`, `Filled`, `Cancelled`, `Rejected`, ... — ADR-0003); every
 adapter maps into it. `raw` fields carry the exchange payload only where it is stored as is
 (`trading_bot_orders.raw_response`).
@@ -8,6 +9,7 @@ adapter maps into it. `raw` fields carry the exchange payload only where it is s
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from app.bot_engine.exchange.capabilities import CapabilitySet
@@ -34,8 +36,8 @@ class InstrumentRules:
 @dataclass(frozen=True, slots=True)
 class Ticker:
     symbol: str
-    last_price: float | None
-    mark_price: float | None
+    last_price: Decimal | None
+    mark_price: Decimal | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,9 +159,9 @@ class Position:
     side: str
     size: float
     avg_entry_price: float | None
-    mark_price: float | None = None
-    liq_price: float | None = None
-    leverage: float | None = None
+    mark_price: Decimal | None = None
+    liq_price: Decimal | None = None
+    leverage: Decimal | None = None
     margin_mode: Any = None
     position_value: float | None = None
     unrealised_pnl: float | None = None

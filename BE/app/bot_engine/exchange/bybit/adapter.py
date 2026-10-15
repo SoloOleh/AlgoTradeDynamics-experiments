@@ -7,6 +7,7 @@ transport failure is re-raised as an `ExchangeError` via the Bybit classifier (A
 from __future__ import annotations
 
 import re
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from app.bot_engine.exchange.bybit.capabilities import BYBIT_CAPABILITIES
@@ -66,6 +67,17 @@ def _usable_float(value: Any) -> float | None:
         return None
 
 
+def _usable_decimal(value: Any) -> Decimal | None:
+    """The exchange's number text as a Decimal; `None` where `_usable_float` gives `None`."""
+    if _usable_float(value) is None:
+        return None
+    try:
+        number = Decimal(str(value).strip())
+    except InvalidOperation:
+        return None
+    return number if number.is_finite() else None
+
+
 def _list(response: dict) -> list:
     return response.get("result", {}).get("list", []) or []
 
@@ -117,9 +129,9 @@ def position_from_payload(item: dict) -> Position | None:
         side=str(item.get("side") or item.get("positionSide") or ""),
         size=size,
         avg_entry_price=_usable_float(item.get("avgPrice") or item.get("avgEntryPrice")),
-        mark_price=_usable_float(item.get("markPrice")),
-        liq_price=_usable_float(item.get("liqPrice")),
-        leverage=_usable_float(item.get("leverage")),
+        mark_price=_usable_decimal(item.get("markPrice")),
+        liq_price=_usable_decimal(item.get("liqPrice")),
+        leverage=_usable_decimal(item.get("leverage")),
         margin_mode=item.get("tradeMode") or item.get("marginMode"),
         position_value=_parsed_float(item.get("positionValue")),
         unrealised_pnl=_parsed_float(item.get("unrealisedPnl") or item.get("unrealizedPnl")),
@@ -214,8 +226,8 @@ class BybitAdapter:
         item = items[0]
         return Ticker(
             symbol=item.get("symbol") or symbol,
-            last_price=_usable_float(item.get("lastPrice")),
-            mark_price=_usable_float(item.get("markPrice")),
+            last_price=_usable_decimal(item.get("lastPrice")),
+            mark_price=_usable_decimal(item.get("markPrice")),
         )
 
     def candles(self, market_type: str, symbol: str, *, interval: str, end_ms: int, limit: int) -> list[Candle]:

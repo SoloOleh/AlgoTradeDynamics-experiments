@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/grid_runtime.py", "BE/app/bot_engine/strategies/
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T31 — Keep position response bodies and stored market-order prices unchanged

@@ -21,7 +21,7 @@ from urllib.parse import urlencode, urlparse, urlunparse
 import websockets
 
 from app.bot_engine.exchange.bybit.adapter import (
-    _usable_float,
+    _usable_decimal,
     balance_from_account,
     order_from_payload,
     position_from_payload,
@@ -144,8 +144,8 @@ class BybitStreams:
             item = (_items(data) or [{}])[0]
             ticker = Ticker(
                 symbol=str(item.get("symbol") or symbol),
-                last_price=_usable_float(item.get("lastPrice")),
-                mark_price=_usable_float(item.get("markPrice")),
+                last_price=_usable_decimal(item.get("lastPrice")),
+                mark_price=_usable_decimal(item.get("markPrice")),
             )
             return StreamEvent("ticker", symbol, {"ticker": ticker})
         if topic == "wallet":

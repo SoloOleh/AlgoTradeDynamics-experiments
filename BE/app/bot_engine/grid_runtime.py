@@ -623,7 +623,8 @@ def get_position_snapshot(db, bot: TradingBot, *, adapter=None) -> dict:
         "size": _format_optional_number(size),
         "avg_entry_price": _format_optional_number(avg_entry_price),
         "mark_price": _format_optional_number(mark_price_value),
-        "liq_price": _format_optional_number(exchange.liq_price if exchange else None),
+        # Bybit sends an empty liqPrice when there is none; the page showed that empty text.
+        "liq_price": (_format_optional_number(exchange.liq_price) or "") if exchange else None,
         "unrealized_pnl": _format_optional_number(unrealized_pnl),
         "unrealized_pnl_percent": _format_optional_number(unrealized_pnl_percent),
         "leverage": _format_optional_number(exchange.leverage if exchange else None),

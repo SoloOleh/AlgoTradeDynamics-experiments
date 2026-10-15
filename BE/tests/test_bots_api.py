@@ -1243,3 +1243,72 @@ def _fill_remote_grid_entry(remote_state, bot_id, *, level=1):
     remote["orderStatus"] = "Filled"
     remote["cumExecQty"] = remote["qty"]
     return remote
+
+
+# ------------------------------------------- position bodies keep the exchange's number text (T31)
+
+
+class _RawBybitSession:
+    """A pybit-shaped session answering with raw Bybit texts; every other read is empty."""
+
+    def __init__(self, *, liq_price: str) -> None:
+        self.position = {
+            "symbol": "BTCUSDT", "side": "Buy", "size": "0.01", "avgPrice": "64000.00",
+            "markPrice": "65000.50", "liqPrice": liq_price, "leverage": "10", "tradeMode": 0,
+            "positionValue": "650.005", "unrealisedPnl": "10.005",
+        }
+
+    def get_tickers(self, **params):
+        return {"retCode": 0, "result": {"list": [{"symbol": "BTCUSDT", "lastPrice": "65000.40", "markPrice": "65000.50"}]}}
+
+    def get_positions(self, **params):
+        return {"retCode": 0, "result": {"list": [self.position]}}
+
+    def __getattr__(self, name):
+        return lambda **params: {"retCode": 0, "result": {"list": []}}
+
+
+def _bybit_adapter(liq_price: str):
+    from app.bot_engine.exchange.bybit.adapter import BybitAdapter
+
+    adapter = BybitAdapter("demo")
+    adapter._session = _RawBybitSession(liq_price=liq_price)
+    return adapter
+
+
+@pytest.mark.parametrize("liq_price,expected_liq", [("58000.10", "58000.10"), ("", "")])
+def test_grid_position_body_keeps_the_exchange_text(client, auth_headers, monkeypatch, liq_price, expected_liq):
+    bot = _create_runtime_bot(client, auth_headers)
+    adapter = _bybit_adapter(liq_price)
+    monkeypatch.setattr("app.bot_engine.exchange.registry.exchange_for", lambda _bot, needs=None: adapter)
+    _seed_filled_bot_entry(bot, qty=0.01, price=64000.0, level=1)
+
+    payload = client.get(f"/api/bots/{bot['id']}/position", headers=auth_headers).json()
+
+    assert (payload["mark_price"], payload["leverage"], payload["liq_price"]) == ("65000.50", "10", expected_liq)
+
+
+@pytest.mark.parametrize("strategy", ["momentum", "pattern_scalper"])
+# Today's rendering: these strategies format through a float with 12 decimals.
+@pytest.mark.parametrize("liq_price,expected_liq", [("58000.10", "58000.099999999999"), ("", "0")])
+def test_momentum_and_scalper_position_bodies_keep_todays_strings(strategy, liq_price, expected_liq):
+    from app.bot_engine.strategies.registry import get_strategy
+
+    bot = TradingBot(id=1, strategy_type=strategy, category="linear", symbol="BTCUSDT", settings={}, exchange="bybit",
+                     environment="demo")
+
+    payload = get_strategy(strategy).get_position(None, bot, adapter=_bybit_adapter(liq_price))
+
+    assert (payload["mark_price"], payload["leverage"], payload["liq_price"]) == ("65000.5", "10", expected_liq)
+
+
+def test_a_market_order_acknowledged_at_price_zero_stores_zero(client, auth_headers):
+    from app.bot_engine.exchange.port import Order
+    from app.bot_engine.orders import apply_exchange_order
+
+    record = TradingBotOrder(price=None)
+    apply_exchange_order(record, Order(order_id="oid", client_tag="tag", side="Sell", order_type="Market",
+                                       status="Filled", qty=0.01, filled_qty=0.01, price=0.0, avg_price=65000.0,
+                                       reduce_only=False))
+
+    assert record.price == 0.0
