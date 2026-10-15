@@ -179,6 +179,21 @@ def test_performance_on_an_unsupported_venue_returns_stored_figures(client, no_e
     assert_response_matches("getBotPerformance", response)
 
 
+@pytest.mark.parametrize("strategy", ["momentum", "pattern_scalper"])
+def test_performance_reads_nothing_from_a_venue_without_position_reads(client, no_exchange_traffic, strategy):
+    """The performance page reads the live position too, so the guard checks for it (ADR-0004)."""
+    stand_in = StandIn(CapabilitySet({MarketType.LINEAR: frozenset(Capability) - {Capability.POSITION_READS}}))
+    headers = _headers(client)
+    bot_id = _bot(client, headers, exchange="standin", environment="test", strategy_type=strategy)
+
+    with registry.registered_venue("standin", "test", lambda account: stand_in):
+        response = client.get(f"/api/bots/{bot_id}/performance", headers=headers)
+
+    assert response.status_code == 200, response.text
+    assert_response_matches("getBotPerformance", response)
+    assert stand_in.calls == []
+
+
 @pytest.mark.parametrize("strategy", ["grid", "dca", "momentum", "pattern_scalper"])
 def test_a_running_bot_whose_venue_was_removed_keeps_a_readable_bot_page(
     client, no_exchange_traffic, monkeypatch, strategy,

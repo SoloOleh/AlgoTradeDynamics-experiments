@@ -109,7 +109,7 @@ def _execution_history(adapter, bot: TradingBot) -> list[Execution]:
 
 def _get_scalper_performance(db: Session, bot: TradingBot) -> dict[str, Any]:
     try:
-        adapter = registry.exchange_for(bot, {Capability.EXECUTION_PNL})
+        adapter = registry.exchange_for(bot, {Capability.EXECUTION_PNL, Capability.POSITION_READS})
     except GuardRefusal:
         # Nothing is sent to any exchange; the bot page stays readable (AC-02, AC-10).
         adapter = None

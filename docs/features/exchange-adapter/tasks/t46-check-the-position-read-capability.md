@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/performance.py"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15-2"
-status: "todo"
+status: "done"
 ---
 
 # T46 — Check the position-read capability for the performance adapter
