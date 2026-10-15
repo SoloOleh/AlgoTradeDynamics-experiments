@@ -87,3 +87,21 @@ def test_the_stand_in_carries_the_exchange_text_as_decimals_like_the_port_declar
     assert all(isinstance(value, Decimal) for value in (ticker.last_price, ticker.mark_price))
     assert (str(position.mark_price), position.liq_price, str(position.leverage)) == ("65001.00", None, "10")
     assert isinstance(position.mark_price, Decimal) and isinstance(position.leverage, Decimal)
+
+
+@pytest.mark.parametrize(("text", "expected"), [
+    ("0", "0"), ("12.50", "12.50"), ("", None), (None, None), ("abc", None), ("NaN", None),
+])
+def test_the_stand_in_reads_a_position_price_like_the_bybit_adapter(monkeypatch, text, expected):
+    """The emulator sends `liqPrice "0"` for a covered long: Bybit keeps Decimal("0"), so the page
+    shows "0" either way; only an absent, empty or non-numeric text reads as None."""
+    rows = {"/v5/position/list": [{
+        "symbol": "BTCUSDT", "side": "Buy", "size": "0.01", "avgPrice": "64000",
+        "markPrice": text, "liqPrice": text, "leverage": text,
+    }]}
+    monkeypatch.setattr(StandInAdapter, "_get", lambda self, path, **params: rows[path])
+
+    (position,) = StandInAdapter(None).positions("linear", "BTCUSDT")
+
+    for value in (position.mark_price, position.liq_price, position.leverage):
+        assert (None if value is None else str(value)) == expected

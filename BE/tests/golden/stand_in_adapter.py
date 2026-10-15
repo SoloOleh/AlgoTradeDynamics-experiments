@@ -56,6 +56,13 @@ def _decimal(value: Any) -> Decimal | None:
         return None
 
 
+def _usable_decimal(value: Any) -> Decimal | None:
+    """A price or leverage as the Bybit adapter reads it: "0" stays Decimal("0"); an absent, empty,
+    non-numeric or non-finite text is None."""
+    number = _decimal(value.strip() if isinstance(value, str) else value)
+    return number if number is not None and number.is_finite() else None
+
+
 class StandInAdapter:
     requests: list[tuple[str, str]] = []
     failure: ExchangeError | None = None
@@ -144,7 +151,7 @@ class StandInAdapter:
         items = self._get("/v5/market/tickers", category=market_type, symbol=symbol)
         if not items:
             raise ExchangeError(ErrorClass.INVALID_SYMBOL, message=f"stand-in has no ticker {symbol}")
-        return Ticker(symbol, _decimal(items[0].get("lastPrice")) or None, _decimal(items[0].get("markPrice")) or None)
+        return Ticker(symbol, _usable_decimal(items[0].get("lastPrice")), _usable_decimal(items[0].get("markPrice")))
 
     def candles(self, market_type: str, symbol: str, *, interval: str, end_ms: int, limit: int) -> list[Candle]:
         rows = self._get("/v5/market/kline", category=market_type, symbol=symbol, interval=interval, end=end_ms, limit=limit)
@@ -241,8 +248,8 @@ class StandInAdapter:
                 continue
             positions.append(Position(
                 symbol=item.get("symbol"), side=str(item.get("side") or ""), size=size,
-                avg_entry_price=_number(item.get("avgPrice")) or None, mark_price=_decimal(item.get("markPrice")),
-                liq_price=_decimal(item.get("liqPrice")) or None, leverage=_decimal(item.get("leverage")) or None,
+                avg_entry_price=_number(item.get("avgPrice")) or None, mark_price=_usable_decimal(item.get("markPrice")),
+                liq_price=_usable_decimal(item.get("liqPrice")), leverage=_usable_decimal(item.get("leverage")),
                 margin_mode=item.get("tradeMode") or item.get("marginMode"),
                 position_value=_number(item.get("positionValue")),
                 unrealised_pnl=_number(item.get("unrealisedPnl")),

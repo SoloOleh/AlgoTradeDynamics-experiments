@@ -50,7 +50,7 @@
 | T42 | Record the guard-refused stop in ADR-0004 and carry the api-sync gaps forward | docs | Oleh Solomko | S | T40 | done |
 | T43 | Close the resolved spec §8 questions and the data-model guard-pause TBD | docs | Oleh Solomko | S | T40 | done |
 | T44 | Keep the log filter's fallback from raising into the caller | wiring | Oleh Solomko | S | T40 | done |
-| T45 | Keep a zero liquidation price through the stand-in adapter | tests | Oleh Solomko | S | T40 | todo |
+| T45 | Keep a zero liquidation price through the stand-in adapter | tests | Oleh Solomko | S | T40 | done |
 | T46 | Check the position-read capability for the performance adapter | app | Oleh Solomko | S | T40 | todo |
 | T47 | Scrub the backtest error sinks | wiring | Oleh Solomko | S | T40 | todo |
 **Total:** 47 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S), plus T41–T47, review follow-ups from `_review/review-2026-10-15-2.md` (7 × S).
