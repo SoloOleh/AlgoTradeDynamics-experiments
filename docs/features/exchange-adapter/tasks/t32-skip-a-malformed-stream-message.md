@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/exchange/bybit/streams.py", "BE/tests/test_excha
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T32 — Skip a malformed stream message instead of dropping the connection

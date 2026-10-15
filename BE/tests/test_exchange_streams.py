@@ -276,3 +276,57 @@ def test_live_event_for_a_bot_whose_venue_was_removed_pauses_it_without_requests
         assert paused.last_error == "Bot paused: venue retired/live has no exchange adapter"
     finally:
         db.close()
+
+
+def test_a_message_that_fails_translation_is_skipped_and_the_connection_stays_open(monkeypatch, caplog):
+    key = "emu_Str3amSkipKey4410abcdEFGH"
+    streams = BybitAdapter("emulator", emulator_api_key=key).streams()
+    public, _ = streams.sources("linear", "BTCUSDT")
+    connects: list[str] = []
+    messages = [
+        {"topic": "order", "data": [{"symbol": "BTCUSDT", "orderStatus": "New", "price": f"bad-{key}"}]},
+        {"topic": "tickers.BTCUSDT", "data": {"symbol": "BTCUSDT", "lastPrice": "60100.5"}},
+    ]
+
+    class Socket:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def send(self, data):
+            return None
+
+        async def recv(self):
+            if messages:
+                return json.dumps(messages.pop(0))
+            await asyncio.Event().wait()
+
+    def connect(url, **kwargs):
+        connects.append(url)
+        return Socket()
+
+    monkeypatch.setattr("app.bot_engine.exchange.bybit.streams.websockets.connect", connect)
+    received = []
+
+    async def on_event(event):
+        received.append(event)
+
+    async def nothing(*args, **kwargs):
+        return None
+
+    async def scenario():
+        task = asyncio.create_task(streams.run(public, "BTCUSDT", on_event=on_event, on_connected=nothing))
+        await asyncio.sleep(0.05)
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(scenario())
+
+    assert len(connects) == 1, "the connection was dropped and reopened"
+    assert [(event.kind, event.payload["ticker"].last_price) for event in received] == [("ticker", 60100.5)]
+    lines = [record.getMessage() for record in caplog.records]
+    assert any("skipped" in line for line in lines)
+    assert not any(key in line for line in lines)

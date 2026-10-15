@@ -236,7 +236,15 @@ class BybitStreams:
             await on_connected(source.label)
 
         async def message(raw: dict[str, Any]) -> None:
-            event = self.translate(raw, symbol)
+            try:
+                event = self.translate(raw, symbol)
+            except Exception as exc:  # noqa: BLE001 - one bad message must not drop the connection
+                logger.warning(
+                    "Exchange WS message skipped: %s venue=bybit/%s stream=%s topic=%s error=%s",
+                    context, self.environment, source.label, scrub(str(raw.get("topic") or "")),
+                    scrub(str(exc) or type(exc).__name__),
+                )
+                return
             if event is not None:
                 await on_event(event)
 
