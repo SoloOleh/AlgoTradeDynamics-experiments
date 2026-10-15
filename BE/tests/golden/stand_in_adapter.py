@@ -144,7 +144,7 @@ class StandInAdapter:
         items = self._get("/v5/market/tickers", category=market_type, symbol=symbol)
         if not items:
             raise ExchangeError(ErrorClass.INVALID_SYMBOL, message=f"stand-in has no ticker {symbol}")
-        return Ticker(symbol, _number(items[0].get("lastPrice")) or None, _number(items[0].get("markPrice")) or None)
+        return Ticker(symbol, _decimal(items[0].get("lastPrice")) or None, _decimal(items[0].get("markPrice")) or None)
 
     def candles(self, market_type: str, symbol: str, *, interval: str, end_ms: int, limit: int) -> list[Candle]:
         rows = self._get("/v5/market/kline", category=market_type, symbol=symbol, interval=interval, end=end_ms, limit=limit)
@@ -241,8 +241,8 @@ class StandInAdapter:
                 continue
             positions.append(Position(
                 symbol=item.get("symbol"), side=str(item.get("side") or ""), size=size,
-                avg_entry_price=_number(item.get("avgPrice")) or None, mark_price=_number(item.get("markPrice")),
-                liq_price=_number(item.get("liqPrice")) or None, leverage=_number(item.get("leverage")) or None,
+                avg_entry_price=_number(item.get("avgPrice")) or None, mark_price=_decimal(item.get("markPrice")),
+                liq_price=_decimal(item.get("liqPrice")) or None, leverage=_decimal(item.get("leverage")) or None,
                 margin_mode=item.get("tradeMode") or item.get("marginMode"),
                 position_value=_number(item.get("positionValue")),
                 unrealised_pnl=_number(item.get("unrealisedPnl")),

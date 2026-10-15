@@ -8,7 +8,7 @@ files_hint: ["BE/tests/golden/stand_in_adapter.py", "BE/tests/golden/test_stand_
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15"
-status: "todo"
+status: "done"
 ---
 
 # T39 — Build the stand-in adapter's prices as Decimals like the port declares

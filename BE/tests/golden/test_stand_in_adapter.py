@@ -63,3 +63,27 @@ def test_a_stand_in_failure_gets_the_same_reaction_as_on_bybit(name, emulator, g
     reaction = REACTION_TABLE[ErrorClass.NETWORK]
     assert bot["runtime_status"] == "retrying"
     assert (bot["last_error_type"], bot["last_error_action"]) == (reaction.error_type.value, reaction.action.value)
+
+
+def test_the_stand_in_carries_the_exchange_text_as_decimals_like_the_port_declares(monkeypatch):
+    """Ticker and position prices are Decimals built from the exchange text (port.py; T31), so a page
+    shows "10" through the stand-in exactly as through Bybit, never "10.0"."""
+    from decimal import Decimal
+
+    rows = {
+        "/v5/market/tickers": [{"symbol": "BTCUSDT", "lastPrice": "65000.50", "markPrice": "65001.00"}],
+        "/v5/position/list": [{
+            "symbol": "BTCUSDT", "side": "Buy", "size": "0.01", "avgPrice": "64000",
+            "markPrice": "65001.00", "liqPrice": "", "leverage": "10",
+        }],
+    }
+    monkeypatch.setattr(StandInAdapter, "_get", lambda self, path, **params: rows[path])
+    adapter = StandInAdapter(None)
+
+    ticker = adapter.ticker("linear", "BTCUSDT")
+    (position,) = adapter.positions("linear", "BTCUSDT")
+
+    assert (ticker.last_price, ticker.mark_price) == (Decimal("65000.50"), Decimal("65001.00"))
+    assert all(isinstance(value, Decimal) for value in (ticker.last_price, ticker.mark_price))
+    assert (str(position.mark_price), position.liq_price, str(position.leverage)) == ("65001.00", None, "10")
+    assert isinstance(position.mark_price, Decimal) and isinstance(position.leverage, Decimal)
