@@ -129,11 +129,11 @@ C4Context
 1. **A typed, exchange-neutral adapter port** ([ADR-0001](adr/0001-define-a-typed-exchange-neutral-adapter-port.md)). Strategies, runtimes, the stream supervisor, performance and the connection check call one `ExchangeAdapter` interface in platform terms: place, cancel and look up orders, open orders, order history, executions, instrument rules, ticker, candles, balance, positions, live event streams and the connection check. They get back neutral types and `ExchangeError` with an error class. No Bybit field name (`lotSizeFilter`, `closedPnl`, `tradeMode`, `retCode`) survives outside the Bybit adapter. This serves QG-3 (0 strategy files change for Binance), and the golden runs guard QG-1 against translation mistakes.
 2. **The Bybit adapter wraps today's clients** ([ADR-0002](adr/0002-implement-the-bybit-adapter-over-the-existing-clients.md)). The adapter keeps `pybit` 5.17 for demo, testnet and live, and `EmulatorHTTP` for the emulator, as its transports. It sends the same parameters in the same order as today and only translates responses. Order-mutating requests (place, cancel) stay byte-identical on the wire, so trading equivalence (QG-1) is a property of the design, not of luck, and no new dependency enters the money path. Read requests may change where §8 says so (the by-tag order lookup). Trading equivalence compares orders, state and reactions, not reads.
 3. **The persisted vocabulary is frozen and becomes the platform vocabulary** ([ADR-0003](adr/0003-keep-stored-order-and-error-vocabulary-as-platform-vocabulary.md)). This covers stored order statuses (`New`, `PartiallyFilled`, `Filled`, `Cancelled`, `Rejected`, `Deactivated`, `Untriggered`…), stored error types (`network`, `rate_limit`, `order_state`…) and client order tags (`bot-{id}-g{gen}-…`). Rows written by the pre-refactor code are read natively by the migrated code, so a mid-cycle bot recognises its own orders after a deploy (AC-05, QG-1), and stored error types stay the same (AC-06). Any other adapter maps into this vocabulary. No data migration.
-4. **Venue resolution fails closed through one guard** ([ADR-0004](adr/0004-resolve-adapters-by-venue-through-a-fail-closed-guard.md)). The venue is derived from the existing `trading_bots.exchange` and `environment` columns. A registry maps each venue to an adapter factory, with no default. One guard, `exchange_for(bot, needs)`, runs at every entry point that can reach an exchange (start, stop, worker tick, live-event wake-up, sync, cancel, close, position and order reads) **before** any request. It either hands back the adapter or raises «venue has no adapter» or «capability missing», which the caller turns into a refused start or a pause with the reason stated (AC-09, AC-10, AC-15, AC-15b, QG-2).
+4. **Venue resolution fails closed through one guard** ([ADR-0004](adr/0004-resolve-adapters-by-venue-through-a-fail-closed-guard.md)). The venue is derived from the existing `trading_bots.exchange` and `environment` columns. A registry maps each venue to an adapter factory, with no default. One guard, `exchange_for(bot, needs)`, runs at every entry point that can reach an exchange (start, stop, worker tick, live-event wake-up, sync, cancel, close, clear history, position and order reads) **before** any request. It either hands back the adapter or raises «venue has no adapter» or «capability missing», which the caller turns into a refused start or a pause with the reason stated (AC-09, AC-10, AC-15, AC-15b, QG-2).
 5. **Error classes are decided in the adapter, reactions in the engine** ([ADR-0005](adr/0005-classify-errors-in-the-adapter-and-react-in-the-engine.md)). The adapter maps exchange codes, HTTP statuses and message texts to an error class and keeps the raw code alongside. The engine keeps one table, error class → (stored error type, severity, action, retry delay), reproducing today's reactions exactly. A new error class, `unknown_order`, is stored as today's type `order_state` and drives the AC-08 lookup rule. Raw codes never drive behaviour outside the adapter (glossary «Error class»).
 6. **Capabilities are declared statically per adapter and market type** ([ADR-0006](adr/0006-declare-capabilities-statically-per-market-type.md)). Each adapter declares a constant capability set per market type (`spot`, `linear`, `inverse`). Each strategy computes the capabilities it requires from the bot's settings. The guard compares the two without any network call, so a refusal sends nothing to any exchange (AC-15). The Bybit declaration is derived from what the strategies use today, so no Bybit configuration that starts today is refused (§5 catalogue).
 7. **The golden-run harness is the safety net** ([ADR-0007](adr/0007-record-golden-runs-at-the-emulator-client-in-a-pytest-harness.md)). A pytest harness runs the real exchange emulator as a local subprocess on a temporary SQLite file and the backend bot engine and worker in-process on SQLite. It drives prices through the emulator admin API and records every request at the `EmulatorHTTP` client boundary, which exists both before and after the refactor. It snapshots mid-cycle states (the emulator DB file plus the bot and order rows), and it timestamps fill → reaction on the wall clock. It produces the 8 recordings, the 12 replays and the latency and overhead numbers (spec §6).
-8. **Secrets are scrubbed twice** ([ADR-0008](adr/0008-scrub-secrets-at-the-adapter-and-at-every-sink.md)). One shared scrubber knows every configured key and secret of every venue, plus the emulator account keys in use. The adapter applies it to every error it raises, and every sink applies it again: bot events, the operations log, incidents, Telegram, the connection-check answer and a root logging filter. Keys appear at most as `****abcd`, and secrets never appear (AC-16, QG-2).
+8. **Secrets are scrubbed twice** ([ADR-0008](adr/0008-scrub-secrets-at-the-adapter-and-at-every-sink.md)). One shared scrubber knows every configured key and secret of every venue, plus the emulator account keys in use. The adapter applies it to every error it raises, and every sink applies it again: bot events, the operations log, incidents, Telegram, the connection-check answer, the clear-history cancel error and a root logging filter. Keys appear at most as `****abcd`, and secrets never appear (AC-16, QG-2).
 
 **Migration order (inline; the spec commits to step by step).** (0) Build the harness, take the 8 recordings, the reference failure table and the latency and overhead baselines on the pre-refactor code. (1) Add the port, the Bybit adapter, the registry, the guard and the scrubber, with the guard wired into start and the worker tick. (2) Move the `orders.py`, `market_data.py` and `positions.py` helpers onto the port. (3) DCA (the smallest runtime). (4) Grid. (5) Momentum. (6) Pattern Scalper. (7) `performance.py`, `exchange_streams.py`, `error_handling.py` and the UI live stream (`api/websockets.py`). (8) The connection check, then delete `get_bybit_session`, with the static search at 0. Every step is its own PR and passes the golden runs, the failure table and the existing suites before it merges. While the steps are in progress, the guard already protects start and the worker tick from step (1) onward.
 
@@ -387,7 +387,7 @@ sequenceDiagram
     participant EX as external-system (exchange)
 
     Note over C,API: Precondition: the Operator is signed in and names a bot by id
-    C->>API: open the bot page, or stop, sync, cancel orders, close the position, read live position or orders
+    C->>API: open the bot page, or stop, sync, cancel orders, close the position, clear history, read live position or orders
     API->>DB: load the bot owned by the Operator
     alt bot belongs to another platform user or does not exist
         DB-->>API: no bot for this owner
@@ -401,6 +401,12 @@ sequenceDiagram
             API->>DB: read the stored performance figures
             DB-->>API: stored figures
             API-->>C: page with the stored figures, no refresh, nothing sent to any exchange (AC-02, AC-10)
+        else venue has no adapter or a capability is missing, and the action is clear history
+            SEAM-->>API: refused, venue or capability and market type named
+            API->>DB: bot stopped, its local orders and events deleted
+            Note over API,DB: persists bot status; deletes bot order rows and bot events
+            API-->>C: history cleared, exchange cancel skipped, the scrubbed refusal reason returned (ADR-0004 amendment, AC-16)
+            Note over API,EX: the Operator's way out of a guard-refused bot; nothing sent to any exchange
         else venue has no adapter or a capability is missing, any other action
             SEAM-->>API: refused, venue or capability and market type named
             API-->>C: action refused with the reason (422), bot and orders left as they are, nothing sent to any exchange
@@ -421,6 +427,21 @@ sequenceDiagram
                 API->>DB: save orders, bot status and bot event
                 Note over API,DB: persists bot order rows, bot status and bot event
                 API-->>C: action result
+            end
+            opt clear history
+                API->>AD: sync the bot's orders, then cancel them in platform terms
+                AD->>EX: same requests as before the refactor
+                alt exchange answers
+                    EX-->>AD: response
+                    AD-->>API: cancelled orders
+                else exchange request fails
+                    EX-->>AD: error
+                    AD-->>API: exchange error, already scrubbed
+                    Note over API,AD: only the cancel is skipped; the error text is scrubbed again into the answer (AC-16)
+                end
+                API->>DB: bot stopped, its local orders and events deleted
+                Note over API,DB: persists bot status; deletes bot order rows and bot events
+                API-->>C: history cleared, with the cancelled count or the scrubbed cancel error
             end
         end
     end
@@ -825,7 +846,7 @@ No user story or AC is uncovered, and none is non-runtime N/A. The flows agree w
 | Concept | Convention | Where defined |
 |---|---|---|
 | Logging | Stdlib logging (`app.core.logging`). A root logging filter applies the shared scrubber, so no key or secret reaches a log line (ADR-0008) | `BE/app/core/logging.py`; `bot_engine/exchange/redaction.py` |
-| Secrets | One scrubber knows every configured key and secret of every venue plus the emulator account keys in use. It is applied by the adapter to every `ExchangeError` and again by every sink (`log_bot_event` → Telegram, `record_operation_log`, `create_bot_incident`, the connection check). Keys appear at most as `****abcd`, secrets never (AC-16). Records stored before the deploy are not rewritten | ADR-0008 |
+| Secrets | One scrubber knows every configured key and secret of every venue plus the emulator account keys in use. It is applied by the adapter to every `ExchangeError` and again by every sink (`log_bot_event` → Telegram, `record_operation_log`, `create_bot_incident`, the connection check, the clear-history `exchange_cancel_error`). Keys appear at most as `****abcd`, secrets never (AC-16). Records stored before the deploy are not rewritten | ADR-0008 |
 | Authentication / authorization | JWT via the existing API dependencies. Bot ownership is checked by `get_trading_bot(db, bot_id, user_id)` → 404 «Trading bot not found» **before** any venue routing or guard, so another user's bot reveals no venue or state (AC-11). The connection check requires a signed-in operator (AC-14) and stays under the existing per-user in-memory rate limit (`app.core.rate_limit`) | `BE/app/api/deps.py`, `BE/app/api/bots.py` |
 | Error handling | The adapter raises `ExchangeError(error_class, raw_code, scrubbed message)`. The engine maps error class → (stored error type, severity, action, retry delay) with today's values. Non-exchange failures (configuration, internal) are classified as today. Guard refusals (`VenueNotSupported`, `CapabilityMissing`) are a separate path: a refused start at the API, or a pause with the reason while running, never retried | ADR-0004, ADR-0005; `bot_engine/error_handling.py` |
 | Order lookup (AC-08) | The adapter's `lookup_order(tag)` answers `open`, `final(filled / cancelled / …)` or `not_found`, searching the exchange's open orders and order history **by client tag** (not today's «last 50 history items», `orders.py:39-50`). If a lookup fails with any class other than `unknown_order`, the order stays active and nothing tied to it is placed or cancelled. A class the bot already retries (rate limited, network, exchange unavailable, time sync, order-state conflict, duplicate client tag) asks again up to the existing `error_max_retries` (default 5), then pauses as today; any other class takes its AC-06 reaction at once (credentials, permission or unclassified stop; invalid symbol pauses), per the AC-08 clarification. An order is gone only on `unknown_order` or `not_found`, and a `final` answer gives its final state. This is the deliberate AC-08 deviation, introduced in one migration step and recorded as such in the reference failure table | `bot_engine/exchange/port.py`; ADR-0005 |

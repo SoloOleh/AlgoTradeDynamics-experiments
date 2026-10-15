@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/sad.md"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15-3"
-status: "todo"
+status: "done"
 ---
 
 # T49 — Carry clear-history into the design (api-sync F-4)
