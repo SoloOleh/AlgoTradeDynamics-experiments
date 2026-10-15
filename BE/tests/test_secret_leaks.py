@@ -291,6 +291,38 @@ def test_a_malformed_log_record_reaches_no_output_unscrubbed(capsys):
     assert_clean(output)
 
 
+class _Unprintable:
+    """An object that cannot be turned into text at all, carrying a secret it must never show."""
+
+    def __str__(self):
+        raise RuntimeError(f"cannot render {LEAKY}")
+
+    __repr__ = __str__
+
+
+def test_a_log_record_that_cannot_be_turned_into_text_does_not_raise_into_the_caller(capsys):
+    """The fallback text itself must not raise: Handler.handleError does not cover filter()."""
+    from app.core.logging import configure_logging
+
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+    try:
+        configure_logging()
+        logging.getLogger("app.anything").warning(_Unprintable())
+        logging.getLogger("app.anything").warning("value %s", _Unprintable())
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)
+
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
+    assert output.count("unformattable log record at ") == 2
+    assert "test_secret_leaks.py" in output
+    # The fallback text holds neither msg nor args, so not even a masked key appears.
+    assert KEY not in output and EMULATOR_KEY not in output and SECRET[:12] not in output
+    assert "cannot render" not in output and "****" not in output
+
+
 def test_uvicorns_access_log_keeps_its_format_arguments(capsys):
     import sys
 

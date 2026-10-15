@@ -49,7 +49,7 @@
 | T41 | Pin the AC-08 lookup reaction for every failure class | tests | Oleh Solomko | S | T40 | done |
 | T42 | Record the guard-refused stop in ADR-0004 and carry the api-sync gaps forward | docs | Oleh Solomko | S | T40 | done |
 | T43 | Close the resolved spec §8 questions and the data-model guard-pause TBD | docs | Oleh Solomko | S | T40 | done |
-| T44 | Keep the log filter's fallback from raising into the caller | wiring | Oleh Solomko | S | T40 | todo |
+| T44 | Keep the log filter's fallback from raising into the caller | wiring | Oleh Solomko | S | T40 | done |
 | T45 | Keep a zero liquidation price through the stand-in adapter | tests | Oleh Solomko | S | T40 | todo |
 | T46 | Check the position-read capability for the performance adapter | app | Oleh Solomko | S | T40 | todo |
 | T47 | Scrub the backtest error sinks | wiring | Oleh Solomko | S | T40 | todo |

@@ -19,7 +19,11 @@ class ScrubbingFilter(logging.Filter):
             message = record.getMessage()
         except Exception:  # noqa: BLE001 - a format/argument mismatch must not reach the handler raw
             # Left as is, Handler.handleError would print the raw msg and args to stderr.
-            message = f"{record.msg} (unformattable log arguments: {record.args!r})"
+            try:
+                message = f"{record.msg} (unformattable log arguments: {record.args!r})"
+            except Exception:  # noqa: BLE001 - msg or an argument cannot be turned into text at all
+                # Handler.handleError does not cover filter(), so this text must not raise either.
+                message = f"unformattable log record at {record.pathname}:{record.lineno}"
         record.msg = scrub(message)
         record.args = None
         if record.exc_info and not record.exc_text:
