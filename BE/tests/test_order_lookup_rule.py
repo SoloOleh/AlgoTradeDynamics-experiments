@@ -12,7 +12,7 @@ import pytest
 
 from app.bot_engine import grid_runtime
 from app.bot_engine.error_handling import handle_bot_runtime_error
-from app.bot_engine.exchange.errors import ErrorClass, ExchangeError
+from app.bot_engine.exchange.errors import ErrorClass, ExchangeError, UnclassifiedExchangeFailure
 from app.bot_engine.exchange.port import ExchangeAdapter, InstrumentRules, NewOrder, Order, OrderLookup, Position, Ticker
 from app.bot_engine.market_data import get_instrument_rules, get_last_price, get_ticker_snapshot
 from app.bot_engine.orders import (
@@ -220,6 +220,34 @@ def test_five_failed_lookups_keep_the_order_active_then_the_bot_pauses(db, bot_a
 
     assert statuses == ["retrying"] * 5 + ["paused"]
     assert len(adapter.lookups) == 6
+    assert adapter.placed == [] and adapter.cancelled == []
+
+
+@pytest.mark.parametrize(("failure", "bot_status", "error_type"), [
+    (ExchangeError(ErrorClass.REJECTED_CREDENTIALS, raw_code="10003", message="API key is invalid."), "error", "authentication"),
+    (ExchangeError(ErrorClass.INVALID_SYMBOL, raw_code="10001", message="symbol invalid"), "paused", "invalid_symbol"),
+    (UnclassifiedExchangeFailure("unexpected lookup answer", raw_code="99999"), "error", "internal"),
+], ids=["rejected_credentials", "invalid_symbol", "unclassified"])
+def test_a_non_retryable_lookup_failure_takes_its_class_reaction_and_keeps_the_order(
+    db, bot_and_order, failure, bot_status, error_type,
+):
+    """AC-08 as clarified: only retryable classes retry; the rest take their AC-06 reaction at once."""
+    bot, order = bot_and_order
+    adapter = FakeAdapter([failure])
+
+    with pytest.raises(type(failure)) as raised:
+        resolve_order_state(db, bot, adapter, order)
+    assert raised.value is failure
+    db.rollback()
+    handle_bot_runtime_error(db, db.get(TradingBot, bot.id), failure)
+
+    stored_bot = db.get(TradingBot, bot.id)
+    assert stored_bot.runtime_status == bot_status
+    assert stored_bot.last_error_type == error_type
+    assert stored_bot.error_retry_count == 0
+    assert db.get(TradingBotOrder, order.id).status == "New"
+    assert "order_reconciled_missing" not in _events(db, bot)
+    assert len(adapter.lookups) == 1
     assert adapter.placed == [] and adapter.cancelled == []
 
 

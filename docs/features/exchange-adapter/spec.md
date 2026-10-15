@@ -145,6 +145,9 @@ Scope assumptions:
 **When** the bot asks the exchange about that order and the lookup fails for any reason other than the unknown-order error class
 **Then** the bot keeps the order as active and asks again later, up to the existing retry limit, after which it pauses as it does today; while the order's state is unknown, the bot places and cancels no orders tied to it. The bot treats the order as gone only when the exchange answers with the unknown-order error class, or when the order is in neither the exchange's open orders nor its order history; if the order history has it, the bot takes its final state (filled or cancelled) from there. A failed lookup is never proof that an order is gone
 
+<!-- added-by-fix: review-2026-10-15-2 finding 1 (T41) -->
+**Clarification:** "asks again later, up to the existing retry limit, after which it pauses" applies to the error classes the bot already retries in the AC-06 reference table (rate limited, network, exchange unavailable, time sync, order-state conflict). A lookup that fails with any other class takes that class's AC-06 reaction at once — rejected credentials or denied permission stop the bot, an invalid symbol pauses it, an unclassified failure stops it as internal. In every case the order stays active and nothing tied to it is placed or cancelled.
+
 ### AC-09 (US-04) — error
 
 **Given** an Operator owns a bot whose venue has no exchange adapter

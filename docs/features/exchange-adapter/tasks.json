@@ -797,6 +797,127 @@
         "BE/tests/test_exchange_streams.py"
       ],
       "file": "docs/features/exchange-adapter/tasks/t40-skip-a-stream-frame-that-is.md"
+    },
+    {
+      "id": "T41",
+      "title": "Pin the AC-08 lookup reaction for every failure class",
+      "layer": "tests",
+      "deps": [
+        "T40"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-06"
+      ],
+      "dod": "AC-08 carries an `<!-- added-by-fix -->` clarification: retryable classes retry up to the limit then pause, other classes take their AC-06 reaction, and the order is never marked gone. Parametrised tests for REJECTED_CREDENTIALS, INVALID_SYMBOL and UnclassifiedExchangeFailure assert the reaction, that the order row stays active and that nothing is placed or cancelled. No production code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/spec.md",
+        "BE/tests/test_order_lookup_rule.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t41-pin-the-ac08-lookup-reaction.md"
+    },
+    {
+      "id": "T42",
+      "title": "Record the guard-refused stop in ADR-0004 and carry the api-sync gaps forward",
+      "layer": "docs",
+      "deps": [
+        "T40"
+      ],
+      "acs": [
+        "AC-10"
+      ],
+      "dod": "ADR-0004 carries a dated amendment matching openapi (stop refused with 422; the Operator clears history or deletes); sad.md Flow 2's page read has the degrade branch; F-5 is in spec §8 with owner and due date. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/adr/0004-resolve-adapters-by-venue-through-a-fail-closed-guard.md",
+        "docs/features/exchange-adapter/sad.md",
+        "docs/features/exchange-adapter/spec.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t42-record-the-guard-refused-stop.md"
+    },
+    {
+      "id": "T43",
+      "title": "Close the resolved spec §8 questions and the data-model guard-pause TBD",
+      "layer": "docs",
+      "deps": [
+        "T40"
+      ],
+      "acs": [],
+      "dod": "Each of the three §8 items is ticked with its resolution and a link; data-model.md records the guard-pause values `configuration` / `error` / `pause`. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/spec.md",
+        "docs/features/exchange-adapter/data-model.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t43-close-the-resolved-spec-questions.md"
+    },
+    {
+      "id": "T44",
+      "title": "Keep the log filter's fallback from raising into the caller",
+      "layer": "wiring",
+      "deps": [
+        "T40"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "The fallback text is built in its own `try`; if that fails too the record carries a text holding neither msg nor args (`unformattable log record at {pathname}:{lineno}`). A test logs an object whose `__str__` raises, as msg and as an argument, through the real handler: no exception reaches the caller and no secret appears on stdout or stderr.",
+      "files_hint": [
+        "BE/app/core/logging.py",
+        "BE/tests/test_secret_leaks.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t44-keep-the-log-filters-fallback.md"
+    },
+    {
+      "id": "T45",
+      "title": "Keep a zero liquidation price through the stand-in adapter",
+      "layer": "tests",
+      "deps": [
+        "T40"
+      ],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "The stand-in applies the same usable-decimal rules as the Bybit adapter without importing the Bybit package; a `liqPrice \"0\"` case reads `Decimal(\"0\")`, matching Bybit.",
+      "files_hint": [
+        "BE/tests/golden/stand_in_adapter.py",
+        "BE/tests/golden/test_stand_in_adapter.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t45-keep-a-zero-liquidation-price.md"
+    },
+    {
+      "id": "T46",
+      "title": "Check the position-read capability for the performance adapter",
+      "layer": "app",
+      "deps": [
+        "T40"
+      ],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "The performance adapter is resolved with `{EXECUTION_PNL, POSITION_READS}`; a test proves a venue without position reads is refused.",
+      "files_hint": [
+        "BE/app/bot_engine/performance.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t46-check-the-position-read-capability.md"
+    },
+    {
+      "id": "T47",
+      "title": "Scrub the backtest error sinks",
+      "layer": "wiring",
+      "deps": [
+        "T40"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "Each of the seven sinks stores `scrub(str(exc))`; a test proves a secret in the exception text does not reach the stored error.",
+      "files_hint": [
+        "BE/app/bot_engine/grid_runtime.py",
+        "BE/app/bot_engine/dca_runtime.py",
+        "BE/app/bot_engine/strategies/momentum.py",
+        "BE/app/bot_engine/strategies/pattern_scalper.py",
+        "BE/app/services/backtest_service.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t47-scrub-the-backtest-error-sinks.md"
     }
   ]
 }

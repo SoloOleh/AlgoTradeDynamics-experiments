@@ -46,6 +46,13 @@
 | T38 | Name no exchange in the engine's own order-rule refusals | app | Oleh Solomko | S | T34 | done |
 | T39 | Build the stand-in adapter's prices as Decimals like the port declares | tests | Oleh Solomko | S | T34 | done |
 | T40 | Skip a stream frame that is not JSON instead of reconnecting | infra | Oleh Solomko | S | T34 | done |
-**Total:** 40 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S).
+| T41 | Pin the AC-08 lookup reaction for every failure class | tests | Oleh Solomko | S | T40 | done |
+| T42 | Record the guard-refused stop in ADR-0004 and carry the api-sync gaps forward | docs | Oleh Solomko | S | T40 | todo |
+| T43 | Close the resolved spec §8 questions and the data-model guard-pause TBD | docs | Oleh Solomko | S | T40 | todo |
+| T44 | Keep the log filter's fallback from raising into the caller | wiring | Oleh Solomko | S | T40 | todo |
+| T45 | Keep a zero liquidation price through the stand-in adapter | tests | Oleh Solomko | S | T40 | todo |
+| T46 | Check the position-read capability for the performance adapter | app | Oleh Solomko | S | T40 | todo |
+| T47 | Scrub the backtest error sinks | wiring | Oleh Solomko | S | T40 | todo |
+**Total:** 47 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S), plus T41–T47, review follow-ups from `_review/review-2026-10-15-2.md` (7 × S).
 
 **Ship precondition (review 2026-10-15, finding 5):** before `/sdd:ship`, run and record in the PR description: (1) a real connection check against Bybit demo (AC-12, test-plan.md:66), and (2) a manual mid-cycle smoke run on `docker compose` with PostgreSQL (test-plan.md:102, T20).
