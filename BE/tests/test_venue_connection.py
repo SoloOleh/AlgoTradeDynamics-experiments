@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from tests.contract_schema import assert_response_matches
 from tests.golden.failure_table.rows import build_exception
 
 KEY = "VenueCheckKey00wxyz"
@@ -41,7 +42,10 @@ def sessions(monkeypatch):
 
 
 def _check(client, headers, exchange, environment):
-    return client.get(f"/api/venues/{exchange}/{environment}/connection", headers=headers)
+    """Every answer, whatever its status, is one the contract allows."""
+    response = client.get(f"/api/venues/{exchange}/{environment}/connection", headers=headers)
+    assert_response_matches("getVenueConnection", response)
+    return response
 
 
 def test_demo_with_keys_is_connected(client, auth_headers, sessions, monkeypatch):

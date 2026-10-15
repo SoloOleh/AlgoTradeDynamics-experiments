@@ -447,7 +447,8 @@ components:
       content:
         application/json:
           schema:
-            oneOf:
+            # anyOf, not oneOf: a GuardRefusal is also a valid Error, so oneOf would reject it.
+            anyOf:
               - $ref: "#/components/schemas/GuardRefusal"
               - $ref: "#/components/schemas/Error"
           examples:

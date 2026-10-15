@@ -9,6 +9,7 @@ from app.bot_engine.exchange import registry
 from app.bot_engine.exchange.capabilities import Capability, CapabilitySet, MarketType
 from app.db.session import SessionLocal
 from app.models.trading_bot import TradingBot
+from tests.contract_schema import assert_response_matches
 
 GUARDED_ROUTES = [
     ("post", "stop", None),
@@ -19,6 +20,11 @@ GUARDED_ROUTES = [
     ("get", "risk", None),
 ]
 ALL_EXCHANGE_ROUTES = GUARDED_ROUTES + [("post", "start", None), ("get", "performance", None), ("post", "clear-history", None)]
+OPERATION = {
+    "start": "startBot", "stop": "stopBot", "sync": "syncBot", "cancel-orders": "cancelBotOrders",
+    "close-position": "closeBotPosition", "position": "getBotPosition", "risk": "getBotRisk",
+    "performance": "getBotPerformance", "clear-history": "clearBotHistory",
+}
 
 
 class StandIn:
@@ -98,6 +104,7 @@ def test_start_on_a_venue_without_an_adapter_is_refused_and_names_it(client, no_
     response = client.post(f"/api/bots/{bot_id}/start", headers=headers)
 
     assert response.status_code == 422
+    assert_response_matches("startBot", response)
     assert response.json() == {
         "detail": "Venue binance/live has no exchange adapter",
         "code": "exchange.venue_unsupported",
@@ -115,6 +122,7 @@ def test_start_with_a_missing_capability_names_capability_and_market_type(client
         response = client.post(f"/api/bots/{bot_id}/start", headers=headers)
 
     assert response.status_code == 422
+    assert_response_matches("startBot", response)
     assert response.json() == {
         "detail": "Capability position_reads is not available on market type linear for venue standin/test",
         "code": "exchange.capability_missing",
@@ -132,6 +140,7 @@ def test_every_operator_action_on_an_unsupported_venue_is_refused(client, method
     response = _call(client, method, bot_id, action, body, headers)
 
     assert response.status_code == 422, response.text
+    assert_response_matches(OPERATION[action], response)
     assert response.json()["code"] == "exchange.venue_unsupported"
     assert _status(bot_id) == "running", "a refused action leaves the bot as it was"
 
@@ -141,6 +150,7 @@ def test_close_position_without_confirm_keeps_todays_400(client, no_exchange_tra
     bot_id = _bot(client, headers, exchange="binance", environment="live")
     response = client.post(f"/api/bots/{bot_id}/close-position", json={"confirm": False}, headers=headers)
     assert response.status_code == 400
+    assert_response_matches("closeBotPosition", response)
     assert response.json() == {"detail": "Position close requires confirm=true"}
 
 
@@ -156,6 +166,7 @@ def test_another_users_bot_is_not_found_and_the_guard_is_never_reached(client, m
     response = _call(client, method, bot_id, action, body, intruder)
 
     assert response.status_code == 404
+    assert_response_matches(OPERATION[action], response)
     assert response.content == b'{"detail":"Trading bot not found"}'
 
 
@@ -165,6 +176,7 @@ def test_performance_on_an_unsupported_venue_returns_stored_figures(client, no_e
     bot_id = _bot(client, headers, exchange="binance", environment="live", strategy_type=strategy)
     response = client.get(f"/api/bots/{bot_id}/performance", headers=headers)
     assert response.status_code == 200, response.text
+    assert_response_matches("getBotPerformance", response)
 
 
 @pytest.mark.parametrize("strategy", ["grid", "dca", "momentum", "pattern_scalper"])
@@ -187,6 +199,7 @@ def test_clear_history_on_an_unsupported_venue_still_clears_local_history(client
     bot_id = _bot(client, headers, exchange="binance", environment="live")
     response = client.post(f"/api/bots/{bot_id}/clear-history", headers=headers)
     assert response.status_code == 200, response.text
+    assert_response_matches("clearBotHistory", response)
     body = response.json()
     assert body["exchange_orders_cancelled"] == 0
     assert body["exchange_cancel_error"] == "Venue binance/live has no exchange adapter"
@@ -197,6 +210,7 @@ def test_a_bybit_bot_that_starts_today_still_starts(client, no_exchange_traffic)
     bot_id = _bot(client, headers)
     response = client.post(f"/api/bots/{bot_id}/start", headers=headers)
     assert response.status_code == 200, response.text
+    assert_response_matches("startBot", response)
     assert _status(bot_id) == "running"
 
 
@@ -205,6 +219,7 @@ def test_start_validations_keep_todays_bodies(client, no_exchange_traffic):
     bot_id = _bot(client, headers, is_active=False)
     response = client.post(f"/api/bots/{bot_id}/start", headers=headers)
     assert response.status_code == 422
+    assert_response_matches("startBot", response)
     assert response.json() == {"detail": "Trading bot is inactive"}
 
 

@@ -8,7 +8,7 @@ files_hint: ["BE/tests/contract_schema.py", "BE/tests/test_bots_guard_api.py", "
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T28 — Validate the guard and connection-check responses against the contract file
