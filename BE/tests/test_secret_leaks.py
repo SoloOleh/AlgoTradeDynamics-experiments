@@ -323,6 +323,25 @@ def test_a_log_record_that_cannot_be_turned_into_text_does_not_raise_into_the_ca
     assert "cannot render" not in output and "****" not in output
 
 
+def test_malformed_exception_info_does_not_raise_into_the_caller(capsys):
+    """Without the filter, Handler.handleError swallows a malformed exc_info; the filter must not raise it."""
+    from app.core.logging import configure_logging
+
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+    try:
+        configure_logging()
+        logging.getLogger("app.anything").error("bad exc_info", exc_info=(ValueError, "not-an-exception", None))
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)
+
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
+    assert "bad exc_info" in output
+    assert "unformattable exception info" in output
+
+
 def test_uvicorns_access_log_keeps_its_format_arguments(capsys):
     import sys
 

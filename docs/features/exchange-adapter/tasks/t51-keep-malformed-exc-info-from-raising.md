@@ -8,7 +8,7 @@ files_hint: ["BE/app/core/logging.py", "BE/tests/test_secret_leaks.py"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15-3"
-status: "todo"
+status: "done"
 ---
 
 # T51 — Keep malformed exception info from raising out of the log filter

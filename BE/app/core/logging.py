@@ -27,7 +27,11 @@ class ScrubbingFilter(logging.Filter):
         record.msg = scrub(message)
         record.args = None
         if record.exc_info and not record.exc_text:
-            record.exc_text = logging.Formatter().formatException(record.exc_info)
+            try:
+                record.exc_text = logging.Formatter().formatException(record.exc_info)
+            except Exception:  # noqa: BLE001 - a malformed exc_info tuple must not raise out of filter()
+                record.exc_text = "unformattable exception info"
+                record.exc_info = None
         if record.exc_text:
             record.exc_text = scrub(record.exc_text)
         if record.stack_info:
