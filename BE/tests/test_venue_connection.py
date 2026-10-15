@@ -172,3 +172,67 @@ def test_too_long_environment_is_a_validation_error(client, auth_headers, sessio
 
 def test_the_demo_only_route_is_gone(client, auth_headers):
     assert client.get("/api/bybit/test", headers=auth_headers).status_code == 404
+
+
+# ------------------------------------------------ through the real client path, against the emulator
+
+WRONG_EMULATOR_KEY = "emu_NotARealAccountKey0123456789"
+
+
+@pytest.fixture(scope="module")
+def emulator_process(tmp_path_factory):
+    """A real exchange emulator subprocess on its own throwaway database (test-plan.md «Integration»)."""
+    from tests.golden.harness import Emulator
+
+    emulator = Emulator(tmp_path_factory.mktemp("venue-check") / "emulator.db")
+    try:
+        yield emulator
+    finally:
+        emulator.stop()
+
+
+@pytest.fixture()
+def emulator_venue(monkeypatch):
+    """Point the backend's emulator venue at a URL and an account key, then call the check."""
+    from app.core.config import get_settings
+
+    settings = get_settings()
+
+    def point(url: str, key: str):
+        monkeypatch.setattr(settings, "exchange_emulator_url", url)
+        monkeypatch.setattr(settings, "exchange_emulator_default_api_key", key)
+
+    return point
+
+
+def test_emulator_venue_with_its_real_account_is_connected(client, auth_headers, emulator_process, emulator_venue):
+    emulator_venue(emulator_process.url, "emulator-default-key")
+
+    body = _check(client, auth_headers, "bybit", "emulator").json()
+
+    assert (body["status"], body["error_class"]) == ("connected", None)
+
+
+def test_emulator_rejecting_the_key_is_failing_with_rejected_credentials(client, auth_headers, emulator_process, emulator_venue):
+    emulator_venue(emulator_process.url, WRONG_EMULATOR_KEY)
+
+    response = _check(client, auth_headers, "bybit", "emulator")
+
+    assert response.json() == {
+        "venue": {"exchange": "bybit", "environment": "emulator"},
+        "status": "failing",
+        "error_class": "rejected_credentials",
+        "message": "Venue bybit/emulator is failing: rejected_credentials",
+    }
+    assert WRONG_EMULATOR_KEY not in response.text
+
+
+def test_emulator_on_a_closed_port_is_failing_with_network(client, auth_headers, emulator_venue):
+    from tests.golden.harness import _free_port
+
+    emulator_venue(f"http://127.0.0.1:{_free_port()}", "emulator-default-key")
+
+    response = _check(client, auth_headers, "bybit", "emulator")
+
+    assert (response.json()["status"], response.json()["error_class"]) == ("failing", "network")
+    assert "emulator-default-key" not in response.text and "127.0.0.1" not in response.text

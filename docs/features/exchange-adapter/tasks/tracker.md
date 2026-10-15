@@ -34,7 +34,7 @@
 | T26 | React only to adapter error classes in the engine and replay the failure table through the adapter on a tick | app | Oleh Solomko | S | T25 | done |
 | T27 | Declare every capability each strategy actually uses | domain | Oleh Solomko | S | T20 | done |
 | T28 | Validate the guard and connection-check responses against the contract file | tests | Oleh Solomko | S | T20 | done |
-| T29 | Prove the connection check against the emulator for rejected keys and a closed port | tests | Oleh Solomko | S | T28 | todo |
+| T29 | Prove the connection check against the emulator for rejected keys and a closed port | tests | Oleh Solomko | S | T28 | done |
 | T30 | Make the AC-10 scheduled-pause tests order-independent | tests | Oleh Solomko | S | T21 | todo |
 | T31 | Keep position response bodies and stored market-order prices unchanged | app | Oleh Solomko | S | T20 | todo |
 | T32 | Skip a malformed stream message instead of dropping the connection | infra | Oleh Solomko | S | T20 | todo |

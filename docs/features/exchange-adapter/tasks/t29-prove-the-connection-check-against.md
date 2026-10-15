@@ -8,7 +8,7 @@ files_hint: ["BE/tests/test_venue_connection.py"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-14"
-status: "todo"
+status: "done"
 ---
 
 # T29 — Prove the connection check against the emulator for rejected keys and a closed port
