@@ -14,13 +14,11 @@ from app.bot_engine.exchange.port import Order, PlacedOrder
 from app.bot_engine.market_data import get_instrument_rules, get_last_price, get_ticker_snapshot
 from app.bot_engine.orders import (
     ACTIVE_ORDER_STATUSES,
-    FINAL_ORDER_STATUSES,
     OrderRequest,
     cancel_order_by_link_id,
     apply_exchange_order,
     get_open_orders,
     get_orders_by_prefix,
-    mark_order_missing_from_exchange,
     normalize_order_request,
     place_order,
     resolve_order_state,
@@ -1100,13 +1098,6 @@ def _is_reconciliation_candidate(
     )
 
 
-def _mark_order_missing_from_exchange(
-    db, bot: TradingBot, order: TradingBotOrder
-) -> dict:
-    old_status = mark_order_missing_from_exchange(db, bot, order)
-    return _status_change_payload(order, old_status, order.status)
-
-
 def sync_bot_orders(db, bot: TradingBot, *, include_legacy: bool = False, adapter=None) -> list[dict]:
     if adapter is None:
         adapter = registry.exchange_for(bot)
@@ -1174,9 +1165,7 @@ def sync_bot_orders(db, bot: TradingBot, *, include_legacy: bool = False, adapte
         # AC-08: only an exchange answer can mark the order gone; a failed
         # lookup raises and leaves the order active for the next tick.
         old_status = record.status
-        resolution = resolve_order_state(db, bot, adapter, record)
-        if resolution.order is not None:
-            remote_by_link[order_link_id] = resolution.order.raw
+        resolve_order_state(db, bot, adapter, record)
         changes.append(_status_change_payload(record, old_status, record.status))
 
     db.flush()
@@ -1194,14 +1183,6 @@ def create_missing_grid_entries(
     rules = get_instrument_rules(
         adapter, category=bot.category, symbol=bot.symbol)
     settings = get_effective_bot_settings(bot)
-    active_local_orders = (
-        db.query(TradingBotOrder)
-        .filter(
-            TradingBotOrder.bot_id == bot.id,
-            TradingBotOrder.status.in_(ACTIVE_ORDER_STATUSES),
-        )
-        .all()
-    )
     open_exchange_orders = _current_generation_open_orders(adapter, bot)
     pending_buy_qty = _pending_buy_qty(open_exchange_orders)
     current_open_orders = len(open_exchange_orders)

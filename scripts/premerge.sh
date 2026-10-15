@@ -11,12 +11,17 @@ if [ ! -x "$PYTHON" ]; then
 fi
 
 failed=()
+# Every stage gets its own fresh temp dir: tests/conftest.py keeps its SQLite file under
+# tempfile.gettempdir(), so a shared $TMPDIR let concurrent runs and stages collide.
+RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/premerge.XXXXXX")"
+trap 'rm -rf "$RUN_TMP"' EXIT
 
 stage() {
-  local name="$1" dir="$2"
+  local name="$1" dir="$2" stage_tmp
   shift 2
   echo "==> $name"
-  if (cd "$dir" && "$@"); then
+  stage_tmp="$(mktemp -d "$RUN_TMP/stage.XXXXXX")"
+  if (cd "$dir" && TMPDIR="$stage_tmp" "$@"); then
     echo "    ok: $name"
   else
     echo "    FAILED: $name"

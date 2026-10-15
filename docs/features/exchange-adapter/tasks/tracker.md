@@ -39,5 +39,5 @@
 | T31 | Keep position response bodies and stored market-order prices unchanged | app | Oleh Solomko | S | T20 | done |
 | T32 | Skip a malformed stream message instead of dropping the connection | infra | Oleh Solomko | S | T20 | done |
 | T33 | Rebuild performance figures from exact decimal execution values | app | Oleh Solomko | S | T20 | done |
-| T34 | Remove leftover dead code and give the pre-merge gate its own test database | wiring | Oleh Solomko | S | T26 | todo |
+| T34 | Remove leftover dead code and give the pre-merge gate its own test database | wiring | Oleh Solomko | S | T26 | done |
 **Total:** 34 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d).
