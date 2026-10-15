@@ -1101,7 +1101,7 @@ class MomentumStrategy:
                         validation = validate_order_request(request, rules)
                         notional = request.qty * current_price
                         if not validation and rules.min_notional_value > 0 and notional + 1e-12 < rules.min_notional_value:
-                            validation = f"Order notional {notional:.8f} is below Bybit minimum {rules.min_notional_value}"
+                            validation = f"Order notional {notional:.8f} is below the exchange minimum {rules.min_notional_value}"
                         if risk or validation:
                             message = risk or validation or "Entry blocked"
                             log_bot_event(db, bot, "risk_blocked", message, {

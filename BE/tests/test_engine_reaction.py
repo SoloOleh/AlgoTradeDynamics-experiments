@@ -65,8 +65,8 @@ def test_a_raw_exception_that_only_bybit_would_recognise_is_internal_to_the_engi
 
 
 @pytest.mark.parametrize("message", [
-    "Order qty 0.0001 is below Bybit minimum 0.001",
-    "Order notional 4.00000000 is below Bybit minimum 5",
+    "Order qty 0.0001 is below the exchange minimum 0.001",
+    "Order notional 4.00000000 is below the exchange minimum 5",
     "Close position order quantity exceeds bot-owned or exchange position size",
 ])
 def test_the_engines_own_order_rule_refusals_pause_as_an_invalid_order(message):
@@ -74,3 +74,33 @@ def test_the_engines_own_order_rule_refusals_pause_as_an_invalid_order(message):
     assert (decision.error_type.value, decision.severity.value, decision.action.value) == (
         "invalid_order", "error", "pause",
     )
+
+
+@pytest.mark.parametrize("qty,price,expected", [
+    (0.0001, None, "Order qty 0.0001 is below the exchange minimum 0.001"),
+    (0.001, 4000.0, "Order notional 4.00000000 is below the exchange minimum 5"),
+])
+def test_the_engines_minimum_refusals_name_no_exchange_and_still_pause(qty, price, expected):
+    """The order rules come from whichever adapter serves the bot; the refusal must not say Bybit (T26 DoD)."""
+    from app.bot_engine.orders import InstrumentRules, OrderRequest, validate_order_request
+
+    rules = InstrumentRules(min_order_qty=0.001, qty_step=0.0001, tick_size=0.1, min_notional_value=5)
+    order = OrderRequest(
+        side="Buy", order_type="Limit" if price else "Market", order_role="grid_buy",
+        order_link_id="bot-1-g1-b1", qty=qty, price=price, reduce_only=False,
+    )
+
+    message = validate_order_request(order, rules)
+
+    assert message == expected
+    decision = classify_bot_error(ValueError(message))
+    assert (decision.error_type.value, decision.action.value) == ("invalid_order", "pause")
+
+
+def test_no_exchange_neutral_engine_text_names_bybit_as_the_minimum():
+    hits = [
+        f"{path.relative_to(ENGINE)}:{number}"
+        for path in ENGINE.rglob("*.py") if "exchange" not in path.relative_to(ENGINE).parts
+        for number, line in enumerate(path.read_text().splitlines(), 1) if "Bybit minimum" in line
+    ]
+    assert hits == []

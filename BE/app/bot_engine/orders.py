@@ -99,10 +99,10 @@ def validate_order_request(order: OrderRequest, rules: InstrumentRules) -> str |
         if not order.reduce_only:
             return "Position close orders must be reduce-only"
     if order.qty < rules.min_order_qty:
-        return f"Order qty {order.qty} is below Bybit minimum {rules.min_order_qty}"
+        return f"Order qty {order.qty} is below the exchange minimum {rules.min_order_qty}"
     if order.price is not None and rules.min_notional_value > 0 and (order.qty * order.price) < rules.min_notional_value:
         return (
-            f"Order notional {order.qty * order.price:.8f} is below Bybit minimum "
+            f"Order notional {order.qty * order.price:.8f} is below the exchange minimum "
             f"{rules.min_notional_value}"
         )
     return None

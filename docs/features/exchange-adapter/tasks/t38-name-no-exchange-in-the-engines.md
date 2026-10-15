@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/orders.py", "BE/app/bot_engine/strategies/moment
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-15"
-status: "todo"
+status: "done"
 ---
 
 # T38 — Name no exchange in the engine's own order-rule refusals

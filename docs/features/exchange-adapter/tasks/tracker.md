@@ -43,7 +43,7 @@
 | T35 | Scrub a log record the handler cannot format | wiring | Oleh Solomko | S | T34 | done |
 | T36 | Record the port's Decimal numbers in ADR-0001 and the SAD debt list | docs | Oleh Solomko | S | T34 | done |
 | T37 | Pin the spot Pattern Scalper start refusal and correct the T24 DoD | tests | Oleh Solomko | S | T34 | done |
-| T38 | Name no exchange in the engine's own order-rule refusals | app | Oleh Solomko | S | T34 | todo |
+| T38 | Name no exchange in the engine's own order-rule refusals | app | Oleh Solomko | S | T34 | done |
 | T39 | Build the stand-in adapter's prices as Decimals like the port declares | tests | Oleh Solomko | S | T34 | todo |
 | T40 | Skip a stream frame that is not JSON instead of reconnecting | infra | Oleh Solomko | S | T34 | todo |
 **Total:** 34 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S).
