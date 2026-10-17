@@ -92,12 +92,14 @@ class _Session:
 
     def __init__(self, row: dict) -> None:
         self.row = row
+        self.failed_call: str | None = None
 
     def __getattr__(self, method: str):
         def call(**params):
             origin = self.row["origin"]
             spec = self.row["exception"]
-            if origin == "transport":
+            if origin == "transport" or (origin == "placement" and method == "place_order"):
+                self.failed_call = method
                 raise build_exception(spec)
             if origin == "rejection" and method == "place_order":
                 return {"retCode": spec["code"], "retMsg": spec["message"], "result": {}}
@@ -111,7 +113,8 @@ def react_on_a_tick(row: dict, monkeypatch) -> dict:
 
     Exchange rows enter at the Bybit adapter's client transport; engine rows are raised by the
     strategy step; the placement rejection goes through the adapter's placement and the
-    strategy's acceptance check.
+    strategy's acceptance check. A `placement` row reads the open orders, which succeeds, and then
+    fails at the client transport on the order placement only.
     """
     import asyncio
     from types import SimpleNamespace
@@ -126,7 +129,8 @@ def react_on_a_tick(row: dict, monkeypatch) -> dict:
     from app.models.user import User
 
     adapter = BybitAdapter("demo")
-    adapter._session = _Session(row)
+    session = _Session(row)
+    adapter._session = session
     symbol = row["exception"].get("symbol", "BTCUSDT")
 
     if row["origin"] == "engine":
@@ -142,6 +146,14 @@ def react_on_a_tick(row: dict, monkeypatch) -> dict:
                 side="Buy", order_type="Market", qty=0.001, price=None, client_tag=f"bot-{bot.id}-m1-entry",
             ))
             _ensure_accepted(placed, row["exception"]["operation"])
+
+        monkeypatch.setattr(runtime, "tick_bot_once", strategy_step)
+    elif row["origin"] == "placement":
+        def strategy_step(db, bot, *, force=False, adapter=None):
+            adapter.open_orders(bot.category, bot.symbol)
+            adapter.place_order(bot.category, bot.symbol, NewOrder(
+                side="Buy", order_type="Limit", qty=0.001, price=60000.0, client_tag=f"bot-{bot.id}-g1-entry-1",
+            ))
 
         monkeypatch.setattr(runtime, "tick_bot_once", strategy_step)
 
@@ -179,6 +191,7 @@ def react_on_a_tick(row: dict, monkeypatch) -> dict:
             "last_error_action": bot.last_error_action,
             "last_error_code": bot.last_error_code,
             "events": [event.payload for event in events],
+            "failed_call": session.failed_call,
         }
     finally:
         db.close()

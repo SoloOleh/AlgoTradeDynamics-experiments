@@ -68,6 +68,25 @@ def test_temporary_network_failure_retries_then_pauses_past_the_limit(monkeypatc
     )
 
 
+def test_order_placement_timeout_retries_then_pauses_past_the_limit(monkeypatch):
+    """AC-07 on the placement itself: reads succeed and only `place_order` times out
+    (test-plan.md AC-07 rows; review 2026-10-17-2, finding 1)."""
+    row = {**next(row for row in ROWS if row["id"] == "network_timeout"), "origin": "placement"}
+
+    first = react_on_a_tick({**row, "retry_count": 0}, monkeypatch)
+    assert first["failed_call"] == "place_order"
+    assert (first["last_error_type"], first["last_error_action"], first["runtime_status"]) == (
+        "network", "retry_backoff", "retrying",
+    )
+    [payload] = first["events"]
+    assert (payload["error_type"], payload["action"]) == ("network", "retry_backoff")
+    exhausted = react_on_a_tick({**row, "retry_count": 5}, monkeypatch)
+    assert exhausted["failed_call"] == "place_order"
+    assert (exhausted["last_error_action"], exhausted["last_error_severity"], exhausted["runtime_status"]) == (
+        "pause", "error", "paused",
+    )
+
+
 @pytest.mark.parametrize("row", ROWS, ids=[row["id"] for row in ROWS])
 def test_row_passes_through_the_adapter_classifier_then_the_engine_table(row):
     """Layer 1: Bybit failure → error class (adapter). Layer 2: error class → reaction (engine)."""

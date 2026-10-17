@@ -61,7 +61,7 @@
 | T53 | Finish carrying clear-history into the design: Flow 9, coverage rows, api-sync report | docs | Oleh Solomko | S | T51 | done |
 | T54 | State the reduce-only mitigation as deferred, not done | docs | Oleh Solomko | S | T51 | done |
 | T55 | Make the scrubber idempotent | wiring | Oleh Solomko | S | T51 | done |
-| T56 | Pin AC-07 on an order-placement timeout | tests | Oleh Solomko | S | T55 | todo |
+| T56 | Pin AC-07 on an order-placement timeout | tests | Oleh Solomko | S | T55 | done |
 | T57 | Mark the rounding-boundary golden runs deferred in the test plan | docs | Oleh Solomko | S | T55 | todo |
 | T58 | State which previous state the AC-04 replays cover for this release | docs | Oleh Solomko | S | T55 | todo |
 | T59 | Skip only an exact redaction token in the scrubber | wiring | Oleh Solomko | S | T55 | done |

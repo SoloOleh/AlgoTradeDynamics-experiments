@@ -8,7 +8,7 @@ files_hint: ["BE/tests/golden/failure_table/rows.py", "BE/tests/golden/test_fail
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-17-2"
-status: "todo"
+status: "done"
 ---
 
 # T56 — Pin AC-07 on an order-placement timeout
