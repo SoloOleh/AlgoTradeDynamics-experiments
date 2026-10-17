@@ -117,7 +117,8 @@ def test_running_bot_on_a_venue_without_adapter_is_paused_without_exchange_traff
     assert notified[bot_id] == ["venue_unsupported"]
 
 
-def test_missing_capability_pauses_and_names_capability_and_market_type(no_exchange_traffic, notified):
+@pytest.mark.parametrize("trigger", ["scheduled", "live_event"])
+def test_missing_capability_pauses_and_names_capability_and_market_type(trigger, no_exchange_traffic, notified):
     declared = CapabilitySet({MarketType.LINEAR: frozenset(Capability) - {Capability.ORDER_LOOKUP_BY_TAG}})
     calls: list[str] = []
 
@@ -131,7 +132,7 @@ def test_missing_capability_pauses_and_names_capability_and_market_type(no_excha
 
     bot_id = _running_bot(exchange="standin", environment="test")
     with registry.registered_venue("standin", "test", lambda account: StandIn()):
-        _tick(bot_id)
+        _tick(None if trigger == "scheduled" else bot_id)
 
     bot, events, incidents, _ = _state(bot_id)
     assert bot.runtime_status == "paused"

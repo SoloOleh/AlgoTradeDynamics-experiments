@@ -8,7 +8,7 @@ files_hint: ["BE/tests/test_guard_pause.py"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18"
-status: "todo"
+status: "done"
 ---
 
 # T62 — Pin the AC-15b capability pause on a scheduled tick
