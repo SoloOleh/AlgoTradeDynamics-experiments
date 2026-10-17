@@ -8,7 +8,7 @@ files_hint: ["BE/tests/golden/failure_table/rows.py", "BE/tests/golden/test_fail
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18"
-status: "todo"
+status: "done"
 ---
 
 # T65 — Assert the AC-07 retry time in the placement-timeout test

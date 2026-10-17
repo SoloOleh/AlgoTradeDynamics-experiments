@@ -70,7 +70,7 @@
 | T62 | Pin the AC-15b capability pause on a scheduled tick | tests | Oleh Solomko | S | T59 | done |
 | T63 | Assert each emulator account's balance in the AC-03 test | tests | Oleh Solomko | S | T59 | done |
 | T64 | Align the remaining test-plan rows and bookkeeping with what runs | docs | Oleh Solomko | S | T59 | todo |
-| T65 | Assert the AC-07 retry time in the placement-timeout test | tests | Oleh Solomko | S | T59 | todo |
+| T65 | Assert the AC-07 retry time in the placement-timeout test | tests | Oleh Solomko | S | T59 | done |
 **Total:** 65 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S), plus T41–T47, review follow-ups from `_review/review-2026-10-15-2.md` (7 × S), plus T48–T51, review follow-ups from `_review/review-2026-10-15-3.md` (4 × S), plus T52–T55, review follow-ups from `_review/review-2026-10-17.md` (4 × S), plus T56–T59, review follow-ups from `_review/review-2026-10-17-2.md` (4 × S), plus T60–T65, review follow-ups from `_review/review-2026-10-18.md` (6 × S).
 
 **Ship precondition (review 2026-10-15, finding 5):** before `/sdd:ship`, run and record in the PR description: (1) a real connection check against Bybit demo (AC-12, test-plan.md:66), and (2) a manual mid-cycle smoke run on `docker compose` with PostgreSQL (test-plan.md:102, T20). Also state in the PR description that the branch ships as one deploy onto the pre-refactor version, which is the previous state AC-04's `pre_refactor` replays cover (review 2026-10-17-2, finding 3; test-plan «Test data»). A split into several deploys needs the previous-step snapshots recaptured first.

@@ -190,6 +190,7 @@ def react_on_a_tick(row: dict, monkeypatch) -> dict:
             "last_error_severity": bot.last_error_severity,
             "last_error_action": bot.last_error_action,
             "last_error_code": bot.last_error_code,
+            "next_retry_at": bot.next_retry_at,
             "events": [event.payload for event in events],
             "failed_call": session.failed_call,
         }

@@ -78,6 +78,7 @@ def test_order_placement_timeout_retries_then_pauses_past_the_limit(monkeypatch)
     assert (first["last_error_type"], first["last_error_action"], first["runtime_status"]) == (
         "network", "retry_backoff", "retrying",
     )
+    assert first["next_retry_at"] is not None
     [payload] = first["events"]
     assert (payload["error_type"], payload["action"]) == ("network", "retry_backoff")
     exhausted = react_on_a_tick({**row, "retry_count": 5}, monkeypatch)
@@ -85,6 +86,9 @@ def test_order_placement_timeout_retries_then_pauses_past_the_limit(monkeypatch)
     assert (exhausted["last_error_action"], exhausted["last_error_severity"], exhausted["runtime_status"]) == (
         "pause", "error", "paused",
     )
+    assert exhausted["next_retry_at"] is None
+    [payload] = exhausted["events"]
+    assert (payload["error_type"], payload["action"]) == ("network", "pause")
 
 
 @pytest.mark.parametrize("row", ROWS, ids=[row["id"] for row in ROWS])
