@@ -787,7 +787,7 @@ sequenceDiagram
 | AC-05 | Flow 3, «still open» branch: orders recognised, no second ladder, take-profit kept |
 | AC-06 | Flow 4, reaction-table branches (retry, resync, pause, stop) |
 | AC-07 | Flow 4, «retry after back-off» branch with its success and retry-limit-exhausted sub-branches |
-| AC-08 | Flow 5, all four branches. Also referenced from Flow 3 |
+| AC-08 | Flow 5, all five branches. Also referenced from Flow 3 |
 | AC-09 | Flow 6, «venue has no adapter» branch |
 | AC-10 | Flow 7, «venue has no adapter» branch |
 | AC-11 | Flow 6 and Flow 2, «bot belongs to another platform user» branch |

@@ -50,7 +50,7 @@ Inputs: [spec.md](./spec.md) §5/§6, [sad.md](./sad.md) §6 Flows 1–10 and §
 | AC-07 error | `order placement timeout retries after back-off and keeps the bot running` | integration | The bot stays running, a next retry time is set, and a temporary-network event is recorded. No stopped bot |
 | AC-07 error | `order placement timeout past the retry limit pauses the bot` | integration | After the existing retry limit the bot is paused, as today |
 | AC-07 error | `temporary network failure maps to the network reaction` | unit | The failure-table rows for temporary network and exhausted retry give the recorded action and severity |
-| AC-08 domain invariant | `failed lookup keeps the order active and asks again` | unit | A lookup failure other than unknown-order leads to a decision of «still active, retry later» |
+| AC-08 domain invariant | `failed lookup keeps the order active and asks again` | unit | A lookup failure other than unknown-order keeps the order active, with nothing tied to it placed or cancelled. A class the bot already retries leads to «still active, retry later»; any other class takes its AC-06 reaction at once |
 | AC-08 domain invariant | `unknown-order answer marks the order gone` | unit | Only this error class, or absence from both open orders and history, leads to «gone» |
 | AC-08 domain invariant | `order found in history takes its final state from history` | unit | Filled or cancelled is taken from the history entry |
 | AC-08 domain invariant | `lookup failures past the retry limit pause the bot` | unit + integration | The bot is paused after the existing limit, as today |

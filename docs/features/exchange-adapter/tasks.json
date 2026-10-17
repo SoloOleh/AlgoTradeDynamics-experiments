@@ -986,6 +986,75 @@
         "BE/tests/test_secret_leaks.py"
       ],
       "file": "docs/features/exchange-adapter/tasks/t51-keep-malformed-exc-info-from-raising.md"
+    },
+    {
+      "id": "T52",
+      "title": "Finish aligning the AC-08 docs: test plan, coverage row, stop shown as Error",
+      "layer": "docs",
+      "deps": [
+        "T51"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "test-plan.md AC-08 domain-invariant row says a retried class asks again later and any other class takes its AC-06 reaction at once, with the order kept active. The sad.md §6 coverage row says Flow 5 has all five branches. ux-flows.md routes the stop outcomes (rejected credentials, permission denied, unclassified) to an «SCR-02 status Error» node and its prose says a pause shows as Paused, a stop as Error. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/test-plan.md",
+        "docs/features/exchange-adapter/sad.md",
+        "docs/features/exchange-adapter/ux-flows.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t52-finish-aligning-the-ac08-docs.md"
+    },
+    {
+      "id": "T53",
+      "title": "Finish carrying clear-history into the design: Flow 9, coverage rows, api-sync report",
+      "layer": "docs",
+      "deps": [
+        "T51"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-16"
+      ],
+      "dod": "sad.md Flow 9's postcondition names the clear-history answer as a sink. The US-04 and AC-16 coverage rows cite the Flow 2 clear-history branches. contracts/api-sync-report.md F-3 and F-4 carry resolution notes (data-model guard-pause note / T43; sad.md Flow 2, pillar 4, §8 / T49). contracts/events.md no longer says «Both fit» about an unclear antecedent. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/sad.md",
+        "docs/features/exchange-adapter/contracts/api-sync-report.md",
+        "docs/features/exchange-adapter/contracts/events.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t53-finish-carrying-clear-history-into-the-design.md"
+    },
+    {
+      "id": "T54",
+      "title": "State the reduce-only mitigation as deferred, not done",
+      "layer": "docs",
+      "deps": [
+        "T51"
+      ],
+      "acs": [],
+      "dod": "data-model.md (raw_response row) and sad.md §11 describe the neutral reduce-only accessor as deferred to spec §8 (raw_response neutral keys), due before the roadmap step 1 spec, with a link to that §8 item; today's accessor reads the Bybit `reduceOnly` key. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/data-model.md",
+        "docs/features/exchange-adapter/sad.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t54-state-the-reduce-only-mitigation-as-deferred.md"
+    },
+    {
+      "id": "T55",
+      "title": "Make the scrubber idempotent",
+      "layer": "wiring",
+      "deps": [
+        "T51"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "`scrub(scrub(x)) == scrub(x)` for key and secret shapes; an already-scrubbed `[REDACTED]` value is left as it is, so repeated passes (adapter, sink, each log handler) add no `]`. A test pins idempotency and that secrets are still scrubbed.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/redaction.py",
+        "BE/tests/test_scrubber_keys.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t55-make-the-scrubber-idempotent.md"
     }
   ]
 }

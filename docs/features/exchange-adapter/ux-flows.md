@@ -51,7 +51,8 @@ flowchart TD
     B -->|"temporary network failure or timeout"| C["Bot retries after back-off"]
     B -->|"failed order lookup, not unknown-order"| L["SCR-02 order still shown as active, nothing placed or cancelled against it"]
     L -->|"lookup failed with a class the bot already retries"| M{"Bot asks again later. Answer within the existing retry limit?"}
-    L -->|"lookup failed with a class the bot does not retry, e.g. rejected credentials or invalid symbol"| F
+    L -->|"lookup failed with invalid symbol"| F
+    L -->|"lookup failed with a class the bot stops on: rejected credentials, permission denied or unclassified"| S
     M -->|"order still open"| N["SCR-02 order stays active, status stays Active"]
     M -->|"order found in order history"| O["SCR-02 order shown with its final state from history, filled or cancelled"]
     M -->|"unknown-order error class, or in neither open orders nor history"| P["SCR-02 order shown as gone, status stays Active"]
@@ -61,12 +62,14 @@ flowchart TD
     D -->|"no"| F["SCR-02 status Paused, event with the same severity as today"]
     B -->|"other error class, e.g. rate limit, insufficient balance, rejected order"| H{"Reaction from the reference failure table"}
     H -->|"retry or resync"| I["SCR-02 event feed shows the same event category and raw exchange code as today, status stays Active"]
-    H -->|"pause or stop"| F
+    H -->|"pause"| F
+    H -->|"stop"| S["SCR-02 status Error, event with the same severity as today"]
     F --> G["SCR-03 Telegram notification, if connected and allowed"]
+    S --> G
     G -->|"Operator opens the bot"| A
 ```
 
-While a bot runs, an exchange request fails. **Temporary network failure or timeout:** the bot retries after a back-off. If a retry succeeds within the existing limit, the event feed shows a temporary-network event and the bot stays Active. If the failure outlasts the limit, the bot pauses with the same severity as today. **Failed order lookup** for any reason other than «unknown order» (the deliberate AC-08 deviation): the bot page keeps showing that order as active, and the bot places and cancels nothing tied to it while it asks again later. If the order turns out to be still open, nothing changes. If the order history has it, the page shows its final state from there (filled or cancelled). The order is shown as gone only when the exchange answers «unknown order», or the order is in neither the open orders nor the history. This asking again applies only to the failures the bot already retries (rate limit, network, exchange unavailable, time sync, order-state conflict, duplicate client tag): if no answer comes before the existing retry limit, the bot pauses as today. A lookup that fails for any other reason takes that failure's reaction from the reference failure table at once (rejected credentials stop the bot, an invalid symbol pauses it), and the order still stays shown as active. A failed lookup alone never removes the order from the page. **Any other error class** (rate limit, insufficient balance, rejected order, duplicate client tag, rejected credentials and so on): the bot does exactly what the reference failure table recorded. A retry or resync keeps it Active with the same event category and raw exchange code in the feed. A pause or stop shows it as Paused. Every pause also goes out as a Telegram notification when the Operator has Telegram connected and allows that event, and from the notification the Operator returns to the bot page.
+While a bot runs, an exchange request fails. **Temporary network failure or timeout:** the bot retries after a back-off. If a retry succeeds within the existing limit, the event feed shows a temporary-network event and the bot stays Active. If the failure outlasts the limit, the bot pauses with the same severity as today. **Failed order lookup** for any reason other than «unknown order» (the deliberate AC-08 deviation): the bot page keeps showing that order as active, and the bot places and cancels nothing tied to it while it asks again later. If the order turns out to be still open, nothing changes. If the order history has it, the page shows its final state from there (filled or cancelled). The order is shown as gone only when the exchange answers «unknown order», or the order is in neither the open orders nor the history. This asking again applies only to the failures the bot already retries (rate limit, network, exchange unavailable, time sync, order-state conflict, duplicate client tag): if no answer comes before the existing retry limit, the bot pauses as today. A lookup that fails for any other reason takes that failure's reaction from the reference failure table at once (rejected credentials, permission denied or an unclassified failure stop the bot and it shows as Error; an invalid symbol pauses it), and the order still stays shown as active. A failed lookup alone never removes the order from the page. **Any other error class** (rate limit, insufficient balance, rejected order, duplicate client tag, rejected credentials and so on): the bot does exactly what the reference failure table recorded. A retry or resync keeps it Active with the same event category and raw exchange code in the feed. A pause shows it as Paused, a stop as Error. Every pause or stop also goes out as a Telegram notification when the Operator has Telegram connected and allows that event, and from the notification the Operator returns to the bot page.
 
 ### Flow: US-04 — Unsupported venue fails closed
 
@@ -128,9 +131,9 @@ When an exchange request fails while a bot's keys are in use, including the emul
 | AC-03 | N/A: account isolation | Each bot trades only its own emulator account. This is backend routing with no UI path |
 | AC-04 | N/A: golden-run harness | US-02 out of scope (backend-only) |
 | AC-05 | N/A: golden-run harness | US-02 out of scope. The bot page simply shows one ladder, as today |
-| AC-06 | Flow US-03 → H → I / F | Same event category and raw code in the feed. Action per the reference failure table |
+| AC-06 | Flow US-03 → H → I / F / S | Same event category and raw code in the feed. Action per the reference failure table |
 | AC-07 | Flow US-03 → C → D → E / F | Temporary-network event while retrying. Paused once the retry limit is exhausted |
-| AC-08 | Flow US-03 → L → M → N / O / P / F | Order kept shown as active, nothing tied to it placed or cancelled. Final state from history, gone only on unknown-order or absent from both, Paused at the retry limit for a retried failure, the failure's own reaction at once for any other |
+| AC-08 | Flow US-03 → L → M → N / O / P / F, L → F / S | Order kept shown as active, nothing tied to it placed or cancelled. Final state from history, gone only on unknown-order or absent from both, Paused at the retry limit for a retried failure, the failure's own reaction at once for any other (Paused for invalid symbol, Error for a stop) |
 | AC-09 | Flow US-04 → C → E1 / E2 | Start refused on the screen where Start was pressed, venue named |
 | AC-10 | Flow US-04 → D → F → G | Paused with reason. Orders left untouched. Telegram on top of the feed |
 | AC-11 | Flow US-04 → X → Y | Existing «Trading bot not found» state. No venue or state revealed |
