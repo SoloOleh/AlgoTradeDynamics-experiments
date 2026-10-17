@@ -63,8 +63,8 @@
 | T55 | Make the scrubber idempotent | wiring | Oleh Solomko | S | T51 | done |
 | T56 | Pin AC-07 on an order-placement timeout | tests | Oleh Solomko | S | T55 | done |
 | T57 | Mark the rounding-boundary golden runs deferred in the test plan | docs | Oleh Solomko | S | T55 | done |
-| T58 | State which previous state the AC-04 replays cover for this release | docs | Oleh Solomko | S | T55 | todo |
+| T58 | State which previous state the AC-04 replays cover for this release | docs | Oleh Solomko | S | T55 | done |
 | T59 | Skip only an exact redaction token in the scrubber | wiring | Oleh Solomko | S | T55 | done |
 **Total:** 59 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S), plus T41–T47, review follow-ups from `_review/review-2026-10-15-2.md` (7 × S), plus T48–T51, review follow-ups from `_review/review-2026-10-15-3.md` (4 × S), plus T52–T55, review follow-ups from `_review/review-2026-10-17.md` (4 × S), plus T56–T59, review follow-ups from `_review/review-2026-10-17-2.md` (4 × S).
 
-**Ship precondition (review 2026-10-15, finding 5):** before `/sdd:ship`, run and record in the PR description: (1) a real connection check against Bybit demo (AC-12, test-plan.md:66), and (2) a manual mid-cycle smoke run on `docker compose` with PostgreSQL (test-plan.md:102, T20).
+**Ship precondition (review 2026-10-15, finding 5):** before `/sdd:ship`, run and record in the PR description: (1) a real connection check against Bybit demo (AC-12, test-plan.md:66), and (2) a manual mid-cycle smoke run on `docker compose` with PostgreSQL (test-plan.md:102, T20). Also state in the PR description that the branch ships as one deploy onto the pre-refactor version, which is the previous state AC-04's `pre_refactor` replays cover (review 2026-10-17-2, finding 3; test-plan «Test data»). A split into several deploys needs the previous-step snapshots recaptured first.

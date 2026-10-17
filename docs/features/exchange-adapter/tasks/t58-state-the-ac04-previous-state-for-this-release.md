@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/test-plan.md", "docs/features/excha
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-17-2"
-status: "todo"
+status: "done"
 ---
 
 # T58 — State which previous state the AC-04 replays cover for this release
