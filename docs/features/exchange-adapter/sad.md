@@ -733,7 +733,7 @@ sequenceDiagram
     Note over WK,DB: persists bot event, operation log entry and bot incident with scrubbed text only. Rows stored before the deploy are not rewritten
     WK->>TG: notification with scrubbed text, if connected and allowed
     WK->>WK: the log line passes the root logging filter, which scrubs once more
-    Note over AD,TG: Postcondition: no event, log line, notification or connection-check answer holds more of a key than its last 4 characters, or any part of a secret (AC-16)
+    Note over AD,TG: Postcondition: no event, log line, notification, connection-check answer or clear-history answer (`exchange_cancel_error`, Flow 2) holds more of a key than its last 4 characters, or any part of a secret (AC-16)
 ```
 
 ### Flow 10: A stand-in adapter plugs in with no strategy change (US-08)
@@ -772,7 +772,7 @@ sequenceDiagram
 | US-01 Keep Bybit bots trading unchanged | Flow 1, Flow 2 |
 | US-02 Running bots survive each deploy | Flow 3 |
 | US-03 Same reaction to exchange failures | Flow 4, Flow 5 |
-| US-04 Unsupported venue fails closed | Flow 6, Flow 7, Flow 2 (cross-user branch) |
+| US-04 Unsupported venue fails closed | Flow 6, Flow 7, Flow 2 (cross-user, guard-refusal and clear-history branches) |
 | US-05 Check the connection of a venue | Flow 8 |
 | US-06 Incompatible setting is blocked by capability | Flow 6, Flow 7 |
 | US-07 Keys never leak through the adapter | Flow 9 |
@@ -797,7 +797,7 @@ sequenceDiagram
 | AC-14 | Flow 8, «caller is not signed in» branch |
 | AC-15 | Flow 6, «a capability is missing» branch |
 | AC-15b | Flow 7, «a capability is missing» branch |
-| AC-16 | Flow 9. The scrubbed text also appears in Flow 4 and Flow 8 |
+| AC-16 | Flow 9. The scrubbed text also appears in Flow 4, Flow 8 and Flow 2's clear-history branches (`exchange_cancel_error`) |
 | AC-17 | Flow 10 |
 
 No user story or AC is uncovered, and none is non-runtime N/A. The flows agree with `ux-flows.md`: refusals at the action's screen (SCR-01 / SCR-02), pauses in the event feed with Telegram on top (SCR-03), and «Trading bot not found» for another user's bot. The `target_surfaces` value `[backend-service]` declares no UI surface, so no `ui` participant is drawn.

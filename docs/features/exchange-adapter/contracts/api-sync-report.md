@@ -1,7 +1,7 @@
 ---
 status: Draft
 owner: "Oleh Solomko"
-updated_at: "2026-10-13"
+updated_at: "2026-10-17"
 feature_size: M
 route: standard
 ---
@@ -115,13 +115,16 @@ US-07. **F-5 (spec gap):** two contract outcomes have no AC: the connection chec
 
 ## C. Resolutions
 
-| # | Finding | Action | Owner / due |
-|---|---|---|---|
-| F-1 | Connection check reads no entity | **Accept**: by design (Flow 8, nothing persisted) | — |
-| F-2 | `getBotPerformance` degrades (200) where Flow 2 draws a refusal | **Save-as-OQ**: add «guard refuses → skip refresh, stored figures» to Flow 2's page-read branch. The contract keeps 200 | `sequences`, before the contract is finalized |
-| F-3 | Guard-pause `event_type` strings not named upstream | **Accept**: `venue_unsupported` / `capability_missing`. `last_error_*` TBD stays with `tasks` (data-model.md) | — |
-| F-4 | `clearBotHistory` reaches the exchange with no flow and no guard entry point. `exchange_cancel_error` is raw `str(exc)` today (AC-16 leak path) | **Save-as-OQ**: add it to Flow 2, to SAD §4's guard entry-point list and to Flow 9's sinks. The contract keeps it behind the guard, scrubbed | `sequences` (+ `design` for §4), before the contract is finalized |
-| F-5 | No AC for `not_supported` or for guard refusal on non-start actions | **Save-as-OQ**: add ACs under US-05 and US-04. The contract keeps both outcomes | `specify`, before the contract is finalized |
+Sections A and B record the drift as found on 2026-10-13. The **Status** column records where each
+finding has since landed.
+
+| # | Finding | Action | Owner / due | Status |
+|---|---|---|---|---|
+| F-1 | Connection check reads no entity | **Accept**: by design (Flow 8, nothing persisted) | — | Closed: by design |
+| F-2 | `getBotPerformance` degrades (200) where Flow 2 draws a refusal | **Save-as-OQ**: add «guard refuses → skip refresh, stored figures» to Flow 2's page-read branch. The contract keeps 200 | `sequences`, before the contract is finalized | Resolved: `sad.md` Flow 2 page-read degrade branch and the ADR-0004 amendment (T42) |
+| F-3 | Guard-pause `event_type` strings not named upstream | **Accept**: `venue_unsupported` / `capability_missing`. `last_error_*` TBD stays with `tasks` (data-model.md) | — | Resolved: `data-model.md` «Guard pause» note under `trading_bots` (T43) |
+| F-4 | `clearBotHistory` reaches the exchange with no flow and no guard entry point. `exchange_cancel_error` is raw `str(exc)` today (AC-16 leak path) | **Save-as-OQ**: add it to Flow 2, to SAD §4's guard entry-point list and to Flow 9's sinks. The contract keeps it behind the guard, scrubbed | `sequences` (+ `design` for §4), before the contract is finalized | Resolved: `sad.md` Flow 2 clear-history branches, §4 pillar 4, §8 Secrets row (T49) and Flow 9's postcondition (T53) |
+| F-5 | No AC for `not_supported` or for guard refusal on non-start actions | **Save-as-OQ**: add ACs under US-05 and US-04. The contract keeps both outcomes | `specify`, before the contract is finalized | Deferred: `spec.md` §8, owner Oleh Solomko, due before the roadmap step 1 spec (T42) |
 
 Earlier stage-level decisions (asked before generation): error body superset + unversioned prefix
 (ADR-0010), route `GET /api/venues/{exchange}/{environment}/connection`, `not_supported` as a 200

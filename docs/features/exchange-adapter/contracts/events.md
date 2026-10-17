@@ -105,7 +105,7 @@ recorded once in three sinks, all scrubbed (ADR-0008):
 > `event_type` values `venue_unsupported` / `capability_missing` were proposed by this contract
 > and **accepted** (`api-sync-report.md` F-3). `sad.md` §8 names the categories but not the stored
 > strings. A guard pause also writes `last_error_type` / `last_error_severity` / `last_error_action`
-> (`configuration` / `error` / `pause`), as data-model.md's guard-pause note now records. Both fit the existing columns.
+> (`configuration` / `error` / `pause`), as data-model.md's guard-pause note now records. The event types, the incident types and these error values all fit the existing columns.
 
 ## Event: `bot_error` (existing, unchanged, invariants pinned)
 

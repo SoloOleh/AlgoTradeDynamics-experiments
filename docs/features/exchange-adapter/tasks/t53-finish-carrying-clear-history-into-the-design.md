@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/sad.md", "docs/features/exchange-ad
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-17"
-status: "todo"
+status: "done"
 ---
 
 # T53 — Finish carrying clear-history into the design: Flow 9, coverage rows, api-sync report
