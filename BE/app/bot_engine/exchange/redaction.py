@@ -14,11 +14,14 @@ from typing import Any
 REDACTED = "[REDACTED]"
 _ENVIRONMENTS = ("DEMO", "TESTNET", "LIVE")
 
+# A value that is already `[REDACTED]` is skipped, so a second pass (adapter, sink, each log
+# handler) leaves scrubbed text as it is.
+_VALUE = r"""(?!\[REDACTED\])([^\s"'&,;}\]]+)"""
 _KEY_PATTERNS = (
-    re.compile(r"""(?i)(\bapi[_-]?key["']?\s*[=:]\s*["']?)([^\s"'&,;}\]]+)"""),
-    re.compile(r"""(?i)(\bx-api-key["']?\s*[=:]\s*["']?)([^\s"'&,;}\]]+)"""),
+    re.compile(r"""(?i)(\bapi[_-]?key["']?\s*[=:]\s*["']?)""" + _VALUE),
+    re.compile(r"""(?i)(\bx-api-key["']?\s*[=:]\s*["']?)""" + _VALUE),
 )
-_SECRET_PATTERN = re.compile(r"""(?i)(\b(?:api[_-]?)?secret["']?\s*[=:]\s*["']?)([^\s"'&,;}\]]+)""")
+_SECRET_PATTERN = re.compile(r"""(?i)(\b(?:api[_-]?)?secret["']?\s*[=:]\s*["']?)""" + _VALUE)
 
 
 def mask_key(key: str | None) -> str:

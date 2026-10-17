@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/exchange/redaction.py", "BE/tests/test_scrubber_
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-17"
-status: "todo"
+status: "done"
 ---
 
 # T55 — Make the scrubber idempotent
