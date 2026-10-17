@@ -8,7 +8,7 @@ files_hint: ["BE/tests/test_bybit_adapter.py"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18"
-status: "todo"
+status: "done"
 ---
 
 # T63 — Assert each emulator account's balance in the AC-03 test

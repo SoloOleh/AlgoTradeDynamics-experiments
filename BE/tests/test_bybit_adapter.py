@@ -215,6 +215,16 @@ def test_two_bots_with_their_own_keys_trade_on_their_own_accounts(emulator, emul
     assert {order.qty for order in first.open_orders("linear", "BTCUSDT")} == {0.001}
     assert {order.qty for order in second.open_orders("linear", "BTCUSDT")} == {0.002}
 
+    # Each account's balance changes only with its own bot's trade (test-plan AC-03 row).
+    first_before, second_before = first.balance(), second.balance()
+    first.place_order("linear", "BTCUSDT", NewOrder("Buy", "Market", 0.01, None, _tag("a-fill")))
+    first_after, second_after = first.balance(), second.balance()
+    assert first_after.total_available != first_before.total_available
+    assert second_after == second_before
+    second.place_order("linear", "BTCUSDT", NewOrder("Buy", "Market", 0.01, None, _tag("b-fill")))
+    assert second.balance().total_available != second_after.total_available
+    assert first.balance() == first_after
+
 
 def test_bot_without_a_key_uses_the_default_emulator_account(emulator_url):
     from app.core.config import get_settings
