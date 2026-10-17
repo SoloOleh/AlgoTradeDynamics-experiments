@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/adr/0003-keep-stored-order-and-erro
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18"
-status: "todo"
+status: "done"
 ---
 
 # T61 — Amend ADR-0003 for the deferred neutral reduce-only source

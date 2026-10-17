@@ -48,6 +48,8 @@ ticket: "roadmap step 0 — exchange-adapter"
 **Neutral**
 - The error-class vocabulary (ADR-0005) is separate from the stored error type. Several error classes may store the same type (`unknown_order` → `order_state`).
 
+**Amendment (2026-10-18).** The move of the `raw_response['reduceOnly']` readers to a neutral source with a fallback for legacy rows (Negative, above) is **deferred**, not done: it is the [spec.md](../spec.md) §8 item on Bybit field names in `raw_response`, due before the roadmap step 1 spec. Today's accessor, `TradingBotOrder.is_reduce_only` (`BE/app/models/trading_bot_order.py`), reads the Bybit `reduceOnly` key, and Grid still reads the key directly. Bybit is the only venue, so stored rows and the accessor agree. Review 2026-10-18, finding 2 (T61).
+
 ## Links
 
 - Spec: [[../spec.md]] AC-02, AC-04, AC-05, AC-06

@@ -66,7 +66,7 @@
 | T58 | State which previous state the AC-04 replays cover for this release | docs | Oleh Solomko | S | T55 | done |
 | T59 | Skip only an exact redaction token in the scrubber | wiring | Oleh Solomko | S | T55 | done |
 | T60 | Carry the one-deploy release into the SAD and the AC-04 wording | docs | Oleh Solomko | S | T59 | done |
-| T61 | Amend ADR-0003 for the deferred neutral reduce-only source | docs | Oleh Solomko | S | T59 | todo |
+| T61 | Amend ADR-0003 for the deferred neutral reduce-only source | docs | Oleh Solomko | S | T59 | done |
 | T62 | Pin the AC-15b capability pause on a scheduled tick | tests | Oleh Solomko | S | T59 | todo |
 | T63 | Assert each emulator account's balance in the AC-03 test | tests | Oleh Solomko | S | T59 | todo |
 | T64 | Align the remaining test-plan rows and bookkeeping with what runs | docs | Oleh Solomko | S | T59 | todo |

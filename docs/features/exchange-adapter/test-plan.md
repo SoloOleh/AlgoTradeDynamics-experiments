@@ -85,7 +85,7 @@ Inputs: [spec.md](./spec.md) §5/§6, [sad.md](./sad.md) §6 Flows 1–10 and §
 
 - Emulator subprocess fails to start, or its port is busy → expected: the suite fails with the emulator's error output and is never silently skipped.
 - Two replays differ only in event wording or in read requests (for example lookup by client tag vs the last 50 history items) → expected: no difference reported.
-- A mid-cycle Momentum bot with stored order rows that carry only the legacy Bybit reduce-only key → expected: the neutral accessor reads it correctly and the resume is equivalent (inside the AC-04 Momentum replays).
+- A mid-cycle Momentum bot with stored order rows that carry only the Bybit reduce-only key → expected: today's accessor (`TradingBotOrder.is_reduce_only`, which reads the Bybit `reduceOnly` key) reads it correctly and the resume is equivalent (inside the AC-04 Momentum replays). The neutral accessor with a legacy fallback is deferred ([spec §8](./spec.md#8-open-questions), ADR-0003 amendment 2026-10-18).
 - A key shorter than four characters, or a key that appears twice in one message → expected: still fully masked, and no partial secret survives.
 - Records stored before the deploy that contain a key → expected: left as they are (AC-16 applies only to new records). The tests assert only on records written during the test.
 - A guard refusal on the Operator's own bot for stop, sync, cancel or close (SAD Flow 2) → expected: refused with the reason, and nothing sent to any exchange.
