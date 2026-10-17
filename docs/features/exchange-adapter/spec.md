@@ -121,6 +121,9 @@ Scope assumptions:
 **When** the bot resumes on the migrated version from each of two starting states: the one recorded by the pre-refactor version, and the same state freshly captured from the previous migration step
 **Then** it completes the cycle with trading equivalence to the recording from both starting states
 
+<!-- added-by-fix: review-2026-10-18 finding 1 (T60) -->
+**Clarification:** when several migration steps ship in one deploy, «the previous migration step» is the version that deploy replaces. This release ships every step in one deploy onto the pre-refactor version, so the pre-refactor starting state is the deploy's real previous state (SAD §7 «Release (2026-10-18)»).
+
 ### AC-05 (US-02) — domain invariant
 
 **Given** a Grid or DCA bot is mid-cycle with entry orders and a take-profit order placed by the previous version

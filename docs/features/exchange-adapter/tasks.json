@@ -1122,6 +1122,106 @@
         "BE/tests/test_scrubber_keys.py"
       ],
       "file": "docs/features/exchange-adapter/tasks/t59-skip-only-an-exact-redaction-token.md"
+    },
+    {
+      "id": "T60",
+      "title": "Carry the one-deploy release into the SAD and the AC-04 wording",
+      "layer": "docs",
+      "deps": [
+        "T59"
+      ],
+      "acs": [
+        "AC-04"
+      ],
+      "dod": "sad.md §2 (delivery), §4 (migration order), §7 («Deploying a migration PR») and QG-1 say that the migration steps were built and gated one by one on one branch and that this release deploys them once onto the pre-refactor version, so the deploy's previous state is the `mid_cycle_pre_refactor` snapshot; a split into several deploys needs the previous-step snapshots recaptured first. spec.md AC-04 gets an added-by-fix clarification: when several migration steps ship in one deploy, «the previous migration step» is the version that deploy replaces. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/sad.md",
+        "docs/features/exchange-adapter/spec.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t60-carry-the-one-deploy-release-into-the-design.md"
+    },
+    {
+      "id": "T61",
+      "title": "Amend ADR-0003 for the deferred neutral reduce-only source",
+      "layer": "docs",
+      "deps": [
+        "T59"
+      ],
+      "acs": [],
+      "dod": "ADR-0003 carries a dated Amendment: the move of `raw_response['reduceOnly']` readers to a neutral source with a legacy fallback is deferred to spec §8 (raw_response neutral keys), due before the roadmap step 1 spec; today's accessor `TradingBotOrder.is_reduce_only` reads the Bybit `reduceOnly` key. test-plan.md's legacy reduce-only edge case says the same. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/adr/0003-keep-stored-order-and-error-vocabulary-as-platform-vocabulary.md",
+        "docs/features/exchange-adapter/test-plan.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t61-amend-adr-0003-for-the-deferred-reduce-only-source.md"
+    },
+    {
+      "id": "T62",
+      "title": "Pin the AC-15b capability pause on a scheduled tick",
+      "layer": "tests",
+      "deps": [
+        "T59"
+      ],
+      "acs": [
+        "AC-15b"
+      ],
+      "dod": "The AC-15b capability-missing test runs for both triggers, the scheduled fallback tick and the live-event wake-up, and on each the bot is paused with the capability and market type named, a capability-missing event and incident, the Operator notified and no adapter call made.",
+      "files_hint": [
+        "BE/tests/test_guard_pause.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t62-pin-the-ac15b-pause-on-a-scheduled-tick.md"
+    },
+    {
+      "id": "T63",
+      "title": "Assert each emulator account's balance in the AC-03 test",
+      "layer": "tests",
+      "deps": [
+        "T59"
+      ],
+      "acs": [
+        "AC-03"
+      ],
+      "dod": "The two-accounts test also shows each account's balance changing only with its own bot's trade: a fill on one account leaves the other account's balance unchanged, both ways. The test fails if both adapters share one account.",
+      "files_hint": [
+        "BE/tests/test_bybit_adapter.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t63-assert-each-accounts-balance-for-ac03.md"
+    },
+    {
+      "id": "T64",
+      "title": "Align the remaining test-plan rows and bookkeeping with what runs",
+      "layer": "docs",
+      "deps": [
+        "T59"
+      ],
+      "acs": [
+        "AC-05"
+      ],
+      "dod": "test-plan.md's AC-05 «first tick» row points at the golden mid-cycle replays that prove it; the NFR validation section and the «On PRs that touch the adapter» line say the 3 + 3 load runs are deferred to spec §8 (`spec.md:259`); tracker.md's ship precondition cites the «Known gap» bullet by name; T58's description and DoD say all four previous-step snapshots were last captured at `394be42`. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/test-plan.md",
+        "docs/features/exchange-adapter/tasks/tracker.md",
+        "docs/features/exchange-adapter/tasks/t58-state-the-ac04-previous-state-for-this-release.md",
+        "docs/features/exchange-adapter/tasks.json"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t64-align-the-remaining-test-plan-rows.md"
+    },
+    {
+      "id": "T65",
+      "title": "Assert the AC-07 retry time in the placement-timeout test",
+      "layer": "tests",
+      "deps": [
+        "T59"
+      ],
+      "acs": [
+        "AC-07"
+      ],
+      "dod": "The placement-timeout test asserts a next retry time is set on the first failure and cleared after the pause, and that the exhausted `bot_error` event says `network` / `pause`.",
+      "files_hint": [
+        "BE/tests/golden/failure_table/rows.py",
+        "BE/tests/golden/test_failure_table.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t65-assert-the-ac07-retry-time.md"
     }
   ]
 }
