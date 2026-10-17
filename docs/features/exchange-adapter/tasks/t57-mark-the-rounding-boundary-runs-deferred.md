@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/test-plan.md"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-17-2"
-status: "todo"
+status: "done"
 ---
 
 # T57 — Mark the rounding-boundary golden runs deferred in the test plan
