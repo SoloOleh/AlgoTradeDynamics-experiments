@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/test-plan.md", "docs/features/excha
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18"
-status: "todo"
+status: "done"
 ---
 
 # T64 — Align the remaining test-plan rows and bookkeeping with what runs

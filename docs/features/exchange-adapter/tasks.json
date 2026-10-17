@@ -1099,7 +1099,7 @@
       "acs": [
         "AC-04"
       ],
-      "dod": "test-plan.md (AC-04 previous-step row and test data) and the tracker's ship precondition say the previous-step snapshots were captured at each strategy's own migration commit, that this release ships as one deploy from pre-refactor so `mid_cycle_pre_refactor` is the deploy's real previous state, and that splitting the branch into several deploys needs each previous-step snapshot recaptured (`GOLDEN_CAPTURE_PREVIOUS=1`) on the tree deployed before it. No code change.",
+      "dod": "test-plan.md (AC-04 previous-step row and test data) and the tracker's ship precondition say the previous-step snapshots were captured at each strategy migration step's parent (all four last at `394be42`), that this release ships as one deploy from pre-refactor so `mid_cycle_pre_refactor` is the deploy's real previous state, and that splitting the branch into several deploys needs each previous-step snapshot recaptured (`GOLDEN_CAPTURE_PREVIOUS=1`) on the tree deployed before it. No code change.",
       "files_hint": [
         "docs/features/exchange-adapter/test-plan.md",
         "docs/features/exchange-adapter/tasks/tracker.md"
