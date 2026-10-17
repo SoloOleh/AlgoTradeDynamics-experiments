@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/data-model.md", "docs/features/exch
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-17"
-status: "todo"
+status: "done"
 ---
 
 # T54 — State the reduce-only mitigation as deferred, not done

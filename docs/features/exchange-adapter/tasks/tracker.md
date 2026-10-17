@@ -59,7 +59,7 @@
 | T51 | Keep malformed exception info from raising out of the log filter | wiring | Oleh Solomko | S | T47 | done |
 | T52 | Finish aligning the AC-08 docs: test plan, coverage row, stop shown as Error | docs | Oleh Solomko | S | T51 | done |
 | T53 | Finish carrying clear-history into the design: Flow 9, coverage rows, api-sync report | docs | Oleh Solomko | S | T51 | done |
-| T54 | State the reduce-only mitigation as deferred, not done | docs | Oleh Solomko | S | T51 | todo |
+| T54 | State the reduce-only mitigation as deferred, not done | docs | Oleh Solomko | S | T51 | done |
 | T55 | Make the scrubber idempotent | wiring | Oleh Solomko | S | T51 | todo |
 **Total:** 55 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S), plus T41–T47, review follow-ups from `_review/review-2026-10-15-2.md` (7 × S), plus T48–T51, review follow-ups from `_review/review-2026-10-15-3.md` (4 × S), plus T52–T55, review follow-ups from `_review/review-2026-10-17.md` (4 × S).
 

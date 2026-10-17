@@ -145,7 +145,7 @@ writes the error columns as well as the event and incident: `last_error_type` = 
 | `order_link_id` | VARCHAR(160) | NULL, indexed | Client tag. Format frozen (ADR-0003). Binance's 36-char limit is a declared capability, not a column change (spec §8 OQ) |
 | `exchange_order_id` | VARCHAR(120) | NULL | As today |
 | `status` | VARCHAR(30) | NOT NULL, default `New` | **Frozen stored vocabulary** (`New`, `PartiallyFilled`, `Filled`, `Cancelled`, `Rejected`, `Deactivated`, `Untriggered`…). Any adapter maps into it. AC-08: the status changes only on `unknown_order`, `not_found` or a `final` lookup answer |
-| `raw_response` | JSON | NOT NULL | Stays a raw exchange payload. Readers of Bybit keys (`reduceOnly`, `momentum.py:632,926`) move to a neutral accessor with a legacy-key fallback (`sad.md` §11). The reduce-only flag rides in this JSON. **No new column** |
+| `raw_response` | JSON | NOT NULL | Stays a raw exchange payload. The reduce-only flag rides in this JSON under the Bybit key `reduceOnly`. Momentum and Pattern Scalper read it through `TradingBotOrder.is_reduce_only`, which reads only that key; `grid_runtime.py` still reads it directly. Moving the readers to neutral keys with a legacy-key fallback is **deferred** to [spec §8](./spec.md) («Bybit field names … `raw_response`»), due before the roadmap step 1 spec (`sad.md` §11). **No new column** |
 | `parent_order_id` | INTEGER | NULL, FK → `trading_bot_orders(id)` SET NULL | As today |
 
 #### `trading_bot_events` — event feed (Flows 1, 2, 4, 5, 7, 9)
