@@ -76,3 +76,45 @@ def test_an_already_redacted_value_stays_exactly_redacted():
     scrubber = redaction.Scrubber()
 
     assert scrubber.scrub("secret=[REDACTED] api_key=[REDACTED]") == "secret=[REDACTED] api_key=[REDACTED]"
+
+
+@pytest.mark.parametrize(
+    ("text", "tail"),
+    [
+        ("Bybit said: secret=[REDACTED]abc123def rejected", "abc123def"),
+        ("api_key=[REDACTED]AKIAXYZ123456 & retCode=10003", "AKIAXYZ123456"),
+        ("secret=[redacted]abc123def", "abc123def"),
+        ('{"api_secret": "[REDACTED]abc123def"}', "abc123def"),
+        ("secret=[REDACTED][REDACTED]abc123def", "abc123def"),
+        (f"secret={KNOWN_SECRET}tail9x7", "tail9x7"),
+    ],
+)
+def test_a_value_that_only_starts_with_the_redaction_token_is_still_scrubbed(text, tail):
+    """Only an exact `[REDACTED]` value is skipped; a tail after it is a secret too
+    (review 2026-10-17-2, finding 4)."""
+    scrubber = redaction.Scrubber(keys=[KNOWN_KEY], secrets=[KNOWN_SECRET])
+
+    once = scrubber.scrub(text)
+
+    assert tail not in once
+    assert scrubber.scrub(once) == once
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        '{"secret": "[REDACTED]", "api_key": "[REDACTED]"}',
+        "secret=[REDACTED]&category=linear",
+        "secret=[REDACTED]; api_secret=[REDACTED], x-api-key: [REDACTED]",
+    ],
+)
+def test_an_exact_redaction_token_next_to_a_delimiter_is_left_as_it_is(text):
+    assert redaction.Scrubber().scrub(text) == text
+
+
+@pytest.mark.parametrize("text", ["api_key=[REDACTED]x", "x-api-key: [REDACTED]ab1", "apiKey=[redacted]Q"])
+def test_a_short_key_tail_after_the_token_is_masked_without_the_token(text):
+    once = redaction.Scrubber().scrub(text)
+
+    assert once.endswith("****")
+    assert redaction.Scrubber().scrub(once) == once

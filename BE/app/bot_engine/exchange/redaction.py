@@ -14,14 +14,17 @@ from typing import Any
 REDACTED = "[REDACTED]"
 _ENVIRONMENTS = ("DEMO", "TESTNET", "LIVE")
 
-# A value that is already `[REDACTED]` is skipped, so a second pass (adapter, sink, each log
-# handler) leaves scrubbed text as it is.
-_VALUE = r"""(?!\[REDACTED\])([^\s"'&,;}\]]+)"""
+# A value that is exactly `[REDACTED]` is skipped, so a second pass (adapter, sink, each log
+# handler) leaves scrubbed text as it is. A value that only starts with it is scrubbed whole,
+# token included, so no tail after the token survives.
+_VALUE_CHAR = r"""[^\s"'&,;}\]]"""
+_VALUE = rf"""(?!\[REDACTED\](?!{_VALUE_CHAR}))((?:\[REDACTED\]|{_VALUE_CHAR})+)"""
 _KEY_PATTERNS = (
     re.compile(r"""(?i)(\bapi[_-]?key["']?\s*[=:]\s*["']?)""" + _VALUE),
     re.compile(r"""(?i)(\bx-api-key["']?\s*[=:]\s*["']?)""" + _VALUE),
 )
 _SECRET_PATTERN = re.compile(r"""(?i)(\b(?:api[_-]?)?secret["']?\s*[=:]\s*["']?)""" + _VALUE)
+_TOKEN = re.compile(r"(?i)\[REDACTED\]")
 
 
 def mask_key(key: str | None) -> str:
@@ -62,7 +65,7 @@ class Scrubber:
         for key in keys:
             text = text.replace(key, mask_key(key))
         for pattern in _KEY_PATTERNS:
-            text = pattern.sub(lambda match: match.group(1) + mask_key(match.group(2)), text)
+            text = pattern.sub(lambda match: match.group(1) + mask_key(_TOKEN.sub("", match.group(2))), text)
         text = _SECRET_PATTERN.sub(lambda match: match.group(1) + REDACTED, text)
         return text
 

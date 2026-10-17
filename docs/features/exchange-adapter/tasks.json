@@ -1055,6 +1055,73 @@
         "BE/tests/test_scrubber_keys.py"
       ],
       "file": "docs/features/exchange-adapter/tasks/t55-make-the-scrubber-idempotent.md"
+    },
+    {
+      "id": "T56",
+      "title": "Pin AC-07 on an order-placement timeout",
+      "layer": "tests",
+      "deps": [
+        "T55"
+      ],
+      "acs": [
+        "AC-07"
+      ],
+      "dod": "A failure-table tick where every read succeeds and only `place_order` raises the recorded `network_timeout` leaves the bot `retrying` with a `network` bot_error event and action `retry_backoff`; at the retry limit the same failure pauses the bot with severity `error`. The test fails if the placement path stops reaching the network reaction.",
+      "files_hint": [
+        "BE/tests/golden/failure_table/rows.py",
+        "BE/tests/golden/test_failure_table.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t56-pin-ac07-on-an-order-placement-timeout.md"
+    },
+    {
+      "id": "T57",
+      "title": "Mark the rounding-boundary golden runs deferred in the test plan",
+      "layer": "docs",
+      "deps": [
+        "T55"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "test-plan.md no longer presents the rounding-boundary golden runs as recorded or run: the settled-decisions note, the AC-01 rounding-boundary row and the «On every PR» line say they are deferred, with a link to the spec §8 item. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/test-plan.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t57-mark-the-rounding-boundary-runs-deferred.md"
+    },
+    {
+      "id": "T58",
+      "title": "State which previous state the AC-04 replays cover for this release",
+      "layer": "docs",
+      "deps": [
+        "T55"
+      ],
+      "acs": [
+        "AC-04"
+      ],
+      "dod": "test-plan.md (AC-04 previous-step row and test data) and the tracker's ship precondition say the previous-step snapshots were captured at each strategy's own migration commit, that this release ships as one deploy from pre-refactor so `mid_cycle_pre_refactor` is the deploy's real previous state, and that splitting the branch into several deploys needs each previous-step snapshot recaptured (`GOLDEN_CAPTURE_PREVIOUS=1`) on the tree deployed before it. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/test-plan.md",
+        "docs/features/exchange-adapter/tasks/tracker.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t58-state-the-ac04-previous-state-for-this-release.md"
+    },
+    {
+      "id": "T59",
+      "title": "Skip only an exact redaction token in the scrubber",
+      "layer": "wiring",
+      "deps": [
+        "T55"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "The scrubber skips a value only when it is exactly `[REDACTED]` (followed by the end of the value), so `secret=[REDACTED]abc123def`, `api_key=[REDACTED]AKIAXYZ123456` and `secret=[redacted]abc123def` have their tails scrubbed, while `scrub(scrub(x)) == scrub(x)` still holds. Tests pin both.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/redaction.py",
+        "BE/tests/test_scrubber_keys.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t59-skip-only-an-exact-redaction-token.md"
     }
   ]
 }
