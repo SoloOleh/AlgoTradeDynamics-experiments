@@ -6529,7 +6529,7 @@
   "strategy_type": "pattern_scalper",
   "symbol": "SOLUSDT"
  },
- "source_commit": "8b6482e743759e413d2ecd26d40766b2f4b0bea6",
+ "source_commit": "4b91cb7968ee134ee3257ce64f2cdfcbd5b65a89",
  "timings": {
   "fill_reaction_s": [],
   "request_durations_s": [

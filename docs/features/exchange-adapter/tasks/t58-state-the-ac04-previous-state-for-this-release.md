@@ -17,9 +17,9 @@ Follow-up task from the independent review — [`_review/review-2026-10-17-2.md`
 
 ## Problem
 
-Each `mid_cycle_previous_step` snapshot was captured on the parent of a strategy migration step, all four last at `394be42` (the review text said each strategy's own commit; git history corrects it), not after the later steps and fix rounds, so it is older than the tree that will ship.
+Each `mid_cycle_previous_step` snapshot was captured on the parent of a strategy migration step, all four last at `92b2bab` (the review text said each strategy's own commit; git history corrects it), not after the later steps and fix rounds, so it is older than the tree that will ship.
 
 ## Acceptance
 
 - AC: AC-04 — full text in [spec.md §5](../spec.md).
-- **Definition of Done:** test-plan.md (AC-04 previous-step row and test data) and the tracker's ship precondition say the previous-step snapshots were captured at each strategy migration step's parent (all four last at `394be42`), that this release ships as one deploy from pre-refactor so `mid_cycle_pre_refactor` is the deploy's real previous state, and that splitting the branch into several deploys needs each previous-step snapshot recaptured (`GOLDEN_CAPTURE_PREVIOUS=1`) on the tree deployed before it. No code change.
+- **Definition of Done:** test-plan.md (AC-04 previous-step row and test data) and the tracker's ship precondition say the previous-step snapshots were captured at each strategy migration step's parent (all four last at `92b2bab`), that this release ships as one deploy from pre-refactor so `mid_cycle_pre_refactor` is the deploy's real previous state, and that splitting the branch into several deploys needs each previous-step snapshot recaptured (`GOLDEN_CAPTURE_PREVIOUS=1`) on the tree deployed before it. No code change.

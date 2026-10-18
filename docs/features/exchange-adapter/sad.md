@@ -83,7 +83,7 @@ When goals conflict, the higher one wins (for example, keeping today's stored va
 
 AlgoTradeDynamics lets an Operator configure, run and supervise Grid, DCA, Momentum and Pattern Scalper bots, and run backtests of them. Today it trades only on Bybit (emulator, demo, testnet, live). This feature changes no external relationship: the same Operator talks to the same platform, and the platform talks to the same Bybit environments and the same exchange emulator. What changes is the boundary *inside* the platform. Every exchange request leaves through an exchange adapter chosen by the bot's venue, and the trust boundary around exchange responses (error texts that may echo keys, Bybit-shaped payloads) moves into that adapter.
 
-<!-- brownfield: architecture-map.md reflects fb25db3; no BE/EXCHANGE_EMULATOR/FE change since (HEAD d75458e). direct exchange access in 9 backend files (grid_runtime, dca_runtime, momentum, pattern_scalper, orders, performance, market_data, positions, api/bybit), plus exchange_streams.py and error_handling.py. -->
+<!-- brownfield: architecture-map.md reflects fb25db3; no BE/EXCHANGE_EMULATOR/FE change since (HEAD 419d37c). direct exchange access in 9 backend files (grid_runtime, dca_runtime, momentum, pattern_scalper, orders, performance, market_data, positions, api/bybit), plus exchange_streams.py and error_handling.py. -->
 
 **External systems (in / out):**
 
@@ -825,7 +825,7 @@ No user story or AC is uncovered, and none is non-runtime N/A. The flows agree w
 
 **Deploying a migration PR.** Each migration step is deployed while bots are running. The backend restarts, the worker loop starts in the lifespan hook and forces a reconcile (`reconcile_if_due(force=True)`, `runtime.py`), and mid-cycle bots resume on the new code. Spec AC-04 and AC-05 prove this exact path with the mid-cycle golden runs before the PR merges.
 
-**Release (2026-10-18).** The migration steps were built and gated one by one as commits on one branch, and this release deploys them **once**, onto bots running the pre-refactor version (confirmed by the Operator, review 2026-10-18 finding 1). The deploy's real previous state is therefore the one the `mid_cycle_pre_refactor` snapshots replay (AC-04). The `mid_cycle_previous_step` replays stay as a step-to-step regression check; their snapshots were last captured at `394be42` (test-plan «Test data»). If the branch is ever split into several deploys, recapture every previous-step snapshot (`GOLDEN_CAPTURE_PREVIOUS=1`) on the tree deployed just before each one.
+**Release (2026-10-18).** The migration steps were built and gated one by one as commits on one branch, and this release deploys them **once**, onto bots running the pre-refactor version (confirmed by the Operator, review 2026-10-18 finding 1). The deploy's real previous state is therefore the one the `mid_cycle_pre_refactor` snapshots replay (AC-04). The `mid_cycle_previous_step` replays stay as a step-to-step regression check; their snapshots were last captured at `92b2bab` (test-plan «Test data»). If the branch is ever split into several deploys, recapture every previous-step snapshot (`GOLDEN_CAPTURE_PREVIOUS=1`) on the tree deployed just before each one.
 
 **Rollback.** Redeploy the previous image. Nothing in the schema, the stored vocabulary or the client tags changes (ADR-0003), so a rollback is as safe for mid-cycle bots as a forward deploy. Orders placed by the newer code are read natively by the older code.
 

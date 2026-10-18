@@ -107,7 +107,7 @@ Internal — no API surface.
 | Case | Behaviour |
 |---|---|
 | A mid-cycle replay places a second ladder or re-places the take-profit | Replay fails, naming the duplicate client tag (Deploy safety = 0) |
-| Recording taken on a commit that already contains migration code | Refuse: the recording's commit must be the pre-refactor base (`82f7f22` lineage, before T05 merges) |
+| Recording taken on a commit that already contains migration code | Refuse: the recording's commit must be the pre-refactor base (`054a7a1` lineage, before T05 merges) |
 | Latency p95 above baseline + 0.5 s | Replay fails with both numbers printed |
 | Momentum/Pattern Scalper scenario OQ answered differently before `plan-tests` | Re-record per ADR-0007 (checkout the source commit), never hand-edit a recording |
 

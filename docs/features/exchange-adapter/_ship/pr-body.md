@@ -36,11 +36,11 @@ Roadmap step 0. Every strategy, runtime, stream, backtest path and the connectio
 
 73 tasks (T01–T73), one commit each with `SDD-Task` / `SDD-AC` trailers. Tracker: `docs/features/exchange-adapter/tasks/tracker.md`. List: `git log main..HEAD --grep SDD-Task`. Milestones:
 
-- T01–T03 `8b6482e` `23bc72c` `7fa50c5`: golden-run harness, the 8 recordings, the failure table, the static search, `scripts/premerge.sh`
-- T04–T09 `bd76d0d` … `116002b`: port, errors, capabilities, scrubber, Bybit adapter, venue registry, fail-closed guard at start and on every worker tick
-- T10–T14 `1717d3f` … `394be42`: helpers (with the AC-08 lookup rule), DCA, Grid, Momentum and Pattern Scalper migrated
-- T15–T20 `3297c33` … `f7999d3`: performance, streams, scrubbing at every sink, per-venue connection check, stand-in adapter, backtests on the adapter, legacy session factory deleted, static search at 0
-- T21–T73 `d330b7b` … `2c7b3a9`: review fix rounds (9 reviews)
+- T01–T03 `4b91cb7` `4aed1a7` `e40cd8f`: golden-run harness, the 8 recordings, the failure table, the static search, `scripts/premerge.sh`
+- T04–T09 `9dc1725` … `8caf682`: port, errors, capabilities, scrubber, Bybit adapter, venue registry, fail-closed guard at start and on every worker tick
+- T10–T14 `816da13` … `92b2bab`: helpers (with the AC-08 lookup rule), DCA, Grid, Momentum and Pattern Scalper migrated
+- T15–T20 `862c931` … `fe5e188`: performance, streams, scrubbing at every sink, per-venue connection check, stand-in adapter, backtests on the adapter, legacy session factory deleted, static search at 0
+- T21–T73 `71464c5` … `1dcba06`: review fix rounds (9 reviews)
 
 ## Verification
 

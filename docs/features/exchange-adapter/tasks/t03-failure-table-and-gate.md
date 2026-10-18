@@ -55,7 +55,7 @@ This task freezes today's failure → reaction map and puts every spec §6 check
 
 > Today's stored types (`BotErrorType`): `network`, `rate_limit`, `exchange_unavailable`, `time_sync`, `authentication`, `permission`, `insufficient_funds`, `invalid_order`, `invalid_symbol`, `order_state`, `configuration`, `risk`, `internal`. Actions: `retry_backoff`, `resync_and_retry`, `pause`, `stop`. Retry budget `error_max_retries` default 5; on exhaustion the action becomes `pause` with severity `error`.
 >
-> — `BE/app/bot_engine/error_handling.py:25-51, 207-221, abridged` (code, at commit `82f7f22`)
+> — `BE/app/bot_engine/error_handling.py:25-51, 207-221, abridged` (code, at commit `054a7a1`)
 
 **Fallback:** insufficient or contradicted by the code → read the named file in full
 ([spec.md](../spec.md) · [sad.md](../sad.md) · [ADR-0009](../adr/0009-scope-the-static-search-to-the-exchange-trading-dialect.md)) and follow it. Do not guess.

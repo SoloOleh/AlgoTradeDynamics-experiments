@@ -220,7 +220,7 @@
   {
     "id": "emulator_unknown_rejection",
     "source": "emulator",
-    "note": "A refusal in the answer body with a code the adapter does not map. Expected reaction is the pre-refactor one, computed by the ed82f2e classifier (ExchangeOperationError, code 170134): unclassified failures stay internal (ADR-0005). Added by review-2026-10-18-2, finding 2 (T67).",
+    "note": "A refusal in the answer body with a code the adapter does not map. Expected reaction is the pre-refactor one, computed by the de51148 classifier (ExchangeOperationError, code 170134): unclassified failures stay internal (ADR-0005). Added by review-2026-10-18-2, finding 2 (T67).",
     "exception": {
       "kind": "placement_rejection",
       "code": 170134,

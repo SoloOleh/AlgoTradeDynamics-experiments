@@ -22,4 +22,4 @@ The AC-05 row (`test-plan.md:46`) names a one-tick test that does not exist; the
 ## Acceptance
 
 - AC: AC-05 — full text in [spec.md §5](../spec.md).
-- **Definition of Done:** test-plan.md's AC-05 «first tick» row points at the golden mid-cycle replays that prove it; the NFR validation section and the «On PRs that touch the adapter» line say the 3 + 3 load runs are deferred to [spec §8](../spec.md#8-open-questions) (reaction-latency NFR item); tracker.md's ship precondition cites the «Known gap» bullet by name; T58's description and DoD say all four previous-step snapshots were last captured at `394be42`. No code change.
+- **Definition of Done:** test-plan.md's AC-05 «first tick» row points at the golden mid-cycle replays that prove it; the NFR validation section and the «On PRs that touch the adapter» line say the 3 + 3 load runs are deferred to [spec §8](../spec.md#8-open-questions) (reaction-latency NFR item); tracker.md's ship precondition cites the «Known gap» bullet by name; T58's description and DoD say all four previous-step snapshots were last captured at `92b2bab`. No code change.
