@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-09"
+updated_at: "2026-10-18"
 ---
 
 # Roadmap — AlgoTradeDynamics (Binance integration)
@@ -19,7 +19,7 @@ The operator runs Grid, DCA, Momentum and Pattern Scalper on Binance Spot and US
 
 | # | Step | Source | Size | Status |
 |---|---|---|:---:|---|
-| 0 | Exchange adapter: strategies and runtimes reach the exchange through one exchange-neutral seam; Bybit moves behind it with no behaviour change | `architecture-map.md` §Constraints & known tech-debt | M | spec'd → [`features/exchange-adapter`](features/exchange-adapter/spec.md) |
+| 0 | Exchange adapter: strategies and runtimes reach the exchange through one exchange-neutral seam; Bybit moves behind it with no behaviour change | `architecture-map.md` §Constraints & known tech-debt | M | shipped → [`features/exchange-adapter`](features/exchange-adapter/spec.md) |
 | 1 | Connect Binance and see market data: pick Binance in the bot form, Spot testnet + Futures demo keys from env, connection status, tickers and instrument filters | `idea-brief.md` §7. Recommendation | M | idea |
 | 2 | Emulator faults: partial fills, accepted-but-unanswered orders and rate-limit rejections on demand (current Bybit dialect) | `idea-brief.md` §6. Risks | M | idea |
 | 3 | Emulator speaks Binance Spot + USDT-M, including the step 2 faults | `idea-brief.md` §7. Recommendation | M | idea |
@@ -102,4 +102,4 @@ Step 7 enters a wave only after its recon pass.
 
 | Step | Shipped | Link |
 |---|---|---|
-| — | — | — |
+| 0 — Exchange adapter | 2026-10-18 | [changelog](features/exchange-adapter/_ship/changelog.md) · PR: pending (branch `experiments`) |
