@@ -1294,6 +1294,74 @@
         "docs/features/exchange-adapter/tasks.json"
       ],
       "file": "docs/features/exchange-adapter/tasks/t69-cite-the-spec-open-questions-by-name.md"
+    },
+    {
+      "id": "T70",
+      "title": "Pin the stored text of an unclassified placement refusal",
+      "layer": "tests",
+      "deps": [
+        "T69"
+      ],
+      "acs": [
+        "AC-06"
+      ],
+      "dod": "`test_engine_reaction.py` has an `UnclassifiedExchangeFailure` case (raw code 170134) for the Momentum and Pattern Scalper entries that asserts `internal / critical / stop`, the code `170134` and the full `<action>: Order price has too many decimals. (code 170134)` text. Replacing the message in `ensure_accepted`'s unclassified branch makes it fail.",
+      "files_hint": [
+        "BE/tests/test_engine_reaction.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t70-pin-the-unclassified-refusal-text.md"
+    },
+    {
+      "id": "T71",
+      "title": "Pin the Grid position take-profit on an unclassified refusal and scope the T67 wording",
+      "layer": "tests",
+      "deps": [
+        "T69"
+      ],
+      "acs": [
+        "AC-06"
+      ],
+      "dod": "`test_bots_api.py` places a Grid position take-profit that is refused with an unmapped code (170134): the tick does not crash, the order is recorded with no exchange order id, no duplicate-tag event is logged and the bot keeps running. Reverting the guard makes it fail. The test-plan row and the T67 DoD say \"a refused Momentum / Pattern Scalper placement stops the bot as internal; Grid/DCA record the refused order as before\".",
+      "files_hint": [
+        "BE/tests/test_bots_api.py",
+        "docs/features/exchange-adapter/test-plan.md",
+        "docs/features/exchange-adapter/tasks.json"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t71-pin-the-grid-unclassified-refusal.md"
+    },
+    {
+      "id": "T72",
+      "title": "Document how an unclassified failure is reported in the contract and the SAD",
+      "layer": "docs",
+      "deps": [
+        "T69"
+      ],
+      "acs": [
+        "AC-13b",
+        "AC-06"
+      ],
+      "dod": "The `getVenueConnection` 200 description and the Flow 8 failure branch say that a failure the adapter cannot classify is reported as `failing` / `exchange_unavailable`. SAD §5 lists `UnclassifiedExchangeFailure` under `errors.py`, and the §8 «Error handling» row names it: an unclassified transport failure or body refusal, raw code kept, treated as internal by the engine (ADR-0005). No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/contracts/openapi.yaml",
+        "docs/features/exchange-adapter/sad.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t72-document-the-unclassified-failure-report.md"
+    },
+    {
+      "id": "T73",
+      "title": "Cite the AC-12 test-plan row by name in the ship precondition",
+      "layer": "docs",
+      "deps": [
+        "T69"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "The tracker's ship precondition cites the test-plan AC-12 row «connection check reports a configured demo venue as connected» by name, not by line. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/tasks/tracker.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t73-cite-the-ac12-row-by-name.md"
     }
   ]
 }

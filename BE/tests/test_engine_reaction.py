@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from app.bot_engine.error_handling import classify_bot_error
-from app.bot_engine.exchange.errors import ErrorClass, ExchangeError
+from app.bot_engine.exchange.errors import ErrorClass, ExchangeError, UnclassifiedExchangeFailure
 from app.bot_engine.exchange.port import PlacedOrder
 
 ENGINE = Path(__file__).resolve().parents[1] / "app" / "bot_engine"
@@ -57,6 +57,26 @@ def test_a_rejected_placement_reacts_by_its_error_class_whatever_the_raw_code(st
     assert decision.code == "-2019"
     # The stored text keeps today's shape: operation prefix and raw code.
     assert decision.message == f"{action}: Margin is not enough (code -2019)"
+
+
+@pytest.mark.parametrize("strategy, action", [("momentum", "Momentum entry"), ("pattern_scalper", "Pattern Scalper entry")])
+def test_an_unclassified_placement_refusal_stops_as_internal_with_todays_text(strategy, action):
+    """T70: a refusal the adapter could not classify keeps the `<action>: <message> (code N)` text (AC-06)."""
+    import importlib
+
+    module = importlib.import_module(f"app.bot_engine.strategies.{strategy}")
+    rejection = UnclassifiedExchangeFailure("Order price has too many decimals.", raw_code=170134)
+    placed = PlacedOrder(order_id=None, client_tag="bot-1-x", status=None, raw={}, rejection=rejection)
+
+    with pytest.raises(UnclassifiedExchangeFailure) as raised:
+        module._ensure_accepted(placed, action)
+
+    decision = classify_bot_error(raised.value)
+    assert (decision.error_type.value, decision.severity.value, decision.action.value) == (
+        "internal", "critical", "stop",
+    )
+    assert decision.code == "170134"
+    assert decision.message == f"{action}: Order price has too many decimals. (code 170134)"
 
 
 def test_a_raw_exception_that_only_bybit_would_recognise_is_internal_to_the_engine():
