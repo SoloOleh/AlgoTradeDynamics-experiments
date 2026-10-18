@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/tasks/tracker.md"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18-3"
-status: "todo"
+status: "done"
 ---
 
 # T73 — Cite the AC-12 test-plan row by name in the ship precondition
