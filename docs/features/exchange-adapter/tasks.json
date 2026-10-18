@@ -1222,6 +1222,78 @@
         "BE/tests/golden/test_failure_table.py"
       ],
       "file": "docs/features/exchange-adapter/tasks/t65-assert-the-ac07-retry-time.md"
+    },
+    {
+      "id": "T66",
+      "title": "Make the AC-07 cleared-retry-time check able to fail",
+      "layer": "tests",
+      "deps": [
+        "T65"
+      ],
+      "acs": [
+        "AC-07"
+      ],
+      "dod": "`react_on_a_tick` seeds `runtime_status` and `next_retry_at` from the row; the placement-timeout test's exhausted case starts as a `retrying` bot with `next_retry_at` one minute in the past, so its `next_retry_at is None` assertion fails if the pause path keeps the stale retry time.",
+      "files_hint": [
+        "BE/tests/golden/failure_table/rows.py",
+        "BE/tests/golden/test_failure_table.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t66-make-the-ac07-cleared-retry-time-check-able-to-fail.md"
+    },
+    {
+      "id": "T67",
+      "title": "Stop the bot as internal on an unrecognised exchange rejection code",
+      "layer": "infra",
+      "deps": [
+        "T65"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-08"
+      ],
+      "dod": "An unrecognised non-zero `retCode` in an answer body is carried as an `UnclassifiedExchangeFailure` (scrubbed message, raw code kept). A placement refused that way stops the bot as `internal / critical / stop` with the raw code stored and the `<action>: <message> (code N)` text; a lookup answered that way raises it (the order stays active, the bot stops as internal); the connection check reports it as `failing` / `exchange_unavailable`, like its unclassified transport branch. A failure-table row `emulator_unknown_rejection` (origin `rejection`) pins the placement reaction.",
+      "files_hint": [
+        "BE/app/bot_engine/exchange/bybit/adapter.py",
+        "BE/app/bot_engine/exchange/port.py",
+        "BE/app/bot_engine/orders.py",
+        "BE/app/bot_engine/grid_runtime.py",
+        "BE/tests/golden/failure_table/rows.json",
+        "BE/tests/golden/failure_table/rows.py",
+        "BE/tests/test_bybit_adapter.py"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t67-stop-as-internal-on-an-unrecognised-rejection-code.md"
+    },
+    {
+      "id": "T68",
+      "title": "Mark the deferred rounding-boundary runs and latency check in the SAD",
+      "layer": "docs",
+      "deps": [
+        "T65"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "The SAD §11 golden-run scenarios row says the rounding-boundary recordings are deferred (spec §8), and QG-4 carries a \"Deferred, see spec §8\" line naming the missing fill samples. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/sad.md"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t68-mark-the-deferred-items-in-the-sad.md"
+    },
+    {
+      "id": "T69",
+      "title": "Cite the spec §8 items by name in T61 and T64",
+      "layer": "docs",
+      "deps": [
+        "T65"
+      ],
+      "acs": [],
+      "dod": "T61 and T64 (task files and `tasks.json`) cite the spec §8 items by name with the `#8-open-questions` anchor instead of line numbers. No code change.",
+      "files_hint": [
+        "docs/features/exchange-adapter/tasks/t61-amend-adr-0003-for-the-deferred-reduce-only-source.md",
+        "docs/features/exchange-adapter/tasks/t64-align-the-remaining-test-plan-rows.md",
+        "docs/features/exchange-adapter/tasks.json"
+      ],
+      "file": "docs/features/exchange-adapter/tasks/t69-cite-the-spec-open-questions-by-name.md"
     }
   ]
 }

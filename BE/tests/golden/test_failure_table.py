@@ -9,10 +9,12 @@ code on the bot and in its bot_error event.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
 
+from app.core.clock import utcnow
 from tests.golden.failure_table.rows import build_exception, react_on_a_tick, react_to_failure
 
 ROWS = json.loads((Path(__file__).parent / "failure_table" / "rows.json").read_text())
@@ -81,7 +83,11 @@ def test_order_placement_timeout_retries_then_pauses_past_the_limit(monkeypatch)
     assert first["next_retry_at"] is not None
     [payload] = first["events"]
     assert (payload["error_type"], payload["action"]) == ("network", "retry_backoff")
-    exhausted = react_on_a_tick({**row, "retry_count": 5}, monkeypatch)
+    # A bot past the limit is already retrying with a due retry time, which the pause must clear.
+    due = utcnow() - timedelta(minutes=1)
+    exhausted = react_on_a_tick(
+        {**row, "retry_count": 5, "runtime_status": "retrying", "next_retry_at": due}, monkeypatch,
+    )
     assert exhausted["failed_call"] == "place_order"
     assert (exhausted["last_error_action"], exhausted["last_error_severity"], exhausted["runtime_status"]) == (
         "pause", "error", "paused",

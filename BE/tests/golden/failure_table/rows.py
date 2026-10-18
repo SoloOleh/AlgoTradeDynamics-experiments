@@ -111,6 +111,8 @@ class _Session:
 def react_on_a_tick(row: dict, monkeypatch) -> dict:
     """Replay one row inside a real worker tick of a running bot and read back what was stored.
 
+    A row may seed the bot's `runtime_status` and `next_retry_at`, e.g. a bot already retrying.
+
     Exchange rows enter at the Bybit adapter's client transport; engine rows are raised by the
     strategy step; the placement rejection goes through the adapter's placement and the
     strategy's acceptance check. A `placement` row reads the open orders, which succeeds, and then
@@ -165,8 +167,8 @@ def react_on_a_tick(row: dict, monkeypatch) -> dict:
         bot = TradingBot(
             user_id=user.id, name="failure table tick", exchange="bybit", environment="demo",
             strategy_type="grid", category="linear", symbol=symbol, order_qty=0.001,
-            grid_orders_count=2, grid_step_percent=1.0, runtime_status="running",
-            settings={}, error_retry_count=row.get("retry_count", 0),
+            grid_orders_count=2, grid_step_percent=1.0, runtime_status=row.get("runtime_status", "running"),
+            settings={}, error_retry_count=row.get("retry_count", 0), next_retry_at=row.get("next_retry_at"),
         )
         db.add(bot)
         db.commit()
