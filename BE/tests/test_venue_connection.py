@@ -114,6 +114,19 @@ def test_refusal_in_the_answer_body_is_failing_too(client, auth_headers, session
     assert KEY not in str(body)
 
 
+def test_unrecognised_refusal_in_the_answer_body_is_failing_as_unavailable(client, auth_headers, sessions, monkeypatch):
+    """An unmapped code is reported like an unclassified transport failure, never as an invalid order."""
+    _, answers = sessions
+    monkeypatch.setenv("BYBIT_DEMO_API_KEY", KEY)
+    monkeypatch.setenv("BYBIT_DEMO_API_SECRET", SECRET)
+    answers["demo"] = {"retCode": 170134, "retMsg": f"Unexpected answer for {KEY}", "result": {}}
+
+    body = _check(client, auth_headers, "bybit", "demo").json()
+
+    assert (body["status"], body["error_class"]) == ("failing", "exchange_unavailable")
+    assert KEY not in str(body)
+
+
 def test_network_failure_is_failing_with_its_class(client, auth_headers, sessions, monkeypatch):
     _, answers = sessions
     monkeypatch.setenv("BYBIT_DEMO_API_KEY", KEY)

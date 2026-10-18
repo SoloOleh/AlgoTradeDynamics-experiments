@@ -218,6 +218,25 @@
     "origin": "rejection"
   },
   {
+    "id": "emulator_unknown_rejection",
+    "source": "emulator",
+    "note": "A refusal in the answer body with a code the adapter does not map. Expected reaction is the pre-refactor one, computed by the ed82f2e classifier (ExchangeOperationError, code 170134): unclassified failures stay internal (ADR-0005). Added by review-2026-10-18-2, finding 2 (T67).",
+    "exception": {
+      "kind": "placement_rejection",
+      "code": 170134,
+      "operation": "Momentum entry",
+      "message": "Order price has too many decimals."
+    },
+    "expected": {
+      "error_type": "internal",
+      "severity": "critical",
+      "action": "stop",
+      "code": "170134",
+      "runtime_status": "error"
+    },
+    "origin": "rejection"
+  },
+  {
     "id": "rejected_order",
     "source": "bybit",
     "exception": {

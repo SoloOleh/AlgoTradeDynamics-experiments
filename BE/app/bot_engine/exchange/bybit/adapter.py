@@ -92,14 +92,15 @@ def _ret_code(response: dict) -> str | None:
     return None if value is None else str(value)
 
 
-def _rejection(response: dict) -> ExchangeError | None:
+def _rejection(response: dict) -> ExchangeError | UnclassifiedExchangeFailure | None:
     code = _ret_code(response)
     if code in (None, "0"):
         return None
     message = str(response.get("retMsg") or "Bybit returned an error")
     classified = classify_bybit_failure(RuntimeError(f"{message} (ErrCode: {code})"))
     if classified is None:
-        return ExchangeError(ErrorClass.INVALID_ORDER, raw_code=code, message=scrub(message))
+        # An unmapped code is not interpreted: the engine treats it as internal (ADR-0005).
+        return UnclassifiedExchangeFailure(scrub(message), raw_code=code)
     return ExchangeError(classified.error_class, raw_code=code, message=scrub(message))
 
 
@@ -298,7 +299,7 @@ class BybitAdapter:
             raise
         rejection = _rejection(response)
         if rejection is not None:
-            if rejection.error_class is ErrorClass.UNKNOWN_ORDER:
+            if isinstance(rejection, ExchangeError) and rejection.error_class is ErrorClass.UNKNOWN_ORDER:
                 return []
             raise rejection
         return _list(response)
@@ -401,6 +402,8 @@ class BybitAdapter:
         except Exception:  # noqa: BLE001 - an unclassified failure still never leaks its text
             return ConnectionStatus("failing", ErrorClass.EXCHANGE_UNAVAILABLE.value)
         rejection = _rejection(response)
+        if isinstance(rejection, UnclassifiedExchangeFailure):
+            return ConnectionStatus("failing", ErrorClass.EXCHANGE_UNAVAILABLE.value)
         if rejection is not None:
             return ConnectionStatus("failing", rejection.error_class.value)
         return ConnectionStatus("connected")

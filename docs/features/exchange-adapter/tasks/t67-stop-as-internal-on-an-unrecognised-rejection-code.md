@@ -8,7 +8,7 @@ files_hint: ["BE/app/bot_engine/exchange/bybit/adapter.py", "BE/app/bot_engine/e
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18-2"
-status: "todo"
+status: "done"
 ---
 
 # T67 — Stop the bot as internal on an unrecognised exchange rejection code

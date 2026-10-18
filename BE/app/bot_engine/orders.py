@@ -9,7 +9,7 @@ from decimal import Decimal, ROUND_DOWN
 from typing import Literal
 
 from app.bot_engine.events import log_bot_event
-from app.bot_engine.exchange.errors import ErrorClass, ExchangeError
+from app.bot_engine.exchange.errors import ErrorClass, ExchangeError, UnclassifiedExchangeFailure
 from app.bot_engine.exchange.port import InstrumentRules, NewOrder, Order, PlacedOrder
 from app.core.clock import utcnow
 
@@ -116,8 +116,11 @@ def ensure_accepted(placed: PlacedOrder, action: str) -> None:
     rejection = placed.rejection
     if rejection is None:
         return
-    message = rejection.message or "Unknown exchange error"
     suffix = f" (code {rejection.raw_code})" if rejection.raw_code is not None else ""
+    if isinstance(rejection, UnclassifiedExchangeFailure):
+        message = str(rejection) or "Unknown exchange error"
+        raise UnclassifiedExchangeFailure(f"{action}: {message}{suffix}", raw_code=rejection.raw_code)
+    message = rejection.message or "Unknown exchange error"
     raise ExchangeError(
         rejection.error_class, raw_code=rejection.raw_code, message=f"{action}: {message}{suffix}",
         http_status=rejection.http_status,

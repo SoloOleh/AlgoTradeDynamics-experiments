@@ -11,7 +11,7 @@ import pytest
 from app.bot_engine.exchange.bybit.adapter import BybitAdapter
 from app.bot_engine.exchange.bybit.capabilities import BYBIT_CAPABILITIES
 from app.bot_engine.exchange.capabilities import Capability, MarketType
-from app.bot_engine.exchange.errors import ErrorClass, ExchangeError
+from app.bot_engine.exchange.errors import ErrorClass, ExchangeError, UnclassifiedExchangeFailure
 from app.bot_engine.exchange.port import ExchangeAdapter, NewOrder
 from tests.golden.harness import EmulatorFactory, RequestRecorder
 
@@ -162,6 +162,35 @@ def test_lookup_failure_raises_and_never_answers_not_found(monkeypatch):
     with pytest.raises(ExchangeError) as raised:
         adapter.lookup_order("linear", "BTCUSDT", "bot-1-g1-entry-1-1")
     assert raised.value.error_class is ErrorClass.NETWORK
+
+
+class _UnrecognisedRefusal:
+    """Answers every request with a refusal whose code the adapter does not map."""
+
+    def __getattr__(self, method):
+        return lambda **params: {"retCode": 170134, "retMsg": "Order price has too many decimals.", "result": {}}
+
+
+def test_unrecognised_refusal_of_a_placement_stays_unclassified():
+    """An unmapped code in the answer body is not an invalid order (ADR-0005; review 2026-10-18-2, finding 2)."""
+    adapter = BybitAdapter("demo")
+    adapter._session = _UnrecognisedRefusal()
+
+    placed = adapter.place_order("linear", "BTCUSDT", NewOrder("Buy", "Limit", 0.001, 60000.0, "bot-1-g1-entry-1"))
+
+    assert not placed.accepted
+    assert isinstance(placed.rejection, UnclassifiedExchangeFailure)
+    assert placed.rejection.raw_code == "170134"
+
+
+def test_unrecognised_refusal_of_a_lookup_raises_unclassified():
+    """AC-08 clarification: an unclassified lookup failure stops the bot as internal, so it must arrive unclassified."""
+    adapter = BybitAdapter("demo")
+    adapter._session = _UnrecognisedRefusal()
+
+    with pytest.raises(UnclassifiedExchangeFailure) as raised:
+        adapter.lookup_order("linear", "BTCUSDT", "bot-1-g1-entry-1-1")
+    assert raised.value.raw_code == "170134"
 
 
 def test_reads_translate_to_neutral_types(emulator, emulator_url):

@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from app.bot_engine.exchange.capabilities import CapabilitySet
-from app.bot_engine.exchange.errors import ExchangeError
+from app.bot_engine.exchange.errors import ExchangeError, UnclassifiedExchangeFailure
 
 FINAL_ORDER_STATUSES = frozenset({"Filled", "Cancelled", "Rejected", "Deactivated"})
 ACTIVE_ORDER_STATUSES = frozenset({"New", "Created", "PartiallyFilled", "PendingNew", "Untriggered"})
@@ -91,13 +91,14 @@ class PlacedOrder:
 
     `rejection` is set, not raised, when the exchange answered the request with a refusal in its
     body; callers decide what a refused placement means, as they did before the adapter existed.
+    A refusal whose code the adapter does not map stays an `UnclassifiedExchangeFailure`.
     """
 
     order_id: str | None
     client_tag: str | None
     status: str | None
     raw: dict[str, Any] = field(default_factory=dict)
-    rejection: ExchangeError | None = None
+    rejection: ExchangeError | UnclassifiedExchangeFailure | None = None
 
     @property
     def accepted(self) -> bool:

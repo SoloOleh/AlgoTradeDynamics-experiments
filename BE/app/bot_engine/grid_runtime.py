@@ -9,7 +9,7 @@ from sqlalchemy import desc
 from app.core.clock import utcnow as runtime_utcnow
 from app.bot_engine.events import log_bot_event
 from app.bot_engine.exchange import registry
-from app.bot_engine.exchange.errors import ErrorClass
+from app.bot_engine.exchange.errors import ErrorClass, ExchangeError
 from app.bot_engine.exchange.port import Order, PlacedOrder
 from app.bot_engine.market_data import get_instrument_rules, get_last_price, get_ticker_snapshot
 from app.bot_engine.orders import (
@@ -862,7 +862,8 @@ def _order_matches_target(order: TradingBotOrder, target: OrderRequest) -> bool:
 
 
 def _is_duplicate_client_tag(placed: PlacedOrder) -> bool:
-    return placed.rejection is not None and placed.rejection.error_class is ErrorClass.DUPLICATE_CLIENT_TAG
+    rejection = placed.rejection
+    return isinstance(rejection, ExchangeError) and rejection.error_class is ErrorClass.DUPLICATE_CLIENT_TAG
 
 
 def _upsert_remote_order(db, bot: TradingBot, remote: Order) -> TradingBotOrder | None:
