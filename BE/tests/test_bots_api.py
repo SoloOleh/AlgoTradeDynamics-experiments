@@ -2,6 +2,8 @@
 
 import pytest
 
+from app.bot_engine.exchange.errors import UnclassifiedExchangeFailure
+from app.bot_engine.exchange.port import PlacedOrder
 from app.bot_engine.orders import ACTIVE_ORDER_STATUSES, OrderRequest, place_order
 from app.bot_engine.grid_runtime import tick_grid_bot
 from app.db.session import SessionLocal
@@ -241,6 +243,36 @@ def test_existing_exchange_position_tp_is_synced_without_duplicate_creation(clie
     assert len(position_tp_orders) == 1
     assert position_tp_orders[0]["order_link_id"] == existing_tp_link_id
     assert position_tp_orders[0]["status"] == "New"
+
+
+def test_position_tp_refused_with_an_unmapped_code_is_recorded_as_before(client, auth_headers, monkeypatch):
+    """An unclassified refusal is not a duplicate tag: Grid records the order as it did before the adapter (T71; AC-06)."""
+    bot = _create_runtime_bot(client, auth_headers)
+    remote_state = {}
+    remote_positions = []
+    _mock_runtime(monkeypatch, remote_state=remote_state, remote_positions=remote_positions)
+    client.post(f"/api/bots/{bot['id']}/start", headers=auth_headers)
+    _tick_bot(bot["id"])
+
+    _fill_remote_grid_entry(remote_state, bot["id"], level=1)
+    remote_positions[:] = [{"side": "Buy", "size": "0.01", "avgPrice": "100.0"}]
+    monkeypatch.setattr(
+        "app.bot_engine.grid_runtime.place_order",
+        lambda *args, **kwargs: PlacedOrder(
+            order_id=None, client_tag=kwargs["order"].order_link_id, status=None, raw={},
+            rejection=UnclassifiedExchangeFailure("Order price has too many decimals.", raw_code=170134),
+        ),
+    )
+
+    _tick_bot(bot["id"])
+
+    orders = client.get(f"/api/bots/{bot['id']}/orders", headers=auth_headers).json()
+    tp_orders = [order for order in orders if order["order_role"] == "position_take_profit"]
+    assert len(tp_orders) == 1
+    assert tp_orders[0]["exchange_order_id"] is None
+    events = client.get(f"/api/bots/{bot['id']}/events", headers=auth_headers).json()
+    assert not any("Duplicate position TP" in event["message"] for event in events)
+    assert client.get(f"/api/bots/{bot['id']}", headers=auth_headers).json()["runtime_status"] == "running"
 
 
 def test_risk_blocks_new_buy_when_max_position_qty_exceeded(client, auth_headers, monkeypatch):

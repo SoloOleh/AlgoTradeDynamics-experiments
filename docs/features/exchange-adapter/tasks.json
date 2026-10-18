@@ -1251,7 +1251,7 @@
         "AC-06",
         "AC-08"
       ],
-      "dod": "An unrecognised non-zero `retCode` in an answer body is carried as an `UnclassifiedExchangeFailure` (scrubbed message, raw code kept). A placement refused that way stops the bot as `internal / critical / stop` with the raw code stored and the `<action>: <message> (code N)` text; a lookup answered that way raises it (the order stays active, the bot stops as internal); the connection check reports it as `failing` / `exchange_unavailable`, like its unclassified transport branch. A failure-table row `emulator_unknown_rejection` (origin `rejection`) pins the placement reaction.",
+      "dod": "An unrecognised non-zero `retCode` in an answer body is carried as an `UnclassifiedExchangeFailure` (scrubbed message, raw code kept). A Momentum / Pattern Scalper placement refused that way stops the bot as `internal / critical / stop` with the raw code stored and the `<action>: <message> (code N)` text, and a Grid/DCA placement refused that way is recorded as before the refactor; a lookup answered that way raises it (the order stays active, the bot stops as internal); the connection check reports it as `failing` / `exchange_unavailable`, like its unclassified transport branch. A failure-table row `emulator_unknown_rejection` (origin `rejection`) pins the placement reaction.",
       "files_hint": [
         "BE/app/bot_engine/exchange/bybit/adapter.py",
         "BE/app/bot_engine/exchange/port.py",

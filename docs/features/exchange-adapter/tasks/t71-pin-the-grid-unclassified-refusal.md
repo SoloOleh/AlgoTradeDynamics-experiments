@@ -8,7 +8,7 @@ files_hint: ["BE/tests/test_bots_api.py", "docs/features/exchange-adapter/test-p
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18-3"
-status: "todo"
+status: "done"
 ---
 
 # T71 — Pin the Grid position take-profit on an unclassified refusal and scope the T67 wording
