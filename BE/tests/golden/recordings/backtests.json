@@ -1,0 +1,693 @@
+{
+  "emulator_quantity_check": {
+    "enough": {
+      "created": true,
+      "engine": "emulator",
+      "total_candles": 120
+    },
+    "too_small": {
+      "created": false,
+      "error": "Order quantity is too small for this backtest. Configured: 1e-05 BTC. Minimum for all 3 grid levels at the starting price is 0.052 BTC (Bybit minimum notional: 5 USDT). Increase the bot Order quantity to at least 0.052 BTC and try again."
+    }
+  },
+  "fast_momentum": {
+    "cycles": [
+      [
+        1,
+        0.29463722
+      ],
+      [
+        2,
+        0.29518956
+      ],
+      [
+        3,
+        0.29449859
+      ],
+      [
+        4,
+        0.29259757
+      ],
+      [
+        5,
+        0.28959499
+      ],
+      [
+        6,
+        -0.14534175
+      ],
+      [
+        7,
+        -0.14550443
+      ],
+      [
+        8,
+        -0.14566444
+      ],
+      [
+        9,
+        0.52284611
+      ],
+      [
+        10,
+        0.59363999
+      ],
+      [
+        11,
+        0.58566895
+      ],
+      [
+        12,
+        0.57944289
+      ],
+      [
+        13,
+        0.57533923
+      ],
+      [
+        14,
+        0.27158435
+      ],
+      [
+        15,
+        0.27641497
+      ],
+      [
+        16,
+        0.28107533
+      ],
+      [
+        17,
+        0.28526598
+      ],
+      [
+        18,
+        0.28871666
+      ],
+      [
+        19,
+        -0.1467958
+      ],
+      [
+        20,
+        -0.14696268
+      ],
+      [
+        21,
+        -0.14713048
+      ],
+      [
+        22,
+        -0.14729845
+      ],
+      [
+        23,
+        -0.14746586
+      ],
+      [
+        24,
+        0.55559118
+      ],
+      [
+        25,
+        0.62680049
+      ],
+      [
+        26,
+        0.61706948
+      ]
+    ],
+    "error": null,
+    "metrics": {
+      "average_cycle_pnl": 0.2443772938336154,
+      "average_fee_per_cycle": 0.04422283627415385,
+      "average_trade_percent": 0.22094153219641718,
+      "backtest_engine": "fast_momentum",
+      "best_cycle_pnl": 0.6268004917619999,
+      "candles_processed": 320,
+      "closed_cycles": 26,
+      "current_drawdown_percent": 0.0,
+      "executions_count": 52,
+      "final_balance": 10006.353809639675,
+      "final_equity": 10006.353809639675,
+      "gross_realized_pnl": 7.503603382802,
+      "initial_balance": 10000.0,
+      "long_trades": 26,
+      "losing_cycles": 8,
+      "losing_trades": 8,
+      "lowest_available_balance": 9891.254535030617,
+      "market_regime": "bearish",
+      "maximum_drawdown_percent": -0.011735428503320513,
+      "maximum_drawdown_recovered": true,
+      "maximum_grid_levels_filled": 1,
+      "maximum_position_qty": 1.0,
+      "maximum_position_value": 113.56851403234921,
+      "maximum_unrealized_loss": -0.09127600033686178,
+      "maximum_used_margin": 113.56851403234921,
+      "net_realized_pnl": 6.353809639675092,
+      "net_total_pnl": 6.353809639675092,
+      "open_avg_entry_price": null,
+      "open_position_qty": 0.0,
+      "open_position_value": 0.0,
+      "other_exit_cycles": 0,
+      "other_exit_net_pnl": 0,
+      "profit_factor": 6.420581231492821,
+      "return_percent": 0.06353809639675091,
+      "sharpe_ratio": 0.8537760103368549,
+      "short_trades": 0,
+      "signal_exit_cycles": 0,
+      "signal_exit_net_pnl": 0,
+      "stop_loss_cycles": 0,
+      "stop_loss_net_pnl": 0,
+      "take_profit_cycles": 18,
+      "take_profit_net_pnl": 7.5259735402459995,
+      "time_in_loss_percent": 2.193898871709152,
+      "time_in_position_percent": 4.231090681153364,
+      "total_fees": 1.149793743128,
+      "total_trades": 26,
+      "trades": [
+        {
+          "closed_at": 140625000,
+          "cycle_number": 1,
+          "entry_price": 107.5622827556118,
+          "exit_price": 107.900012430226,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.043092459037,
+          "gross_pnl": 0.337729674614,
+          "net_pnl": 0.294637215577,
+          "opened_at": 140400000,
+          "return_percent": 0.2739224271080538,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 141525000,
+          "cycle_number": 2,
+          "entry_price": 107.84158659092826,
+          "exit_price": 108.179980467401,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.043204313411000006,
+          "gross_pnl": 0.338393876473,
+          "net_pnl": 0.295189563062,
+          "opened_at": 141300000,
+          "return_percent": 0.273725167065404,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 142425000,
+          "cycle_number": 3,
+          "entry_price": 108.12161062731056,
+          "exit_price": 108.459425429224,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.043316207211000005,
+          "gross_pnl": 0.337814801914,
+          "net_pnl": 0.294498594703,
+          "opened_at": 142200000,
+          "return_percent": 0.2723771806527372,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 143325000,
+          "cycle_number": 4,
+          "entry_price": 108.40111148371538,
+          "exit_price": 108.737136705595,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.043427649638,
+          "gross_pnl": 0.33602522188,
+          "net_pnl": 0.292597572242,
+          "opened_at": 143100000,
+          "return_percent": 0.2699211919851548,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 144225000,
+          "cycle_number": 5,
+          "entry_price": 108.67887830789638,
+          "exit_price": 109.012011478578,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.043538177957999996,
+          "gross_pnl": 0.333133170682,
+          "net_pnl": 0.289594992724,
+          "opened_at": 144000000,
+          "return_percent": 0.26646851461196913,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 145350000,
+          "cycle_number": 6,
+          "entry_price": 108.9538080613323,
+          "exit_price": 108.852027478578,
+          "exit_reason": "Momentum trailing stop reached",
+          "exit_role": "momentum_trailing_stop",
+          "fees": 0.043561167108,
+          "gross_pnl": -0.101780582754,
+          "net_pnl": -0.145341749862,
+          "opened_at": 144900000,
+          "return_percent": -0.13298230441400552,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 146250000,
+          "cycle_number": 7,
+          "entry_price": 109.22497410081962,
+          "exit_price": 109.123139290281,
+          "exit_reason": "Momentum trailing stop reached",
+          "exit_role": "momentum_trailing_stop",
+          "fees": 0.043669622678,
+          "gross_pnl": -0.101834810539,
+          "net_pnl": -0.145504433217,
+          "opened_at": 145800000,
+          "return_percent": -0.13280709759933734,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 147150000,
+          "cycle_number": 8,
+          "entry_price": 109.49168379265895,
+          "exit_price": 109.389795645515,
+          "exit_reason": "Momentum trailing stop reached",
+          "exit_role": "momentum_trailing_stop",
+          "fees": 0.043776295888,
+          "gross_pnl": -0.101888147144,
+          "net_pnl": -0.145664443032,
+          "opened_at": 146700000,
+          "return_percent": -0.13263619045750838,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 148725000,
+          "cycle_number": 9,
+          "entry_price": 109.75352157726363,
+          "exit_price": 110.320382465183,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.044014780808000004,
+          "gross_pnl": 0.56686088792,
+          "net_pnl": 0.522846107112,
+          "opened_at": 147600000,
+          "return_percent": 0.4749719079831945,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 149625000,
+          "cycle_number": 10,
+          "entry_price": 109.93036680664221,
+          "exit_price": 110.568106487244,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.044099694658,
+          "gross_pnl": 0.637739680602,
+          "net_pnl": 0.593639985944,
+          "opened_at": 148950000,
+          "return_percent": 0.5384420532625674,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 150525000,
+          "cycle_number": 11,
+          "entry_price": 110.18243274830483,
+          "exit_price": 110.812300642147,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.044198946678000006,
+          "gross_pnl": 0.629867893842,
+          "net_pnl": 0.585668947164,
+          "opened_at": 149850000,
+          "return_percent": 0.5300211547522531,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 151425000,
+          "cycle_number": 12,
+          "entry_price": 110.43020632012501,
+          "exit_price": 111.053946044232,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.044296830472999996,
+          "gross_pnl": 0.623739724107,
+          "net_pnl": 0.5794428936339999,
+          "opened_at": 150750000,
+          "return_percent": 0.5232302626481224,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 152325000,
+          "cycle_number": 13,
+          "entry_price": 110.6744493187433,
+          "exit_price": 111.294182276944,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.044393726319,
+          "gross_pnl": 0.619732958201,
+          "net_pnl": 0.5753392318820001,
+          "opened_at": 151650000,
+          "return_percent": 0.5183934400765031,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 248625000,
+          "cycle_number": 14,
+          "entry_price": 110.0420932644129,
+          "exit_price": 110.357757579676,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.044079970169000005,
+          "gross_pnl": 0.315664315263,
+          "net_pnl": 0.271584345094,
+          "opened_at": 248400000,
+          "return_percent": 0.24680041703807615,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 249525000,
+          "cycle_number": 15,
+          "entry_price": 110.29982333856762,
+          "exit_price": 110.620422356194,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.044184049139,
+          "gross_pnl": 0.320599017626,
+          "net_pnl": 0.27641496848700003,
+          "opened_at": 249300000,
+          "return_percent": 0.2506032739857955,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 250425000,
+          "cycle_number": 16,
+          "entry_price": 110.56254065329477,
+          "exit_price": 110.887906076485,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.044290089346,
+          "gross_pnl": 0.32536542319,
+          "net_pnl": 0.281075333844,
+          "opened_at": 250200000,
+          "return_percent": 0.2542229331771632,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 251325000,
+          "cycle_number": 17,
+          "entry_price": 110.83007787567985,
+          "exit_price": 111.159741822513,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.04439796394,
+          "gross_pnl": 0.329663946833,
+          "net_pnl": 0.285265982893,
+          "opened_at": 251100000,
+          "return_percent": 0.2573904019204856,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 252225000,
+          "cycle_number": 18,
+          "entry_price": 111.10196799429491,
+          "exit_price": 111.435192088363,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.044507432017,
+          "gross_pnl": 0.333224094068,
+          "net_pnl": 0.288716662051,
+          "opened_at": 252000000,
+          "return_percent": 0.2598663797438992,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 253350000,
+          "cycle_number": 19,
+          "entry_price": 111.37747335570744,
+          "exit_price": 111.275208088363,
+          "exit_reason": "Momentum trailing stop reached",
+          "exit_role": "momentum_trailing_stop",
+          "fees": 0.044530536289,
+          "gross_pnl": -0.102265267344,
+          "net_pnl": -0.146795803633,
+          "opened_at": 252900000,
+          "return_percent": -0.13139091863014207,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 254250000,
+          "cycle_number": 20,
+          "entry_price": 111.65563152819784,
+          "exit_price": 111.553310634782,
+          "exit_reason": "Momentum trailing stop reached",
+          "exit_role": "momentum_trailing_stop",
+          "fees": 0.044641788433,
+          "gross_pnl": -0.102320893416,
+          "net_pnl": -0.146962681849,
+          "opened_at": 253800000,
+          "return_percent": -0.13121185030376764,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 255150000,
+          "cycle_number": 21,
+          "entry_price": 111.93531514110242,
+          "exit_price": 111.832938316557,
+          "exit_reason": "Momentum trailing stop reached",
+          "exit_role": "momentum_trailing_stop",
+          "fees": 0.044753650691,
+          "gross_pnl": -0.102376824546,
+          "net_pnl": -0.147130475237,
+          "opened_at": 254700000,
+          "return_percent": -0.13103413518489687,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 256050000,
+          "cycle_number": 22,
+          "entry_price": 112.2153019792609,
+          "exit_price": 112.112869162947,
+          "exit_reason": "Momentum trailing stop reached",
+          "exit_role": "momentum_trailing_stop",
+          "fees": 0.044865634229,
+          "gross_pnl": -0.102432816314,
+          "net_pnl": -0.147298450543,
+          "opened_at": 255600000,
+          "return_percent": -0.1308585558293145,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 256950000,
+          "cycle_number": 23,
+          "entry_price": 112.49435097443528,
+          "exit_price": 112.391862353902,
+          "exit_reason": "Momentum trailing stop reached",
+          "exit_role": "momentum_trailing_stop",
+          "fees": 0.044977242666,
+          "gross_pnl": -0.102488620533,
+          "net_pnl": -0.14746586319899999,
+          "opened_at": 256500000,
+          "return_percent": -0.13068580184042664,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 258525000,
+          "cycle_number": 24,
+          "entry_price": 112.77127936892205,
+          "exit_price": 113.372099221337,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.045228675718,
+          "gross_pnl": 0.600819852415,
+          "net_pnl": 0.555591176697,
+          "opened_at": 257400000,
+          "return_percent": 0.49117924282845865,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 259425000,
+          "cycle_number": 25,
+          "entry_price": 112.9650282536974,
+          "exit_price": 113.637149180946,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.045320435487,
+          "gross_pnl": 0.672120927249,
+          "net_pnl": 0.6268004917619999,
+          "opened_at": 258750000,
+          "return_percent": 0.5532051853253761,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        },
+        {
+          "closed_at": 260325000,
+          "cycle_number": 26,
+          "entry_price": 113.23475990885048,
+          "exit_price": 113.897255787363,
+          "exit_reason": "Momentum take-profit reached",
+          "exit_role": "momentum_take_profit",
+          "fees": 0.045426403138999996,
+          "gross_pnl": 0.662495878513,
+          "net_pnl": 0.6170694753739999,
+          "opened_at": 259650000,
+          "return_percent": 0.5433455572010318,
+          "side": "Buy",
+          "signal_score": 80.0,
+          "signal_type": "long"
+        }
+      ],
+      "trailing_stop_cycles": 8,
+      "trailing_stop_net_pnl": -1.172163900572,
+      "unrealized_pnl": 0.0,
+      "win_rate_percent": 69.23076923076923,
+      "winning_cycles": 18,
+      "winning_trades": 18,
+      "worst_cycle_pnl": -0.14746586319899999
+    },
+    "status": "completed"
+  },
+  "fast_scalper": {
+    "cycles": [
+      [
+        1,
+        0.143241
+      ],
+      [
+        2,
+        0.140673
+      ],
+      [
+        3,
+        0.138105
+      ],
+      [
+        4,
+        0.135537
+      ],
+      [
+        5,
+        0.132969
+      ],
+      [
+        6,
+        0.130401
+      ],
+      [
+        7,
+        0.127833
+      ],
+      [
+        8,
+        0.125265
+      ]
+    ],
+    "error": null,
+    "metrics": {
+      "average_cycle_pnl": 0.1342530042,
+      "average_fee_per_cycle": 0.0504979958,
+      "backtest_engine": "fast_scalper",
+      "best_cycle_pnl": 0.1432410042,
+      "candles_processed": 800,
+      "closed_cycles": 8,
+      "current_drawdown_percent": -0.000823866460403657,
+      "executions_count": 16,
+      "final_balance": 10001.074024033602,
+      "final_equity": 10001.074024033602,
+      "gross_realized_pnl": 1.478008,
+      "initial_balance": 10000.0,
+      "long_trades": 8,
+      "losing_cycles": 0,
+      "lowest_available_balance": 9986.758420207001,
+      "maximum_drawdown_percent": -0.0016343424977598741,
+      "maximum_drawdown_recovered": true,
+      "maximum_grid_levels_filled": 1,
+      "maximum_position_qty": 1.0,
+      "maximum_position_value": 141.36999999999796,
+      "maximum_unrealized_loss": -0.05411200000000349,
+      "maximum_used_margin": 14.136999999999796,
+      "net_realized_pnl": 1.074024033601745,
+      "net_total_pnl": 1.074024033601745,
+      "open_avg_entry_price": null,
+      "open_position_qty": 0.0,
+      "open_position_value": 0.0,
+      "other_exit_cycles": 0,
+      "other_exit_net_pnl": 0,
+      "pattern_performance": [
+        {
+          "average_pnl": 0.1342530042,
+          "fees": 0.4039839664,
+          "gross_pnl": 1.478008,
+          "losses": 0,
+          "net_pnl": 1.0740240336,
+          "pattern": "bull_flag",
+          "trades": 8,
+          "win_rate_percent": 100.0,
+          "wins": 8
+        }
+      ],
+      "return_percent": 0.01074024033601745,
+      "short_trades": 0,
+      "stop_loss_cycles": 0,
+      "stop_loss_net_pnl": 0,
+      "take_profit_cycles": 0,
+      "take_profit_net_pnl": 0,
+      "time_in_loss_percent": 0.7507507507507507,
+      "time_in_position_percent": 6.006006006006006,
+      "timeout_cycles": 8,
+      "timeout_net_pnl": 1.0740240336,
+      "total_fees": 0.4039839664,
+      "unrealized_pnl": 0.0,
+      "win_rate_percent": 100.0,
+      "winning_cycles": 8,
+      "worst_cycle_pnl": 0.1252650042
+    },
+    "status": "completed"
+  }
+}

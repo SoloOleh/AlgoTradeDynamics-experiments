@@ -1,20 +1,22 @@
 """FastAPI application entrypoint."""
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.backtests import router as backtests_router
 from app.api.bots import router as bots_router
-from app.api.bybit import router as bybit_router
 from app.api.compliance import router as compliance_router
 from app.api.health import router as health_router
 from app.api.operations import router as operations_router
 from app.api.privacy import router as privacy_router
 from app.api.notifications import router as notifications_router
+from app.api.venues import router as venues_router
 from app.api.websockets import router as websockets_router
+from app.bot_engine.exchange.errors import GuardRefusal
 from app.bot_engine.runtime import start_bot_worker, stop_bot_worker
 from app.core.audit_middleware import AuditMutationMiddleware
 from app.core.config import get_settings
@@ -59,6 +61,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.exception_handler(GuardRefusal)
+async def guard_refusal_handler(_: Request, exc: GuardRefusal) -> JSONResponse:
+    """A venue-guard refusal on an owned bot: 422 `GuardRefusal` (ADR-0004, ADR-0010)."""
+    return JSONResponse(status_code=422, content={"detail": str(exc), "code": exc.code, "details": exc.details})
+
 # Add rate limiting first and CORS second. Starlette wraps the most recently
 # added middleware outermost, so even 429 responses receive CORS headers.
 app.add_middleware(RateLimitMiddleware, settings=settings)
@@ -80,7 +88,7 @@ app.include_router(operations_router, prefix="/api")
 app.include_router(privacy_router, prefix="/api")
 app.include_router(backtests_router, prefix="/api")
 app.include_router(bots_router, prefix="/api")
-app.include_router(bybit_router, prefix="/api")
+app.include_router(venues_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(websockets_router, prefix="/api")
 

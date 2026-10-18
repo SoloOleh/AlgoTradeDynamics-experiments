@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+from datetime import timezone
 
 from app.bot_engine.bot import tick_bot_once
-from app.bot_engine.error_handling import clear_bot_runtime_error, handle_bot_runtime_error
+from app.bot_engine.error_handling import clear_bot_runtime_error, handle_bot_runtime_error, pause_bot_for_guard
+from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.errors import GuardRefusal
 from app.bot_engine.exchange_streams import ExchangeStreamSupervisor
 from app.core.clock import utcnow
 from app.db.session import SessionLocal
@@ -13,6 +17,8 @@ from app.services.ui_stream_service import bot_ui_stream_hub
 
 WORKER_STREAM_CHECK_SECONDS = 2
 WORKER_FALLBACK_SECONDS = 15
+
+logger = logging.getLogger(__name__)
 
 
 async def worker_loop(app) -> None:
@@ -26,20 +32,34 @@ async def worker_loop(app) -> None:
             bot_ids = await supervisor.wait_for_bot_ids(WORKER_STREAM_CHECK_SECONDS)
             if bot_ids is not None:
                 force_bot_ids = supervisor.consume_force_tick_ids(bot_ids)
-                await tick_running_bots(app, bot_ids=bot_ids, force_bot_ids=force_bot_ids)
+                await _tick_safely(app, bot_ids=bot_ids, force_bot_ids=force_bot_ids)
                 continue
             now = asyncio.get_running_loop().time()
             if now - last_fallback >= WORKER_FALLBACK_SECONDS:
                 # Slow fail-safe reconciliation if a WS feed is unavailable.
-                await tick_running_bots(app)
+                await _tick_safely(app)
                 last_fallback = now
     finally:
         await supervisor.stop()
         app.state.exchange_stream_supervisor = None
 
 
+async def _tick_safely(app, **kwargs) -> None:
+    # One failed pass must never end the worker: every other bot would stop trading.
+    try:
+        await tick_running_bots(app, **kwargs)
+    except Exception:  # noqa: BLE001
+        logger.exception("Bot worker tick failed; continuing with the next pass")
+
+
 def _retry_is_due(bot: TradingBot) -> bool:
-    return bot.next_retry_at is None or bot.next_retry_at <= utcnow()
+    retry_at = bot.next_retry_at
+    if retry_at is None:
+        return True
+    if retry_at.tzinfo is None:
+        # SQLite returns stored datetimes without a timezone; they are written in UTC.
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    return retry_at <= utcnow()
 
 
 async def tick_running_bots(
@@ -71,6 +91,22 @@ async def tick_running_bots(
                     current_bot = bot_db.get(TradingBot, bot.id)
                     if current_bot is None or current_bot.runtime_status not in {"running", "retrying"}:
                         continue
+                    if current_bot.runtime_status == "retrying" and not _retry_is_due(current_bot):
+                        continue
+                    # Fail closed before any request: unknown venue or missing capability
+                    # pauses the bot and leaves its orders as they are (ADR-0004).
+                    try:
+                        adapter = registry.exchange_for(current_bot)
+                    except GuardRefusal as refusal:
+                        pause_bot_for_guard(bot_db, current_bot, refusal)
+                        continue
+                    except Exception as exc:  # noqa: BLE001
+                        # E.g. invalid strategy settings while reading its needs: this bot alone.
+                        bot_db.rollback()
+                        failed_bot = bot_db.get(TradingBot, bot.id)
+                        if failed_bot is not None:
+                            handle_bot_runtime_error(bot_db, failed_bot, exc, source="worker")
+                        continue
                     if current_bot.runtime_status == "retrying":
                         if not _retry_is_due(current_bot):
                             continue
@@ -84,6 +120,7 @@ async def tick_running_bots(
                             bot_db,
                             current_bot,
                             force=bool(force_bot_ids and bot.id in force_bot_ids),
+                            adapter=adapter,
                         )
                         # A successful tick proves the transient problem is gone.
                         current_bot = bot_db.get(TradingBot, bot.id)
@@ -112,7 +149,10 @@ async def tick_running_bots(
                         bot_db.rollback()
                         failed_bot = bot_db.get(TradingBot, bot.id)
                         if failed_bot is not None:
-                            handle_bot_runtime_error(bot_db, failed_bot, exc, source="worker")
+                            if isinstance(exc, GuardRefusal):
+                                pause_bot_for_guard(bot_db, failed_bot, exc)
+                            else:
+                                handle_bot_runtime_error(bot_db, failed_bot, exc, source="worker")
                 finally:
                     bot_ui_stream_hub.publish(bot.id, "worker.tick")
                     bot_db.close()

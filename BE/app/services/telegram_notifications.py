@@ -10,6 +10,7 @@ from urllib.parse import quote
 import httpx2 as httpx
 from sqlalchemy.orm import Session
 
+from app.bot_engine.exchange.redaction import scrub
 from app.core.clock import utcnow
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -41,7 +42,7 @@ def _telegram_payload(response: httpx.Response) -> dict:
 
 STATUS_EVENTS = {"bot_started", "bot_stopped"}
 RISK_EVENTS = {"risk_blocked"}
-ERROR_EVENTS = {"error", "bot_error", "order_rejected"}
+ERROR_EVENTS = {"error", "bot_error", "order_rejected", "venue_unsupported", "capability_missing"}
 TRADE_EVENTS = {
     "grid_entry_created",
     "grid_entry_filled",
@@ -237,6 +238,8 @@ def format_event_message(event: TradingBotEvent) -> str:
         "position_close_requested": "📤 Position close requested",
         "position_closed": "✅ Position closed",
         "risk_blocked": "🛡 Risk limit blocked action",
+        "venue_unsupported": "⏸ Bot paused",
+        "capability_missing": "⏸ Bot paused",
         "order_rejected": "⚠️ Order rejected",
         "error": "🚨 Bot error",
         "bot_error": "🚨 Bot error / recovery action",
@@ -277,7 +280,7 @@ def send_message_sync(chat_id: int, text: str) -> None:
     try:
         response = httpx.post(
             _telegram_url("sendMessage"),
-            json={"chat_id": chat_id, "text": text},
+            json={"chat_id": chat_id, "text": scrub(text)},
             timeout=10.0,
         )
     except httpx.HTTPError:
@@ -289,7 +292,7 @@ async def _send_message(client: httpx.AsyncClient, chat_id: int, text: str) -> N
     try:
         response = await client.post(
             _telegram_url("sendMessage"),
-            json={"chat_id": chat_id, "text": text},
+            json={"chat_id": chat_id, "text": scrub(text)},
         )
     except httpx.HTTPError:
         raise TelegramApiError("Telegram API request failed") from None

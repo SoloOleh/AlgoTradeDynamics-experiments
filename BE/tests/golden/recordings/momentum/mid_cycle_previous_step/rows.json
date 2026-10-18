@@ -1,0 +1,167 @@
+{
+  "bot_id": 1,
+  "after_step": 3,
+  "bot": {
+    "id": 1,
+    "runtime_status": "running",
+    "order_link_generation": 1,
+    "last_error_type": null,
+    "last_error_code": null,
+    "last_error_action": null,
+    "error_retry_count": 0,
+    "settings": {
+      "run_interval_seconds": 0,
+      "timeframe": "1",
+      "cooldown_minutes": 0,
+      "momentum_state": {
+        "last_analysis": {
+          "type": "short",
+          "score": 75.0,
+          "confidence": 75.0,
+          "price": 100.5791,
+          "timestamp": 1767614580000,
+          "market_regime": "bearish",
+          "indicators": {
+            "fastEma": 101.71608869104227,
+            "slowEma": 102.22435805954946,
+            "rsi": 30.78076319426556,
+            "volume": 338.82,
+            "averageVolume": 247.715,
+            "volumeRatio": 1.3677815231213288,
+            "atr": 0.5669285714285722,
+            "atrPercent": 0.563664390940635,
+            "priceMomentum": -0.4964000000000084,
+            "candleBodyPercent": 0.7082322727921464,
+            "market_regime": "bearish",
+            "longScore": 0.0,
+            "shortScore": 75.0
+          },
+          "reasons": [
+            "Bearish EMA trend",
+            "RSI confirms bearish momentum (30.8)",
+            "Price is accelerating with the downtrend",
+            "Bearish candle confirmation"
+          ]
+        },
+        "market_regime": "bearish",
+        "last_analysis_at": "2026-01-05T12:04:00+00:00",
+        "current_signal": "short",
+        "current_signal_score": 75.0,
+        "last_logged_signal_candle": 1767614580000,
+        "signal_history": [
+          {
+            "type": "short",
+            "score": 100.0,
+            "confidence": 100.0,
+            "price": 101.2562,
+            "timestamp": 1767614460000,
+            "market_regime": "bearish",
+            "indicators": {
+              "fastEma": 101.9158003130105,
+              "slowEma": 102.3412480774364,
+              "rsi": 31.95059086709155,
+              "volume": 429.5,
+              "averageVolume": 227.28850000000003,
+              "volumeRatio": 1.8896688569813254,
+              "atr": 0.567692857142859,
+              "atrPercent": 0.5606499721921808,
+              "priceMomentum": -0.6091999999999871,
+              "candleBodyPercent": 0.8388873588542857,
+              "market_regime": "bearish",
+              "longScore": 25.0,
+              "shortScore": 100.0
+            },
+            "reasons": [
+              "Bearish EMA trend",
+              "RSI confirms bearish momentum (32.0)",
+              "Volume is 1.89\u00d7 average",
+              "Price is accelerating with the downtrend",
+              "Bearish candle confirmation"
+            ]
+          },
+          {
+            "type": "short",
+            "score": 75.0,
+            "confidence": 75.0,
+            "price": 100.5791,
+            "timestamp": 1767614580000,
+            "market_regime": "bearish",
+            "indicators": {
+              "fastEma": 101.71608869104227,
+              "slowEma": 102.22435805954946,
+              "rsi": 30.78076319426556,
+              "volume": 338.82,
+              "averageVolume": 247.715,
+              "volumeRatio": 1.3677815231213288,
+              "atr": 0.5669285714285722,
+              "atrPercent": 0.563664390940635,
+              "priceMomentum": -0.4964000000000084,
+              "candleBodyPercent": 0.7082322727921464,
+              "market_regime": "bearish",
+              "longScore": 0.0,
+              "shortScore": 75.0
+            },
+            "reasons": [
+              "Bearish EMA trend",
+              "RSI confirms bearish momentum (30.8)",
+              "Price is accelerating with the downtrend",
+              "Bearish candle confirmation"
+            ]
+          }
+        ],
+        "last_entry_signal_candle": 1767614460000,
+        "current_trade": {
+          "side": "Sell",
+          "entry_price": 101.2562,
+          "stop_loss": 102.1077392857143,
+          "take_profit": 99.55312142857143,
+          "trailing_stop": 101.71295714285714,
+          "highest_price": 101.2562,
+          "lowest_price": 100.5791,
+          "opened_at": "2026-01-05T12:02:00+00:00",
+          "entry_order_link_id": "bot-1-g1-momentum-entry-sell-1767614460000",
+          "signal_score": 100.0,
+          "signal_confidence": 100.0,
+          "signal_reasons": [
+            "Bearish EMA trend",
+            "RSI confirms bearish momentum (32.0)",
+            "Volume is 1.89\u00d7 average",
+            "Price is accelerating with the downtrend",
+            "Bearish candle confirmation"
+          ],
+          "indicators": {
+            "fastEma": 101.9158003130105,
+            "slowEma": 102.3412480774364,
+            "rsi": 31.95059086709155,
+            "volume": 429.5,
+            "averageVolume": 227.28850000000003,
+            "volumeRatio": 1.8896688569813254,
+            "atr": 0.567692857142859,
+            "atrPercent": 0.5606499721921808,
+            "priceMomentum": -0.6091999999999871,
+            "candleBodyPercent": 0.8388873588542857,
+            "market_regime": "bearish",
+            "longScore": 25.0,
+            "shortScore": 100.0
+          },
+          "market_regime": "bearish"
+        }
+      }
+    }
+  },
+  "orders": [
+    {
+      "id": 1,
+      "order_link_id": "bot-1-g1-momentum-entry-sell-1767614460000",
+      "order_role": "momentum_entry_short",
+      "side": "Sell",
+      "order_type": "Market",
+      "status": "Filled",
+      "qty": 5.0,
+      "filled_qty": 5.0,
+      "price": null,
+      "parent_order_id": null,
+      "cycle_completed": false
+    }
+  ]
+}

@@ -1,0 +1,2692 @@
+{
+ "events": [
+  {
+   "event_type": "grid_entry_filled",
+   "id": 9,
+   "message": "Grid entry filled",
+   "payload": {
+    "order_link_id": "bot-1-g1-entry-3-1",
+    "price": 97.0,
+    "qty": 1.0,
+    "side": "Buy"
+   },
+   "step": 3
+  },
+  {
+   "event_type": "position_take_profit_cancelled",
+   "id": 10,
+   "message": "Cancelled outdated position take-profit order",
+   "payload": {
+    "order_link_id": "bot-1-g1-position-tp-1767614520000"
+   },
+   "step": 3
+  },
+  {
+   "event_type": "position_take_profit_updated",
+   "id": 11,
+   "message": "Updated position take-profit order",
+   "payload": {
+    "order_link_id": "bot-1-g1-position-tp-1767614640000",
+    "price": 99.977,
+    "qty": 3.0,
+    "side": "Sell"
+   },
+   "step": 3
+  },
+  {
+   "event_type": "position_take_profit_filled",
+   "id": 12,
+   "message": "Position take-profit filled",
+   "payload": {
+    "order_link_id": "bot-1-g1-position-tp-1767614640000",
+    "price": 99.977,
+    "qty": 3.0,
+    "side": "Sell"
+   },
+   "step": 6
+  },
+  {
+   "event_type": "grid_cycle_completed",
+   "id": 13,
+   "message": "Completed take-profit cycle and cleared the previous entry ladder",
+   "payload": {
+    "cancelled_grid_order_link_ids": [],
+    "take_profit_order_link_ids": [
+     "bot-1-g1-position-tp-1767614640000"
+    ]
+   },
+   "step": 6
+  },
+  {
+   "event_type": "grid_entry_created",
+   "id": 14,
+   "message": "Created grid entry order",
+   "payload": {
+    "order_link_id": "bot-1-g1-entry-1-2",
+    "price": 100.6,
+    "qty": 1.0,
+    "side": "Buy"
+   },
+   "step": 6
+  },
+  {
+   "event_type": "grid_entry_created",
+   "id": 15,
+   "message": "Created grid entry order",
+   "payload": {
+    "order_link_id": "bot-1-g1-entry-2-2",
+    "price": 99.091,
+    "qty": 1.0,
+    "side": "Buy"
+   },
+   "step": 6
+  },
+  {
+   "event_type": "grid_entry_created",
+   "id": 16,
+   "message": "Created grid entry order",
+   "payload": {
+    "order_link_id": "bot-1-g1-entry-3-2",
+    "price": 97.582,
+    "qty": 1.0,
+    "side": "Buy"
+   },
+   "step": 6
+  },
+  {
+   "event_type": "position_take_profit_created",
+   "id": 17,
+   "message": "Created position take-profit order",
+   "payload": {
+    "order_link_id": "bot-1-g1-position-tp-1767614880000",
+    "price": 102.109,
+    "qty": 1.0,
+    "side": "Sell"
+   },
+   "step": 7
+  },
+  {
+   "event_type": "grid_entry_filled",
+   "id": 18,
+   "message": "Grid entry filled",
+   "payload": {
+    "order_link_id": "bot-1-g1-entry-2-2",
+    "price": 99.091,
+    "qty": 1.0,
+    "side": "Buy"
+   },
+   "step": 10
+  },
+  {
+   "event_type": "position_take_profit_cancelled",
+   "id": 19,
+   "message": "Cancelled outdated position take-profit order",
+   "payload": {
+    "order_link_id": "bot-1-g1-position-tp-1767614880000"
+   },
+   "step": 10
+  },
+  {
+   "event_type": "position_take_profit_updated",
+   "id": 20,
+   "message": "Updated position take-profit order",
+   "payload": {
+    "order_link_id": "bot-1-g1-position-tp-1767615060000",
+    "price": 101.343,
+    "qty": 2.0,
+    "side": "Sell"
+   },
+   "step": 10
+  },
+  {
+   "event_type": "position_take_profit_filled",
+   "id": 21,
+   "message": "Position take-profit filled",
+   "payload": {
+    "order_link_id": "bot-1-g1-position-tp-1767615060000",
+    "price": 101.343,
+    "qty": 2.0,
+    "side": "Sell"
+   },
+   "step": 12
+  },
+  {
+   "event_type": "grid_entry_cancelled_after_take_profit",
+   "id": 22,
+   "message": "Cancelled stale entry order after position take-profit",
+   "payload": {
+    "order_link_id": "bot-1-g1-entry-3-2"
+   },
+   "step": 12
+  },
+  {
+   "event_type": "grid_cycle_completed",
+   "id": 23,
+   "message": "Completed take-profit cycle and cleared the previous entry ladder",
+   "payload": {
+    "cancelled_grid_order_link_ids": [
+     "bot-1-g1-entry-3-2"
+    ],
+    "take_profit_order_link_ids": [
+     "bot-1-g1-position-tp-1767615060000"
+    ]
+   },
+   "step": 12
+  },
+  {
+   "event_type": "grid_entry_created",
+   "id": 24,
+   "message": "Created grid entry order",
+   "payload": {
+    "order_link_id": "bot-1-g1-entry-1-3",
+    "price": 101.6,
+    "qty": 1.0,
+    "side": "Buy"
+   },
+   "step": 12
+  },
+  {
+   "event_type": "grid_entry_created",
+   "id": 25,
+   "message": "Created grid entry order",
+   "payload": {
+    "order_link_id": "bot-1-g1-entry-2-3",
+    "price": 100.076,
+    "qty": 1.0,
+    "side": "Buy"
+   },
+   "step": 12
+  },
+  {
+   "event_type": "grid_entry_created",
+   "id": 26,
+   "message": "Created grid entry order",
+   "payload": {
+    "order_link_id": "bot-1-g1-entry-3-3",
+    "price": 98.552,
+    "qty": 1.0,
+    "side": "Buy"
+   },
+   "step": 12
+  },
+  {
+   "event_type": "position_take_profit_created",
+   "id": 27,
+   "message": "Created position take-profit order",
+   "payload": {
+    "order_link_id": "bot-1-g1-position-tp-1767615240000",
+    "price": 103.124,
+    "qty": 1.0,
+    "side": "Sell"
+   },
+   "step": 13
+  }
+ ],
+ "final_state": {
+  "bot": {
+   "error_retry_count": 0,
+   "id": 1,
+   "last_error_action": null,
+   "last_error_code": null,
+   "last_error_type": null,
+   "order_link_generation": 1,
+   "runtime_status": "running",
+   "settings": {
+    "run_interval_seconds": 0,
+    "take_profit_percent": 1.5
+   }
+  },
+  "exchange": {
+   "balance": 10007.206118400001,
+   "positions": [
+    {
+     "avg_price": "101.6",
+     "side": "Buy",
+     "size": "1",
+     "symbol": "SOLUSDT"
+    }
+   ]
+  },
+  "orders": [
+   {
+    "cycle_completed": false,
+    "filled_qty": 1.0,
+    "id": 1,
+    "order_link_id": "bot-1-g1-entry-1-1",
+    "order_role": "grid_entry_1",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 100.0,
+    "qty": 1.0,
+    "side": "Buy",
+    "status": "Filled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 1.0,
+    "id": 2,
+    "order_link_id": "bot-1-g1-entry-2-1",
+    "order_role": "grid_entry_2",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 98.5,
+    "qty": 1.0,
+    "side": "Buy",
+    "status": "Filled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 1.0,
+    "id": 3,
+    "order_link_id": "bot-1-g1-entry-3-1",
+    "order_role": "grid_entry_3",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 97.0,
+    "qty": 1.0,
+    "side": "Buy",
+    "status": "Filled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 0.0,
+    "id": 4,
+    "order_link_id": "bot-1-g1-position-tp-1767614460000",
+    "order_role": "position_take_profit",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 101.5,
+    "qty": 1.0,
+    "side": "Sell",
+    "status": "Cancelled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 0.0,
+    "id": 5,
+    "order_link_id": "bot-1-g1-position-tp-1767614520000",
+    "order_role": "position_take_profit",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 100.738,
+    "qty": 2.0,
+    "side": "Sell",
+    "status": "Cancelled"
+   },
+   {
+    "cycle_completed": true,
+    "filled_qty": 3.0,
+    "id": 6,
+    "order_link_id": "bot-1-g1-position-tp-1767614640000",
+    "order_role": "position_take_profit",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 99.977,
+    "qty": 3.0,
+    "side": "Sell",
+    "status": "Filled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 1.0,
+    "id": 7,
+    "order_link_id": "bot-1-g1-entry-1-2",
+    "order_role": "grid_entry_1",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 100.6,
+    "qty": 1.0,
+    "side": "Buy",
+    "status": "Filled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 1.0,
+    "id": 8,
+    "order_link_id": "bot-1-g1-entry-2-2",
+    "order_role": "grid_entry_2",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 99.091,
+    "qty": 1.0,
+    "side": "Buy",
+    "status": "Filled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 0.0,
+    "id": 9,
+    "order_link_id": "bot-1-g1-entry-3-2",
+    "order_role": "grid_entry_3",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 97.582,
+    "qty": 1.0,
+    "side": "Buy",
+    "status": "Cancelled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 0.0,
+    "id": 10,
+    "order_link_id": "bot-1-g1-position-tp-1767614880000",
+    "order_role": "position_take_profit",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 102.109,
+    "qty": 1.0,
+    "side": "Sell",
+    "status": "Cancelled"
+   },
+   {
+    "cycle_completed": true,
+    "filled_qty": 2.0,
+    "id": 11,
+    "order_link_id": "bot-1-g1-position-tp-1767615060000",
+    "order_role": "position_take_profit",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 101.343,
+    "qty": 2.0,
+    "side": "Sell",
+    "status": "Filled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 1.0,
+    "id": 12,
+    "order_link_id": "bot-1-g1-entry-1-3",
+    "order_role": "grid_entry_1",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 101.6,
+    "qty": 1.0,
+    "side": "Buy",
+    "status": "Filled"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 0.0,
+    "id": 13,
+    "order_link_id": "bot-1-g1-entry-2-3",
+    "order_role": "grid_entry_2",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 100.076,
+    "qty": 1.0,
+    "side": "Buy",
+    "status": "New"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 0.0,
+    "id": 14,
+    "order_link_id": "bot-1-g1-entry-3-3",
+    "order_role": "grid_entry_3",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 98.552,
+    "qty": 1.0,
+    "side": "Buy",
+    "status": "New"
+   },
+   {
+    "cycle_completed": false,
+    "filled_qty": 0.0,
+    "id": 15,
+    "order_link_id": "bot-1-g1-position-tp-1767615240000",
+    "order_role": "position_take_profit",
+    "order_type": "Limit",
+    "parent_order_id": null,
+    "price": 103.124,
+    "qty": 1.0,
+    "side": "Sell",
+    "status": "New"
+   }
+  ]
+ },
+ "recorded_at": "2026-10-13T19:30:10.503804+00:00",
+ "requests": [
+  {
+   "body": null,
+   "duration_s": 0.0031238340015988797,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 2,
+   "wall_start": 1791919809.930206
+  },
+  {
+   "body": null,
+   "duration_s": 0.0020172079966869205,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 5,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 2,
+   "wall_start": 1791919809.933485
+  },
+  {
+   "body": null,
+   "duration_s": 0.001808750006603077,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 2,
+   "wall_start": 1791919809.9384341
+  },
+  {
+   "body": null,
+   "duration_s": 0.00289204201544635,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 2,
+   "wall_start": 1791919809.940396
+  },
+  {
+   "body": null,
+   "duration_s": 0.0014374580059666187,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 2,
+   "wall_start": 1791919809.9442508
+  },
+  {
+   "body": null,
+   "duration_s": 0.0020023749966640025,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 2,
+   "wall_start": 1791919809.948697
+  },
+  {
+   "body": null,
+   "duration_s": 0.0009268340072594583,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 2,
+   "wall_start": 1791919809.95085
+  },
+  {
+   "body": null,
+   "duration_s": 0.001446083013433963,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 2,
+   "wall_start": 1791919809.952734
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013222920242697,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919809.968363
+  },
+  {
+   "body": null,
+   "duration_s": 0.001246875006472692,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 5,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919809.969805
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013664170110132545,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919810.006576
+  },
+  {
+   "body": null,
+   "duration_s": 0.0014155840035527945,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919810.00807
+  },
+  {
+   "body": null,
+   "duration_s": 0.0014027500001247972,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919810.009941
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-position-tp-1767614520000",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.0025920000043697655,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/cancel",
+   "response": {
+    "result": {
+     "orderId": "7012a6633c58465bb79960b2904ed2f4",
+     "orderLinkId": "bot-1-g1-position-tp-1767614520000"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810014
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919810.0126138
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-position-tp-1767614640000",
+    "orderType": "Limit",
+    "price": "99.977",
+    "qty": "3.0",
+    "reduceOnly": true,
+    "side": "Sell",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.0025968329864554107,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "6a5859a513664e35845b197303d0e441",
+     "orderLinkId": "bot-1-g1-position-tp-1767614640000",
+     "orderStatus": "New"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810019
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919810.01689
+  },
+  {
+   "body": null,
+   "duration_s": 0.0014406669943127781,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919810.021733
+  },
+  {
+   "body": null,
+   "duration_s": 0.0009142080089077353,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919810.023307
+  },
+  {
+   "body": null,
+   "duration_s": 0.0014406660047825426,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 3,
+   "wall_start": 1791919810.0247061
+  },
+  {
+   "body": null,
+   "duration_s": 0.0011948749888688326,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 4,
+   "wall_start": 1791919810.0337842
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013875419972464442,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 6,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 4,
+   "wall_start": 1791919810.035102
+  },
+  {
+   "body": null,
+   "duration_s": 0.001004042016575113,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 4,
+   "wall_start": 1791919810.0376298
+  },
+  {
+   "body": null,
+   "duration_s": 0.0014738749887328595,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 4,
+   "wall_start": 1791919810.038749
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012069579970557243,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 4,
+   "wall_start": 1791919810.0406332
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012304580013733357,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 4,
+   "wall_start": 1791919810.042868
+  },
+  {
+   "body": null,
+   "duration_s": 0.0008804159879218787,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 4,
+   "wall_start": 1791919810.044211
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012815840018447489,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 4,
+   "wall_start": 1791919810.045451
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012564169883262366,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 5,
+   "wall_start": 1791919810.054324
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012706250126939267,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 6,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 5,
+   "wall_start": 1791919810.055698
+  },
+  {
+   "body": null,
+   "duration_s": 0.0009742499969433993,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 5,
+   "wall_start": 1791919810.0579772
+  },
+  {
+   "body": null,
+   "duration_s": 0.001372625003568828,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 5,
+   "wall_start": 1791919810.059071
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012953330005984753,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 5,
+   "wall_start": 1791919810.06095
+  },
+  {
+   "body": null,
+   "duration_s": 0.001210416987305507,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 5,
+   "wall_start": 1791919810.063309
+  },
+  {
+   "body": null,
+   "duration_s": 0.0008653329859953374,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 5,
+   "wall_start": 1791919810.064636
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013514590100385249,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 5,
+   "wall_start": 1791919810.065899
+  },
+  {
+   "body": null,
+   "duration_s": 0.001216834003571421,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 0,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.076156
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012664579844567925,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 6,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.0774899
+  },
+  {
+   "body": null,
+   "duration_s": 0.001340999995591119,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 0,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.081829
+  },
+  {
+   "body": null,
+   "duration_s": 0.0009672089945524931,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.084418
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013370420201681554,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.085501
+  },
+  {
+   "body": null,
+   "duration_s": 0.001210791990160942,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 0,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.087264
+  },
+  {
+   "body": null,
+   "duration_s": 0.001082542003132403,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.089018
+  },
+  {
+   "body": null,
+   "duration_s": 0.000829583004815504,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.09021
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012090840027667582,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 0,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.091362
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-entry-1-2",
+    "orderType": "Limit",
+    "price": "100.6",
+    "qty": "1.0",
+    "side": "Buy",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.004002750007202849,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "9cc7193caa894f93ab2a4e2600075e74",
+     "orderLinkId": "bot-1-g1-entry-1-2",
+     "orderStatus": "Filled"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810098
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.0952919
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-entry-2-2",
+    "orderType": "Limit",
+    "price": "99.091",
+    "qty": "1.0",
+    "side": "Buy",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.002666666987352073,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "baf975e63c8e42bd8ad45b3e4484c46a",
+     "orderLinkId": "bot-1-g1-entry-2-2",
+     "orderStatus": "New"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810104
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.101878
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-entry-3-2",
+    "orderType": "Limit",
+    "price": "97.582",
+    "qty": "1.0",
+    "side": "Buy",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.0027910829812753946,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "df6472186c8942e1bc816de5c1efed3e",
+     "orderLinkId": "bot-1-g1-entry-3-2",
+     "orderStatus": "New"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810109
+   },
+   "status_code": 200,
+   "step": 6,
+   "wall_start": 1791919810.1067991
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012683749955613166,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 7,
+   "wall_start": 1791919810.118259
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013552079908549786,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 9,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 7,
+   "wall_start": 1791919810.119652
+  },
+  {
+   "body": null,
+   "duration_s": 0.0009367500024382025,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 7,
+   "wall_start": 1791919810.1225758
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013511670113075525,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 7,
+   "wall_start": 1791919810.12363
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012774999777320772,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 7,
+   "wall_start": 1791919810.125418
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-position-tp-1767614880000",
+    "orderType": "Limit",
+    "price": "102.109",
+    "qty": "1.0",
+    "reduceOnly": true,
+    "side": "Sell",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.0019612080068327487,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "8ec646a77342453b8040dedc5ab648a5",
+     "orderLinkId": "bot-1-g1-position-tp-1767614880000",
+     "orderStatus": "New"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810128
+   },
+   "status_code": 200,
+   "step": 7,
+   "wall_start": 1791919810.127282
+  },
+  {
+   "body": null,
+   "duration_s": 0.0017415829934179783,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 7,
+   "wall_start": 1791919810.131304
+  },
+  {
+   "body": null,
+   "duration_s": 0.0011997499968856573,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 7,
+   "wall_start": 1791919810.133213
+  },
+  {
+   "body": null,
+   "duration_s": 0.001352291990770027,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 3,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 7,
+   "wall_start": 1791919810.134923
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012470000074245036,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 3,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 8,
+   "wall_start": 1791919810.1436002
+  },
+  {
+   "body": null,
+   "duration_s": 0.001292583008762449,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 10,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 8,
+   "wall_start": 1791919810.144969
+  },
+  {
+   "body": null,
+   "duration_s": 0.0008812920132186264,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 8,
+   "wall_start": 1791919810.1475751
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013415409775916487,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 8,
+   "wall_start": 1791919810.148572
+  },
+  {
+   "body": null,
+   "duration_s": 0.001271874993108213,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 3,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 8,
+   "wall_start": 1791919810.150332
+  },
+  {
+   "body": null,
+   "duration_s": 0.0011211249802727252,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 8,
+   "wall_start": 1791919810.152684
+  },
+  {
+   "body": null,
+   "duration_s": 0.0008567500044591725,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 8,
+   "wall_start": 1791919810.153911
+  },
+  {
+   "body": null,
+   "duration_s": 0.001244790997589007,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 3,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 8,
+   "wall_start": 1791919810.155252
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013480830239132047,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 3,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 9,
+   "wall_start": 1791919810.163624
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012861659924965352,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 10,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 9,
+   "wall_start": 1791919810.165101
+  },
+  {
+   "body": null,
+   "duration_s": 0.0008490830077789724,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 9,
+   "wall_start": 1791919810.167449
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013714580272790045,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 9,
+   "wall_start": 1791919810.168413
+  },
+  {
+   "body": null,
+   "duration_s": 0.001263166981516406,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 3,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 9,
+   "wall_start": 1791919810.170215
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012079589942004532,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 9,
+   "wall_start": 1791919810.172558
+  },
+  {
+   "body": null,
+   "duration_s": 0.0007918330084066838,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 9,
+   "wall_start": 1791919810.173876
+  },
+  {
+   "body": null,
+   "duration_s": 0.001203874999191612,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 3,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 9,
+   "wall_start": 1791919810.175064
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013037500029895455,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.186731
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013162090035621077,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 10,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.188163
+  },
+  {
+   "body": null,
+   "duration_s": 0.001144583016866818,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.19232
+  },
+  {
+   "body": null,
+   "duration_s": 0.0014143330045044422,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.1935802
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012167079839855433,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.1954272
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-position-tp-1767614880000",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.0018810000037774444,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/cancel",
+   "response": {
+    "result": {
+     "orderId": "8ec646a77342453b8040dedc5ab648a5",
+     "orderLinkId": "bot-1-g1-position-tp-1767614880000"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810199
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.1977081
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-position-tp-1767615060000",
+    "orderType": "Limit",
+    "price": "101.343",
+    "qty": "2.0",
+    "reduceOnly": true,
+    "side": "Sell",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.002167375001590699,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "5699991c1db744aca7a40d8739833cfe",
+     "orderLinkId": "bot-1-g1-position-tp-1767615060000",
+     "orderStatus": "New"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810202
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.201062
+  },
+  {
+   "body": null,
+   "duration_s": 0.001381209003739059,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.2050402
+  },
+  {
+   "body": null,
+   "duration_s": 0.0008934169891290367,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.206549
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012994169956073165,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 10,
+   "wall_start": 1791919810.207901
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012509580119512975,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 11,
+   "wall_start": 1791919810.216426
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013137079949956387,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 11,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 11,
+   "wall_start": 1791919810.217802
+  },
+  {
+   "body": null,
+   "duration_s": 0.0009057910065166652,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 11,
+   "wall_start": 1791919810.220466
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013597079960163683,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 11,
+   "wall_start": 1791919810.221484
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012347500014584512,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 11,
+   "wall_start": 1791919810.223279
+  },
+  {
+   "body": null,
+   "duration_s": 0.0011131250066682696,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 11,
+   "wall_start": 1791919810.225523
+  },
+  {
+   "body": null,
+   "duration_s": 0.0007971670129336417,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 11,
+   "wall_start": 1791919810.226754
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012097079888917506,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 11,
+   "wall_start": 1791919810.22795
+  },
+  {
+   "body": null,
+   "duration_s": 0.0014766250096727163,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.2384288
+  },
+  {
+   "body": null,
+   "duration_s": 0.001471666997531429,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 11,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.240028
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-entry-3-2",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.0018713329918682575,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/cancel",
+   "response": {
+    "result": {
+     "orderId": "df6472186c8942e1bc816de5c1efed3e",
+     "orderLinkId": "bot-1-g1-entry-3-2"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810246
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.244566
+  },
+  {
+   "body": null,
+   "duration_s": 0.001279834017623216,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 0,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.247775
+  },
+  {
+   "body": null,
+   "duration_s": 0.0009043749887496233,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.250365
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013236660161055624,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.251384
+  },
+  {
+   "body": null,
+   "duration_s": 0.0011668329825624824,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 0,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.2531781
+  },
+  {
+   "body": null,
+   "duration_s": 0.001125333976233378,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.254924
+  },
+  {
+   "body": null,
+   "duration_s": 0.0008252080006059259,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.2561579
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012000419956166297,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 0,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.25729
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-entry-1-3",
+    "orderType": "Limit",
+    "price": "101.6",
+    "qty": "1.0",
+    "side": "Buy",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.003449584008194506,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "52e596d0a0b942cda1be8e7132e5bb92",
+     "orderLinkId": "bot-1-g1-entry-1-3",
+     "orderStatus": "Filled"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810262
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.259382
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-entry-2-3",
+    "orderType": "Limit",
+    "price": "100.076",
+    "qty": "1.0",
+    "side": "Buy",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.002351957984501496,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "95b68604c4ef4d1a9c8e26126d8e0d15",
+     "orderLinkId": "bot-1-g1-entry-2-3",
+     "orderStatus": "New"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810267
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.265122
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-entry-3-3",
+    "orderType": "Limit",
+    "price": "98.552",
+    "qty": "1.0",
+    "side": "Buy",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.0025325420137960464,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "d86d72bb926e4949b640fb76928c0949",
+     "orderLinkId": "bot-1-g1-entry-3-3",
+     "orderStatus": "New"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810271
+   },
+   "status_code": 200,
+   "step": 12,
+   "wall_start": 1791919810.269598
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012760829995386302,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 13,
+   "wall_start": 1791919810.2806778
+  },
+  {
+   "body": null,
+   "duration_s": 0.0019679589895531535,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "limit": "50",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/history",
+   "response": {
+    "items": 14,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 13,
+   "wall_start": 1791919810.282079
+  },
+  {
+   "body": null,
+   "duration_s": 0.0009062910103239119,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 13,
+   "wall_start": 1791919810.285656
+  },
+  {
+   "body": null,
+   "duration_s": 0.0013646660081576556,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/position/list",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 13,
+   "wall_start": 1791919810.2866728
+  },
+  {
+   "body": null,
+   "duration_s": 0.0011952499917242676,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 2,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 13,
+   "wall_start": 1791919810.288512
+  },
+  {
+   "body": {
+    "category": "linear",
+    "orderLinkId": "bot-1-g1-position-tp-1767615240000",
+    "orderType": "Limit",
+    "price": "103.124",
+    "qty": "1.0",
+    "reduceOnly": true,
+    "side": "Sell",
+    "symbol": "SOLUSDT"
+   },
+   "duration_s": 0.001944833988090977,
+   "method": "POST",
+   "params": {},
+   "path": "/v5/order/create",
+   "response": {
+    "result": {
+     "orderId": "277b7cc133b64152abb86f8e0f20ec84",
+     "orderLinkId": "bot-1-g1-position-tp-1767615240000",
+     "orderStatus": "New"
+    },
+    "retCode": 0,
+    "retExtInfo": {},
+    "retMsg": "OK",
+    "time": 1791919810291
+   },
+   "status_code": 200,
+   "step": 13,
+   "wall_start": 1791919810.290316
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012779579847119749,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/tickers",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 13,
+   "wall_start": 1791919810.2943301
+  },
+  {
+   "body": null,
+   "duration_s": 0.0008374589961022139,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/market/instruments-info",
+   "response": {
+    "items": 1,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 13,
+   "wall_start": 1791919810.295723
+  },
+  {
+   "body": null,
+   "duration_s": 0.0012626670068129897,
+   "method": "GET",
+   "params": {
+    "category": "linear",
+    "openOnly": "0",
+    "symbol": "SOLUSDT"
+   },
+   "path": "/v5/order/realtime",
+   "response": {
+    "items": 3,
+    "retCode": 0
+   },
+   "status_code": 200,
+   "step": 13,
+   "wall_start": 1791919810.296958
+  }
+ ],
+ "resumed_from_step": 2,
+ "scenario": {
+  "bot": {
+   "grid_orders_count": 3,
+   "grid_step_percent": 1.5,
+   "order_qty": 1.0
+  },
+  "candle_count": 0,
+  "candle_seed": null,
+  "category": "linear",
+  "environment": "emulator",
+  "name": "grid",
+  "prices": [
+   99.0,
+   98.5,
+   97.7,
+   97.0,
+   98.2,
+   99.4,
+   100.6,
+   101.8,
+   100.9,
+   99.2,
+   98.4,
+   99.9,
+   101.6,
+   102.4
+  ],
+  "replay_from": 0,
+  "settings": {
+   "take_profit_percent": 1.5
+  },
+  "start_price": 100.0,
+  "step_seconds": 60,
+  "strategy_type": "grid",
+  "symbol": "SOLUSDT"
+ },
+ "source_commit": "4b91cb7968ee134ee3257ce64f2cdfcbd5b65a89",
+ "timings": {
+  "fill_reaction_s": [
+   0.04633069038391113,
+   0.021007776260375977,
+   0.013100147247314453,
+   0.008442163467407227
+  ],
+  "request_durations_s": [
+   0.0031238340015988797,
+   0.0020172079966869205,
+   0.001808750006603077,
+   0.00289204201544635,
+   0.0014374580059666187,
+   0.0020023749966640025,
+   0.0009268340072594583,
+   0.001446083013433963,
+   0.0013222920242697,
+   0.001246875006472692,
+   0.0013664170110132545,
+   0.0014155840035527945,
+   0.0014027500001247972,
+   0.0025920000043697655,
+   0.0025968329864554107,
+   0.0014406669943127781,
+   0.0009142080089077353,
+   0.0014406660047825426,
+   0.0011948749888688326,
+   0.0013875419972464442,
+   0.001004042016575113,
+   0.0014738749887328595,
+   0.0012069579970557243,
+   0.0012304580013733357,
+   0.0008804159879218787,
+   0.0012815840018447489,
+   0.0012564169883262366,
+   0.0012706250126939267,
+   0.0009742499969433993,
+   0.001372625003568828,
+   0.0012953330005984753,
+   0.001210416987305507,
+   0.0008653329859953374,
+   0.0013514590100385249,
+   0.001216834003571421,
+   0.0012664579844567925,
+   0.001340999995591119,
+   0.0009672089945524931,
+   0.0013370420201681554,
+   0.001210791990160942,
+   0.001082542003132403,
+   0.000829583004815504,
+   0.0012090840027667582,
+   0.004002750007202849,
+   0.002666666987352073,
+   0.0027910829812753946,
+   0.0012683749955613166,
+   0.0013552079908549786,
+   0.0009367500024382025,
+   0.0013511670113075525,
+   0.0012774999777320772,
+   0.0019612080068327487,
+   0.0017415829934179783,
+   0.0011997499968856573,
+   0.001352291990770027,
+   0.0012470000074245036,
+   0.001292583008762449,
+   0.0008812920132186264,
+   0.0013415409775916487,
+   0.001271874993108213,
+   0.0011211249802727252,
+   0.0008567500044591725,
+   0.001244790997589007,
+   0.0013480830239132047,
+   0.0012861659924965352,
+   0.0008490830077789724,
+   0.0013714580272790045,
+   0.001263166981516406,
+   0.0012079589942004532,
+   0.0007918330084066838,
+   0.001203874999191612,
+   0.0013037500029895455,
+   0.0013162090035621077,
+   0.001144583016866818,
+   0.0014143330045044422,
+   0.0012167079839855433,
+   0.0018810000037774444,
+   0.002167375001590699,
+   0.001381209003739059,
+   0.0008934169891290367,
+   0.0012994169956073165,
+   0.0012509580119512975,
+   0.0013137079949956387,
+   0.0009057910065166652,
+   0.0013597079960163683,
+   0.0012347500014584512,
+   0.0011131250066682696,
+   0.0007971670129336417,
+   0.0012097079888917506,
+   0.0014766250096727163,
+   0.001471666997531429,
+   0.0018713329918682575,
+   0.001279834017623216,
+   0.0009043749887496233,
+   0.0013236660161055624,
+   0.0011668329825624824,
+   0.001125333976233378,
+   0.0008252080006059259,
+   0.0012000419956166297,
+   0.003449584008194506,
+   0.002351957984501496,
+   0.0025325420137960464,
+   0.0012760829995386302,
+   0.0019679589895531535,
+   0.0009062910103239119,
+   0.0013646660081576556,
+   0.0011952499917242676,
+   0.001944833988090977,
+   0.0012779579847119749,
+   0.0008374589961022139,
+   0.0012626670068129897
+  ]
+ }
+}

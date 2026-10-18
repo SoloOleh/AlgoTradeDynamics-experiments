@@ -2,12 +2,15 @@
 
 import pytest
 
+from app.bot_engine.exchange.errors import UnclassifiedExchangeFailure
+from app.bot_engine.exchange.port import PlacedOrder
 from app.bot_engine.orders import ACTIVE_ORDER_STATUSES, OrderRequest, place_order
 from app.bot_engine.grid_runtime import tick_grid_bot
 from app.db.session import SessionLocal
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_order import TradingBotOrder
+from tests.remote_lookup import RemoteStateLookup, orders_from, placed_from, positions_from, ticker_at
 
 
 def test_bots_require_auth(client):
@@ -242,6 +245,36 @@ def test_existing_exchange_position_tp_is_synced_without_duplicate_creation(clie
     assert position_tp_orders[0]["status"] == "New"
 
 
+def test_position_tp_refused_with_an_unmapped_code_is_recorded_as_before(client, auth_headers, monkeypatch):
+    """An unclassified refusal is not a duplicate tag: Grid records the order as it did before the adapter (T71; AC-06)."""
+    bot = _create_runtime_bot(client, auth_headers)
+    remote_state = {}
+    remote_positions = []
+    _mock_runtime(monkeypatch, remote_state=remote_state, remote_positions=remote_positions)
+    client.post(f"/api/bots/{bot['id']}/start", headers=auth_headers)
+    _tick_bot(bot["id"])
+
+    _fill_remote_grid_entry(remote_state, bot["id"], level=1)
+    remote_positions[:] = [{"side": "Buy", "size": "0.01", "avgPrice": "100.0"}]
+    monkeypatch.setattr(
+        "app.bot_engine.grid_runtime.place_order",
+        lambda *args, **kwargs: PlacedOrder(
+            order_id=None, client_tag=kwargs["order"].order_link_id, status=None, raw={},
+            rejection=UnclassifiedExchangeFailure("Order price has too many decimals.", raw_code=170134),
+        ),
+    )
+
+    _tick_bot(bot["id"])
+
+    orders = client.get(f"/api/bots/{bot['id']}/orders", headers=auth_headers).json()
+    tp_orders = [order for order in orders if order["order_role"] == "position_take_profit"]
+    assert len(tp_orders) == 1
+    assert tp_orders[0]["exchange_order_id"] is None
+    events = client.get(f"/api/bots/{bot['id']}/events", headers=auth_headers).json()
+    assert not any("Duplicate position TP" in event["message"] for event in events)
+    assert client.get(f"/api/bots/{bot['id']}", headers=auth_headers).json()["runtime_status"] == "running"
+
+
 def test_risk_blocks_new_buy_when_max_position_qty_exceeded(client, auth_headers, monkeypatch):
     bot = _create_runtime_bot(client, auth_headers, {
         "settings": {"max_position_qty": 0.015},
@@ -397,7 +430,7 @@ def test_position_take_profit_fill_cancels_old_grid_and_rebuilds_from_current_pr
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_ticker_snapshot",
-        lambda *args, **kwargs: {"lastPrice": "105.0", "markPrice": "105.0"},
+        lambda *args, **kwargs: ticker_at(105.0),
     )
 
     result = _tick_bot(bot["id"])
@@ -1052,17 +1085,13 @@ def _mock_runtime(monkeypatch, *, min_qty=0.001, remote_state=None, remote_posit
     if order_log is None:
         order_log = []
     monkeypatch.setattr(
-        "app.bot_engine.grid_runtime.get_bybit_session", lambda _bot: object())
-    monkeypatch.setattr(
-        "app.bot_engine.grid_runtime.get_orders_by_prefix",
-        lambda *args, **kwargs: _mock_get_orders_by_prefix(
-            remote_state, kwargs["order_link_prefix"]),
+        "app.bot_engine.exchange.registry.exchange_for",
+        lambda _bot, needs=None: RemoteStateLookup(remote_state),
     )
     monkeypatch.setattr(
-        "app.bot_engine.grid_runtime.get_order_status_by_link_id",
-        lambda *args, **kwargs: dict(
-            remote_state.get(kwargs["order_link_id"], {})
-        ),
+        "app.bot_engine.grid_runtime.get_orders_by_prefix",
+        lambda *args, **kwargs: orders_from(_mock_get_orders_by_prefix(
+            remote_state, kwargs["order_link_prefix"])),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_last_price",
@@ -1070,10 +1099,7 @@ def _mock_runtime(monkeypatch, *, min_qty=0.001, remote_state=None, remote_posit
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_ticker_snapshot",
-        lambda *args, **kwargs: {
-            "lastPrice": str(current_price),
-            "markPrice": str(current_price),
-        },
+        lambda *args, **kwargs: ticker_at(current_price),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_instrument_rules",
@@ -1086,16 +1112,16 @@ def _mock_runtime(monkeypatch, *, min_qty=0.001, remote_state=None, remote_posit
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_open_positions",
-        lambda *args, **kwargs: list(remote_positions),
+        lambda *args, **kwargs: positions_from(remote_positions),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.get_open_orders",
-        lambda *args, **kwargs: _mock_get_open_orders(remote_state),
+        lambda *args, **kwargs: orders_from(_mock_get_open_orders(remote_state)),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.place_order",
-        lambda *args, **kwargs: _mock_place_order(
-            remote_state, kwargs["order"], order_log),
+        lambda *args, **kwargs: placed_from(_mock_place_order(
+            remote_state, kwargs["order"], order_log), kwargs["order"].order_link_id),
     )
     monkeypatch.setattr(
         "app.bot_engine.grid_runtime.cancel_order_by_link_id",
@@ -1249,3 +1275,72 @@ def _fill_remote_grid_entry(remote_state, bot_id, *, level=1):
     remote["orderStatus"] = "Filled"
     remote["cumExecQty"] = remote["qty"]
     return remote
+
+
+# ------------------------------------------- position bodies keep the exchange's number text (T31)
+
+
+class _RawBybitSession:
+    """A pybit-shaped session answering with raw Bybit texts; every other read is empty."""
+
+    def __init__(self, *, liq_price: str) -> None:
+        self.position = {
+            "symbol": "BTCUSDT", "side": "Buy", "size": "0.01", "avgPrice": "64000.00",
+            "markPrice": "65000.50", "liqPrice": liq_price, "leverage": "10", "tradeMode": 0,
+            "positionValue": "650.005", "unrealisedPnl": "10.005",
+        }
+
+    def get_tickers(self, **params):
+        return {"retCode": 0, "result": {"list": [{"symbol": "BTCUSDT", "lastPrice": "65000.40", "markPrice": "65000.50"}]}}
+
+    def get_positions(self, **params):
+        return {"retCode": 0, "result": {"list": [self.position]}}
+
+    def __getattr__(self, name):
+        return lambda **params: {"retCode": 0, "result": {"list": []}}
+
+
+def _bybit_adapter(liq_price: str):
+    from app.bot_engine.exchange.bybit.adapter import BybitAdapter
+
+    adapter = BybitAdapter("demo")
+    adapter._session = _RawBybitSession(liq_price=liq_price)
+    return adapter
+
+
+@pytest.mark.parametrize("liq_price,expected_liq", [("58000.10", "58000.10"), ("", "")])
+def test_grid_position_body_keeps_the_exchange_text(client, auth_headers, monkeypatch, liq_price, expected_liq):
+    bot = _create_runtime_bot(client, auth_headers)
+    adapter = _bybit_adapter(liq_price)
+    monkeypatch.setattr("app.bot_engine.exchange.registry.exchange_for", lambda _bot, needs=None: adapter)
+    _seed_filled_bot_entry(bot, qty=0.01, price=64000.0, level=1)
+
+    payload = client.get(f"/api/bots/{bot['id']}/position", headers=auth_headers).json()
+
+    assert (payload["mark_price"], payload["leverage"], payload["liq_price"]) == ("65000.50", "10", expected_liq)
+
+
+@pytest.mark.parametrize("strategy", ["momentum", "pattern_scalper"])
+# Today's rendering: these strategies format through a float with 12 decimals.
+@pytest.mark.parametrize("liq_price,expected_liq", [("58000.10", "58000.099999999999"), ("", "0")])
+def test_momentum_and_scalper_position_bodies_keep_todays_strings(strategy, liq_price, expected_liq):
+    from app.bot_engine.strategies.registry import get_strategy
+
+    bot = TradingBot(id=1, strategy_type=strategy, category="linear", symbol="BTCUSDT", settings={}, exchange="bybit",
+                     environment="demo")
+
+    payload = get_strategy(strategy).get_position(None, bot, adapter=_bybit_adapter(liq_price))
+
+    assert (payload["mark_price"], payload["leverage"], payload["liq_price"]) == ("65000.5", "10", expected_liq)
+
+
+def test_a_market_order_acknowledged_at_price_zero_stores_zero(client, auth_headers):
+    from app.bot_engine.exchange.port import Order
+    from app.bot_engine.orders import apply_exchange_order
+
+    record = TradingBotOrder(price=None)
+    apply_exchange_order(record, Order(order_id="oid", client_tag="tag", side="Sell", order_type="Market",
+                                       status="Filled", qty=0.01, filled_qty=0.01, price=0.0, avg_price=65000.0,
+                                       reduce_only=False))
+
+    assert record.price == 0.0

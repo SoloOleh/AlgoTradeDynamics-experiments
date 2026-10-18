@@ -11,8 +11,8 @@ distance to the first safety order.
 """
 from __future__ import annotations
 
-from app.bot_engine.bybit.client import get_bybit_session
 from app.bot_engine.events import log_bot_event
+from app.bot_engine.exchange import registry
 from app.bot_engine.grid_runtime import (
     POSITION_TP_ROLE,
     _active_order_exists,
@@ -22,6 +22,7 @@ from app.bot_engine.grid_runtime import (
     _log_risk_blocked,
     _mark_order_filled_logged,
     _next_cycle_id,
+    _pending_buy_qty,
     _pending_completed_position_take_profit_orders,
     _record_order,
     _rollover_completed_take_profit_cycle,
@@ -45,6 +46,7 @@ from app.bot_engine.orders import (
 )
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_order import TradingBotOrder
+from app.bot_engine.exchange.redaction import scrub
 
 DCA_ENTRY_ROLE_PREFIX = "dca_entry_"
 
@@ -174,7 +176,9 @@ def _evaluate_dca_buy_order_risk(
     return None, payload
 
 
-def create_missing_dca_orders(db, bot: TradingBot, current_position_size: float = 0.0) -> list[TradingBotOrder]:
+def create_missing_dca_orders(
+    db, bot: TradingBot, current_position_size: float = 0.0, *, adapter=None,
+) -> list[TradingBotOrder]:
     """Open a new DCA cycle when the bot is flat.
 
     The base order and every safety order are placed in one shot so the whole
@@ -188,16 +192,13 @@ def create_missing_dca_orders(db, bot: TradingBot, current_position_size: float 
         # The previous cycle is still waiting for cancellation confirmation.
         return []
 
-    session = get_bybit_session(bot)
-    anchor_price = get_last_price(session, category=bot.category, symbol=bot.symbol)
-    rules = get_instrument_rules(session, category=bot.category, symbol=bot.symbol)
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
+    anchor_price = get_last_price(adapter, category=bot.category, symbol=bot.symbol)
+    rules = get_instrument_rules(adapter, category=bot.category, symbol=bot.symbol)
 
-    open_exchange_orders = _current_generation_open_orders(session, bot)
-    pending_buy_qty = sum(
-        _safe_float(order.get("qty"))
-        for order in open_exchange_orders
-        if order.get("side") == "Buy"
-    )
+    open_exchange_orders = _current_generation_open_orders(adapter, bot)
+    pending_buy_qty = _pending_buy_qty(open_exchange_orders)
     current_open_orders = len(open_exchange_orders)
 
     created_orders: list[TradingBotOrder] = []
@@ -243,7 +244,7 @@ def create_missing_dca_orders(db, bot: TradingBot, current_position_size: float 
             continue
 
         response = place_order(
-            session, category=bot.category, symbol=bot.symbol, order=order)
+            adapter, category=bot.category, symbol=bot.symbol, order=order)
         created = _record_order(db, bot, order, response)
         created_orders.append(created)
         pending_buy_qty += created.qty
@@ -260,23 +261,20 @@ def create_missing_dca_orders(db, bot: TradingBot, current_position_size: float 
     return created_orders
 
 
-def get_dca_risk_summary(db, bot: TradingBot) -> dict:
-    session = get_bybit_session(bot)
+def get_dca_risk_summary(db, bot: TradingBot, *, adapter=None) -> dict:
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
     settings = get_effective_dca_settings(bot)
     exchange_position = _get_current_long_position(
-        session, category=bot.category, symbol=bot.symbol)
+        adapter, category=bot.category, symbol=bot.symbol)
     position = _get_bot_owned_long_position(
         db, bot, exchange_position=exchange_position)
     current_position_qty = position["size"] if position is not None else 0.0
 
-    open_orders = _current_generation_open_orders(session, bot)
-    pending_buy_qty = sum(
-        _safe_float(order.get("qty"))
-        for order in open_orders
-        if order.get("side") == "Buy"
-    )
+    open_orders = _current_generation_open_orders(adapter, bot)
+    pending_buy_qty = _pending_buy_qty(open_orders)
     current_open_orders = len(open_orders)
-    current_price = get_last_price(session, category=bot.category, symbol=bot.symbol)
+    current_price = get_last_price(adapter, category=bot.category, symbol=bot.symbol)
     potential_total_qty = current_position_qty + pending_buy_qty
     estimated_notional = potential_total_qty * current_price
 
@@ -311,7 +309,7 @@ def get_dca_risk_summary(db, bot: TradingBot) -> dict:
     }
 
 
-def tick_dca_bot(db, bot: TradingBot, *, force: bool = False) -> dict:
+def tick_dca_bot(db, bot: TradingBot, *, force: bool = False, adapter=None) -> dict:
     if bot.runtime_status != "running":
         return {"orders": [], "events": 0, "message": "Bot is not running"}
     if not bot.is_active:
@@ -333,7 +331,9 @@ def tick_dca_bot(db, bot: TradingBot, *, force: bool = False) -> dict:
         return {"orders": [], "events": 1, "message": live_message}
 
     try:
-        synced = sync_bot_orders(db, bot)
+        if adapter is None:
+            adapter = registry.exchange_for(bot)
+        synced = sync_bot_orders(db, bot, adapter=adapter)
 
         for change in synced:
             order = change["order"]
@@ -371,6 +371,7 @@ def tick_dca_bot(db, bot: TradingBot, *, force: bool = False) -> dict:
                 db, bot,
                 entry_role_prefix=DCA_ENTRY_ROLE_PREFIX,
                 event_prefix="dca",
+                adapter=adapter,
             )
         )
         if rollover_triggered and not cancellation_confirmed:
@@ -384,8 +385,8 @@ def tick_dca_bot(db, bot: TradingBot, *, force: bool = False) -> dict:
                 "message": "Waiting for previous cycle cancellation confirmation",
             }
 
-        tp_changes, current_position_size = sync_position_take_profit(db, bot)
-        created_orders = create_missing_dca_orders(db, bot, current_position_size)
+        tp_changes, current_position_size = sync_position_take_profit(db, bot, adapter=adapter)
+        created_orders = create_missing_dca_orders(db, bot, current_position_size, adapter=adapter)
 
         bot.last_run_at = _utcnow()
         bot.last_error = None
@@ -404,10 +405,11 @@ def tick_dca_bot(db, bot: TradingBot, *, force: bool = False) -> dict:
         if not bot.is_backtest:
             raise
         bot.last_run_at = _utcnow()
-        bot.last_error = str(exc)
+        error = scrub(str(exc))
+        bot.last_error = error
         if get_effective_dca_settings(bot)["stop_bot_on_error"]:
             bot.runtime_status = "stopped"
-        log_bot_event(db, bot, "error", str(exc))
+        log_bot_event(db, bot, "error", error)
         db.add(bot)
         db.commit()
-        return {"orders": [], "events": 1, "message": str(exc)}
+        return {"orders": [], "events": 1, "message": error}

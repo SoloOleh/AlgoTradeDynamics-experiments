@@ -86,6 +86,7 @@ def test_fast_engine_persists_compatible_results(tmp_path, monkeypatch):
     from app.models.user import User
     from app.services.backtest_service import list_executions
     from app.services.fast_scalper_backtest import FastScalperBacktestEngine, backtest_ui_stream_hub
+    from app.bot_engine.exchange.port import InstrumentRules
 
     db_engine = create_engine(f"sqlite:///{tmp_path / 'fast.db'}", connect_args={"check_same_thread": False})
     Base.metadata.create_all(db_engine)
@@ -185,17 +186,11 @@ def test_fast_engine_persists_compatible_results(tmp_path, monkeypatch):
     db.commit()
     db.refresh(run)
 
-    class FakeEmulator:
-        def instrument_info(self, **_):
-            return {
-                "result": {
-                    "list": [{
-                        "lotSizeFilter": {"minOrderQty": "0.001", "qtyStep": "0.001", "minNotionalValue": "5"},
-                        "priceFilter": {"tickSize": "0.01"},
-                    }]
-                }
-            }
+    class FakeExchange:
+        def instrument_rules(self, market_type, symbol):
+            return InstrumentRules(min_order_qty=0.001, qty_step=0.001, tick_size=0.01, min_notional_value=5.0)
 
+    class FakeEmulator:
         def candles(self, **_):
             generated = []
             price = 100.0
@@ -242,6 +237,7 @@ def test_fast_engine_persists_compatible_results(tmp_path, monkeypatch):
     engine = FastScalperBacktestEngine(db, run)
     engine.emulator.close()
     engine.emulator = FakeEmulator()
+    engine.exchange = FakeExchange()
     engine.run_all()
 
     assert run.status == "completed"

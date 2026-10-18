@@ -1,24 +1,21 @@
-"""Read ticker and price data for a trading bot from Bybit."""
+"""Read ticker and price data for a trading bot through its exchange adapter."""
 from __future__ import annotations
 
-from app.bot_engine.orders import InstrumentRules, get_instrument_rules as load_instrument_rules
+from app.bot_engine.exchange.port import InstrumentRules, Ticker
+from app.bot_engine.orders import get_instrument_rules as load_instrument_rules
 
 
-def get_ticker_snapshot(session, *, category: str, symbol: str) -> dict:
-    response = session.get_tickers(category=category, symbol=symbol)
-    items = response.get("result", {}).get("list", [])
-    if not items:
-        raise ValueError(f"Ticker not found for {symbol}")
-    return items[0]
+def get_ticker_snapshot(adapter, *, category: str, symbol: str) -> Ticker:
+    return adapter.ticker(category, symbol)
 
 
-def get_last_price(session, *, category: str, symbol: str) -> float:
-    ticker = get_ticker_snapshot(session, category=category, symbol=symbol)
-    last_price = ticker.get("lastPrice") or ticker.get("markPrice")
+def get_last_price(adapter, *, category: str, symbol: str) -> float:
+    ticker = get_ticker_snapshot(adapter, category=category, symbol=symbol)
+    last_price = ticker.last_price if ticker.last_price is not None else ticker.mark_price
     if last_price is None:
         raise ValueError(f"Ticker price missing for {symbol}")
     return float(last_price)
 
 
-def get_instrument_rules(session, *, category: str, symbol: str) -> InstrumentRules:
-    return load_instrument_rules(session, category=category, symbol=symbol)
+def get_instrument_rules(adapter, *, category: str, symbol: str) -> InstrumentRules:
+    return load_instrument_rules(adapter, category=category, symbol=symbol)

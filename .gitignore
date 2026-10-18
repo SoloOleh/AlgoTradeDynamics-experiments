@@ -58,3 +58,7 @@ Thumbs.db
 # Local database backups and secrets
 backups/
 .env
+
+# SDD per-developer files
+.claude/*.local.md
+.worktrees/

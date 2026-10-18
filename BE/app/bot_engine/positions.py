@@ -1,17 +1,9 @@
-"""Read current positions for a trading bot from Bybit."""
+"""Read current positions for a trading bot through its exchange adapter."""
 from __future__ import annotations
 
+from app.bot_engine.exchange.port import Position
 
-def get_open_positions(session, *, category: str, symbol: str) -> list[dict]:
-    response = session.get_positions(category=category, symbol=symbol)
-    items = response.get("result", {}).get("list", [])
-    positions: list[dict] = []
-    for item in items:
-        size = item.get("size") or item.get("qty") or "0"
-        try:
-            if float(size) == 0:
-                continue
-        except (TypeError, ValueError):
-            continue
-        positions.append(item)
-    return positions
+
+def get_open_positions(adapter, *, category: str, symbol: str) -> list[Position]:
+    """Open positions (size > 0) on the bot's symbol."""
+    return adapter.positions(category, symbol)

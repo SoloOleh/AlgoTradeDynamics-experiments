@@ -1,8 +1,17 @@
-"""Place, cancel, and query Bybit orders for trading bots."""
+"""Place, cancel, and query exchange orders for trading bots.
+
+Every helper takes an `ExchangeAdapter` and returns the port's neutral types.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_DOWN
+from typing import Literal
+
+from app.bot_engine.events import log_bot_event
+from app.bot_engine.exchange.errors import ErrorClass, ExchangeError, UnclassifiedExchangeFailure
+from app.bot_engine.exchange.port import InstrumentRules, NewOrder, Order, PlacedOrder
+from app.core.clock import utcnow
 
 
 FINAL_ORDER_STATUSES = {"Filled", "Cancelled", "Rejected", "Deactivated"}
@@ -22,49 +31,18 @@ class OrderRequest:
     reduce_only: bool = False
 
 
-@dataclass(slots=True)
-class InstrumentRules:
-    min_order_qty: float
-    qty_step: float
-    tick_size: float
-    min_notional_value: float
+def get_open_orders(adapter, *, category: str, symbol: str) -> list[Order]:
+    return adapter.open_orders(category, symbol)
 
 
-def get_open_orders(session, *, category: str, symbol: str) -> list[dict]:
-    response = session.get_open_orders(
-        category=category, symbol=symbol, openOnly=0)
-    return response.get("result", {}).get("list", [])
+def get_orders_by_prefix(adapter, *, category: str, symbol: str, order_link_prefix: str) -> list[Order]:
+    """The reconciliation page: open orders + the last 50 history items with the tag prefix."""
+    orders = adapter.open_orders(category, symbol) + adapter.order_history(category, symbol, limit=50)
+    return [order for order in orders if (order.client_tag or "").startswith(order_link_prefix)]
 
 
-def get_orders_by_prefix(session, *, category: str, symbol: str, order_link_prefix: str) -> list[dict]:
-    open_orders = get_open_orders(session, category=category, symbol=symbol)
-    matched_open = [
-        item for item in open_orders if (item.get("orderLinkId") or "").startswith(order_link_prefix)
-    ]
-    history = session.get_order_history(
-        category=category, symbol=symbol, limit=50)
-    history_items = history.get("result", {}).get("list", [])
-    matched_history = [
-        item for item in history_items if (item.get("orderLinkId") or "").startswith(order_link_prefix)
-    ]
-    return matched_open + matched_history
-
-
-def get_instrument_rules(session, *, category: str, symbol: str) -> InstrumentRules:
-    response = session.get_instruments_info(category=category, symbol=symbol)
-    items = response.get("result", {}).get("list", [])
-    if not items:
-        raise ValueError(f"Instrument info not found for {symbol}")
-
-    info = items[0]
-    lot_size_filter = info.get("lotSizeFilter", {})
-    price_filter = info.get("priceFilter", {})
-    return InstrumentRules(
-        min_order_qty=float(lot_size_filter.get("minOrderQty") or 0),
-        qty_step=float(lot_size_filter.get("qtyStep") or 0.000001),
-        tick_size=float(price_filter.get("tickSize") or 0.000001),
-        min_notional_value=float(lot_size_filter.get("minNotionalValue") or 0),
-    )
+def get_instrument_rules(adapter, *, category: str, symbol: str) -> InstrumentRules:
+    return adapter.instrument_rules(category, symbol)
 
 
 def round_to_step(value: float, step: float) -> float:
@@ -121,87 +99,143 @@ def validate_order_request(order: OrderRequest, rules: InstrumentRules) -> str |
         if not order.reduce_only:
             return "Position close orders must be reduce-only"
     if order.qty < rules.min_order_qty:
-        return f"Order qty {order.qty} is below Bybit minimum {rules.min_order_qty}"
+        return f"Order qty {order.qty} is below the exchange minimum {rules.min_order_qty}"
     if order.price is not None and rules.min_notional_value > 0 and (order.qty * order.price) < rules.min_notional_value:
         return (
-            f"Order notional {order.qty * order.price:.8f} is below Bybit minimum "
+            f"Order notional {order.qty * order.price:.8f} is below the exchange minimum "
             f"{rules.min_notional_value}"
         )
     return None
 
 
-def place_order(session, *, category: str, symbol: str, order: OrderRequest) -> dict:
+def ensure_accepted(placed: PlacedOrder, action: str) -> None:
+    """Raise the adapter's classified refusal of a placement, naming the operation (ADR-0005).
+
+    The stored text keeps the shape it had before the adapter existed: `<action>: <message> (code N)`.
+    """
+    rejection = placed.rejection
+    if rejection is None:
+        return
+    suffix = f" (code {rejection.raw_code})" if rejection.raw_code is not None else ""
+    if isinstance(rejection, UnclassifiedExchangeFailure):
+        message = str(rejection) or "Unknown exchange error"
+        raise UnclassifiedExchangeFailure(f"{action}: {message}{suffix}", raw_code=rejection.raw_code)
+    message = rejection.message or "Unknown exchange error"
+    raise ExchangeError(
+        rejection.error_class, raw_code=rejection.raw_code, message=f"{action}: {message}{suffix}",
+        http_status=rejection.http_status,
+    )
+
+
+def place_order(adapter, *, category: str, symbol: str, order: OrderRequest) -> PlacedOrder:
     if _requires_reduce_only(order) and not order.reduce_only:
         raise ValueError(
             "Position close orders must be reduce-only before placing")
-    payload = {
-        "category": category,
-        "symbol": symbol,
-        "side": order.side,
-        "orderType": order.order_type,
-        "qty": str(order.qty),
-        "orderLinkId": order.order_link_id,
-    }
+    return adapter.place_order(category, symbol, NewOrder(
+        side=order.side,
+        order_type=order.order_type,
+        qty=order.qty,
+        price=order.price,
+        client_tag=order.order_link_id,
+        reduce_only=order.reduce_only,
+    ))
+
+
+def cancel_order(adapter, *, category: str, symbol: str, order_id: str) -> dict:
+    return adapter.cancel_order(category, symbol, order_id=order_id)
+
+
+def cancel_order_by_link_id(adapter, *, category: str, symbol: str, order_link_id: str) -> dict:
+    return adapter.cancel_order(category, symbol, client_tag=order_link_id)
+
+
+# --------------------------------------------------------------------------- order lookup (AC-08)
+
+
+@dataclass(frozen=True, slots=True)
+class OrderResolution:
+    """What the exchange said about an order the bot believes is active."""
+
+    state: Literal["open", "final", "gone"]
+    order: Order | None = None
+
+
+def apply_exchange_order(record, order: Order) -> None:
+    """Copy an exchange order onto the stored order row (today's reconciliation update)."""
+    record.exchange_order_id = order.order_id or record.exchange_order_id
+    record.order_link_id = order.client_tag or record.order_link_id
+    record.side = order.side or record.side
+    record.order_type = order.order_type or record.order_type
+    record.status = order.status or record.status
+    if order.qty is not None:
+        record.qty = order.qty
+    if order.filled_qty is not None:
+        record.filled_qty = order.filled_qty
+    elif order.leaves_qty is not None:
+        record.filled_qty = max(record.qty - order.leaves_qty, 0)
     if order.price is not None:
-        payload["price"] = str(order.price)
-    if order.reduce_only:
-        payload["reduceOnly"] = True
-    return session.place_order(**payload)
+        record.price = order.price
+    existing_payload = dict(record.raw_response or {})
+    existing_payload.update(order.raw)
+    record.raw_response = existing_payload
 
 
-def cancel_order(session, *, category: str, symbol: str, order_id: str) -> dict:
-    return session.cancel_order(category=category, symbol=symbol, orderId=order_id)
+def mark_order_missing_from_exchange(db, bot, order) -> str:
+    """Mark an active order gone (stored as `Cancelled`) once the exchange proved it is absent.
 
-
-def get_order_status(session, *, category: str, symbol: str, order_id: str) -> dict:
-    response = session.get_open_orders(
-        category=category,
-        symbol=symbol,
-        orderId=order_id,
-        openOnly=0,
-    )
-    items = response.get("result", {}).get("list", [])
-    if items:
-        return items[0]
-
-    history = session.get_order_history(
-        category=category, symbol=symbol, orderId=order_id)
-    history_items = history.get("result", {}).get("list", [])
-    if history_items:
-        return history_items[0]
-    return {}
-
-
-def get_order_status_by_link_id(
-    session, *, category: str, symbol: str, order_link_id: str
-) -> dict:
-    """Return the exact exchange order matching an orderLinkId, if it still exists.
-
-    This targeted lookup is used during reconciliation when an active local order is
-    absent from the regular open/history page. It avoids treating pagination as an
-    exchange reset.
+    Returns the status the order had before.
     """
-    response = session.get_open_orders(
-        category=category,
-        symbol=symbol,
-        orderLinkId=order_link_id,
-        openOnly=0,
+    old_status = order.status
+    reconciled_at = utcnow()
+    order.status = "Cancelled"
+    payload = dict(order.raw_response or {})
+    payload.update(
+        {
+            "orderStatus": "Cancelled",
+            "reconciliation": {
+                "reason": "missing_from_exchange",
+                "previousStatus": old_status,
+                "reconciledAt": reconciled_at.isoformat(),
+            },
+        }
     )
-    items = response.get("result", {}).get("list", [])
-    if items:
-        return items[0]
-
-    history = session.get_order_history(
-        category=category,
-        symbol=symbol,
-        orderLinkId=order_link_id,
-        limit=1,
+    order.raw_response = payload
+    db.add(order)
+    log_bot_event(
+        db,
+        bot,
+        "order_reconciled_missing",
+        "Marked local active order as cancelled because it is missing from the exchange",
+        {
+            "order_link_id": order.order_link_id,
+            "order_role": order.order_role,
+            "previous_status": old_status,
+            "new_status": order.status,
+        },
     )
-    history_items = history.get("result", {}).get("list", [])
-    if history_items:
-        return history_items[0]
-    return {}
+    return old_status
 
 
-def cancel_order_by_link_id(session, *, category: str, symbol: str, order_link_id: str) -> dict:
-    return session.cancel_order(category=category, symbol=symbol, orderLinkId=order_link_id)
+def resolve_order_state(db, bot, adapter, order_row) -> OrderResolution:
+    """Ask the exchange about an active order by its client tag and apply the answer (Flow 5).
+
+    `open` keeps it active, `final` takes its final state from history, `not_found` or the
+    `unknown_order` class marks it gone. Any other failure is re-raised with the order row
+    untouched: the tick aborts, so nothing tied to the order is placed or cancelled, and the
+    worker's error handler applies the class's reaction: a retried class retries within
+    `error_max_retries` and then pauses, any other class stops or pauses at once (AC-08).
+    """
+    try:
+        lookup = adapter.lookup_order(bot.category, bot.symbol, order_row.order_link_id)
+    except ExchangeError as exc:
+        if exc.error_class is not ErrorClass.UNKNOWN_ORDER:
+            raise
+        mark_order_missing_from_exchange(db, bot, order_row)
+        return OrderResolution("gone")
+
+    if lookup.is_not_found:
+        mark_order_missing_from_exchange(db, bot, order_row)
+        return OrderResolution("gone")
+    apply_exchange_order(order_row, lookup.order)
+    db.add(order_row)
+    return OrderResolution(lookup.state, lookup.order)

@@ -28,8 +28,9 @@ from app.models.backtest import BacktestCycle, BacktestPoint, BacktestRun
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot_order import TradingBotOrder
-from app.services.backtest_emulator import BacktestEmulatorClient
+from app.services.backtest_emulator import BacktestEmulatorClient, emulator_instrument_rules, emulator_venue
 from app.services.ui_stream_service import backtest_ui_stream_hub
+from app.bot_engine.exchange.redaction import scrub
 
 MAX_CHART_POINTS = 1800
 EPSILON = 1e-12
@@ -106,26 +107,12 @@ def _closed_pnl(side: str, entry_price: float, exit_price: float, qty: float) ->
     return (entry_price - exit_price) * qty
 
 
-def _instrument_rules(response: dict[str, Any]) -> InstrumentRules:
-    items = response.get("result", {}).get("list", [])
-    if not items:
-        raise ValueError("Instrument rules were not found for the selected symbol")
-    item = items[0]
-    lot = item.get("lotSizeFilter", {})
-    price = item.get("priceFilter", {})
-    return InstrumentRules(
-        min_order_qty=_float(lot.get("minOrderQty")),
-        qty_step=_float(lot.get("qtyStep"), 0.000001),
-        tick_size=_float(price.get("tickSize"), 0.000001),
-        min_notional_value=_float(lot.get("minNotionalValue")),
-    )
-
-
 class FastMomentumBacktestEngine:
     def __init__(self, db: Session, run: BacktestRun) -> None:
         self.db = db
         self.run = run
         self.emulator = BacktestEmulatorClient(get_settings().exchange_emulator_url, timeout=60)
+        self.exchange = emulator_venue()
         self.temp_bot: TradingBot | None = None
         self.settings: dict[str, Any] = {}
         self.rules: InstrumentRules | None = None
@@ -829,7 +816,10 @@ class FastMomentumBacktestEngine:
 
         self._make_temp_bot()
         assert self.temp_bot is not None
-        self.rules = _instrument_rules(self.emulator.instrument_info(category=self.temp_bot.category, symbol=self.run.symbol))
+        self.rules = emulator_instrument_rules(
+            self.exchange, category=self.temp_bot.category, symbol=self.run.symbol,
+            missing="Instrument rules were not found for the selected symbol",
+        )
         candles = self._load_candles()
         if len(candles) != self.run.total_candles:
             raise RuntimeError(
@@ -949,7 +939,7 @@ def run_fast_momentum_backtest_job(run_id: int) -> None:
         run = db.get(BacktestRun, run_id)
         if run is not None and run.status != "cancelled":
             run.status = "failed"
-            run.error = str(exc)
+            run.error = scrub(str(exc))
             run.completed_at = _utcnow()
             if run.temp_bot_id:
                 failed_bot = db.get(TradingBot, run.temp_bot_id)

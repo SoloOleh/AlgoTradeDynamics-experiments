@@ -17,9 +17,10 @@ from typing import Any
 
 from sqlalchemy import desc
 
-from app.bot_engine.bybit.client import get_bybit_session
+from app.bot_engine.exchange import registry
+from app.bot_engine.exchange.errors import GuardRefusal
+from app.bot_engine.exchange.port import PlacedOrder
 from app.bot_engine.events import log_bot_event
-from app.bot_engine.error_handling import ExchangeOperationError
 from app.bot_engine.grid_runtime import (
     cancel_all_bot_orders,
     ensure_live_trading_allowed,
@@ -28,6 +29,7 @@ from app.bot_engine.grid_runtime import (
 )
 from app.bot_engine.market_data import get_instrument_rules, get_last_price, get_ticker_snapshot
 from app.bot_engine.orders import (
+    ensure_accepted as _ensure_accepted,
     ACTIVE_ORDER_STATUSES,
     OrderRequest,
     normalize_order_request,
@@ -36,9 +38,12 @@ from app.bot_engine.orders import (
 )
 from app.bot_engine.positions import get_open_positions
 from app.core.clock import utcnow
+from app.bot_engine.exchange.capabilities import Capability
+from app.bot_engine.strategies.base import COMMON_CAPABILITIES
 from app.models.trading_bot import TradingBot
 from app.models.trading_bot_event import TradingBotEvent
 from app.models.trading_bot_order import TradingBotOrder
+from app.bot_engine.exchange.redaction import scrub
 
 
 @dataclass(slots=True)
@@ -77,13 +82,6 @@ def _fmt(value: Any) -> str | None:
     numeric = _float(value)
     return f"{numeric:.12f}".rstrip("0").rstrip(".") if numeric else "0"
 
-
-def _ensure_accepted(response: dict, action: str) -> None:
-    code = response.get("retCode")
-    if code is None or str(code) == "0":
-        return
-    message = response.get("retMsg") or response.get("retMessage") or "Unknown exchange error"
-    raise ExchangeOperationError(str(message), code=code, operation=action)
 
 
 def _interval_seconds(interval: str) -> int:
@@ -305,26 +303,19 @@ def _atr(candles: list[Candle], period: int) -> float:
     return sum(ranges) / len(ranges) if ranges else 0.0
 
 
-def _closed_candles(session, bot: TradingBot, settings: dict) -> list[Candle]:
+def _closed_candles(adapter, bot: TradingBot, settings: dict) -> list[Candle]:
     interval = settings["timeframe"]
     end_ms = int(utcnow().timestamp() * 1000) - _interval_seconds(interval) * 1000
-    response = session.get_kline(
-        category=bot.category,
-        symbol=bot.symbol,
-        interval=interval,
-        end=end_ms,
-        limit=min(settings["lookback_candles"], 1000),
-    )
-    candles: list[Candle] = []
-    for row in response.get("result", {}).get("list", []):
-        if not isinstance(row, (list, tuple)) or len(row) < 6:
-            continue
-        try:
-            candles.append(Candle(int(row[0]), float(row[1]), float(row[2]), float(row[3]), float(row[4]), float(row[5])))
-        except (TypeError, ValueError):
-            continue
-    candles.sort(key=lambda item: item.open_time)
-    return candles
+    return [
+        Candle(item.open_time, item.open, item.high, item.low, item.close, item.volume)
+        for item in adapter.candles(
+            bot.category,
+            bot.symbol,
+            interval=interval,
+            end_ms=end_ms,
+            limit=min(settings["lookback_candles"], 1000),
+        )
+    ]
 
 
 def _signal_v2(candles: list[Candle], settings: dict) -> Signal | None:
@@ -1130,33 +1121,41 @@ def _signal(candles: list[Candle], settings: dict) -> Signal | None:
     return _signal_v2(candles, settings)
 
 
-def _position(session, bot: TradingBot) -> dict | None:
-    for raw in get_open_positions(session, category=bot.category, symbol=bot.symbol):
-        size = _float(raw.get("size") or raw.get("qty"))
+def _position(adapter, bot: TradingBot) -> dict | None:
+    for position in get_open_positions(adapter, category=bot.category, symbol=bot.symbol):
+        size = position.size
         if size <= 0:
             continue
-        side_value = str(raw.get("side") or raw.get("positionSide") or "Buy").lower()
+        side_value = (position.side or "Buy").lower()
         side = "Sell" if side_value in {"sell", "short"} else "Buy"
         return {
             "side": side,
             "size": size,
-            "avg_entry_price": _float(raw.get("avgPrice") or raw.get("avgEntryPrice")),
-            "raw": raw,
+            "avg_entry_price": _float(position.avg_entry_price),
+            "position": position,
         }
     return None
 
 
-def _record_order(db, bot: TradingBot, order: OrderRequest, response: dict, payload: dict | None = None) -> TradingBotOrder:
-    result = response.get("result", {})
+def _position_unless_refused(bot: TradingBot) -> dict | None:
+    """The open position for the runtime state; none while the guard refuses the venue (AC-10)."""
+    try:
+        adapter = registry.exchange_for(bot)
+    except GuardRefusal:
+        return None
+    return _position(adapter, bot)
+
+
+def _record_order(db, bot: TradingBot, order: OrderRequest, placed: PlacedOrder, payload: dict | None = None) -> TradingBotOrder:
     record = TradingBotOrder(
         created_at=utcnow(), updated_at=utcnow(), bot_id=bot.id, user_id=bot.user_id,
         exchange=bot.exchange, environment=bot.environment, category=bot.category, symbol=bot.symbol,
         side=order.side, order_type=order.order_type, order_role=order.order_role,
         order_link_id=order.order_link_id, qty=order.qty, price=order.price,
-        exchange_order_id=result.get("orderId"), status=result.get("orderStatus") or "New",
+        exchange_order_id=placed.order_id, status=placed.status or "New",
         parent_order_id=order.parent_order_id,
         raw_response={
-            **dict(response or {}), "orderLinkId": order.order_link_id, "side": order.side,
+            **dict(placed.raw or {}), "orderLinkId": order.order_link_id, "side": order.side,
             "orderType": order.order_type, "qty": str(order.qty),
             "price": str(order.price) if order.price is not None else None,
             "reduceOnly": order.reduce_only, "strategy": payload or {},
@@ -1173,55 +1172,37 @@ def _latest_event(db, bot: TradingBot) -> TradingBotEvent | None:
     ).first()
 
 
-def _wallet_balance(session) -> float | None:
+def _wallet_balance(adapter) -> float | None:
+    # Fail open on a failed balance read: sizing and the daily-loss guard skip (accepted debt).
     try:
-        accounts = session.get_wallet_balance(accountType="UNIFIED").get("result", {}).get("list", [])
+        balance = adapter.balance()
     except Exception:  # noqa: BLE001
         return None
-    if not accounts:
-        return None
-    account = accounts[0]
-    for key in ("totalEquity", "totalWalletBalance", "walletBalance"):
-        value = _float(account.get(key), -1)
-        if value >= 0:
+    for value in (balance.total_equity, balance.total_wallet, balance.wallet):
+        if value is not None and value >= 0:
             return value
-    for coin in account.get("coin") or []:
-        if str(coin.get("coin") or "").upper() == "USDT":
-            value = _float(coin.get("equity") or coin.get("walletBalance"), -1)
-            if value >= 0:
-                return value
+    coin = next((value for value in (balance.coin_equity, balance.coin_wallet) if value is not None), None)
+    if coin is not None and coin >= 0:
+        return coin
     return None
 
 
-def _daily_pnl(session, bot: TradingBot) -> float:
+def _daily_pnl(adapter, bot: TradingBot) -> float:
     now = utcnow()
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    executions: list[dict[str, Any]] = []
-    cursor: str | None = None
-    seen_cursors: set[str] = set()
     try:
-        for _ in range(100):
-            params: dict[str, Any] = {
-                "category": bot.category, "symbol": bot.symbol,
-                "startTime": int(start.timestamp() * 1000),
-                "endTime": int(now.timestamp() * 1000), "limit": 100,
-            }
-            if cursor:
-                params["cursor"] = cursor
-            response = session.get_executions(**params)
-            result = response.get("result", {})
-            executions.extend(result.get("list", []) or [])
-            next_cursor = str(result.get("nextPageCursor") or "")
-            if not next_cursor or next_cursor in seen_cursors:
-                break
-            seen_cursors.add(next_cursor)
-            cursor = next_cursor
+        executions = adapter.executions(
+            bot.category,
+            bot.symbol,
+            start_ms=int(start.timestamp() * 1000),
+            end_ms=int(now.timestamp() * 1000),
+        )
     except Exception:  # noqa: BLE001
         return 0.0
-    return sum(_float(item.get("closedPnl")) - _float(item.get("execFee")) for item in executions)
+    return sum(_float(item.realised_pnl) - _float(item.fee) for item in executions)
 
 
-def _risk_reason(session, bot: TradingBot, settings: dict, price: float, qty: float) -> str | None:
+def _risk_reason(adapter, bot: TradingBot, settings: dict, price: float, qty: float) -> str | None:
     if qty <= 0:
         return "Calculated order quantity is zero"
     maximum = _float(settings.get("max_position_qty"), bot.order_qty)
@@ -1230,18 +1211,18 @@ def _risk_reason(session, bot: TradingBot, settings: dict, price: float, qty: fl
     max_notional = settings.get("max_notional_usdt")
     if max_notional is not None and qty * price > _float(max_notional):
         return "Max notional exposure exceeded"
-    balance = _wallet_balance(session)
+    balance = _wallet_balance(adapter)
     daily_limit = _float(settings.get("max_daily_loss_percent"), 2)
-    if balance and daily_limit > 0 and _daily_pnl(session, bot) <= -(balance * daily_limit / 100):
+    if balance and daily_limit > 0 and _daily_pnl(adapter, bot) <= -(balance * daily_limit / 100):
         return "Maximum daily loss reached"
     return None
 
 
-def _entry_qty(session, bot: TradingBot, settings: dict, entry: float, stop: float) -> float:
+def _entry_qty(adapter, bot: TradingBot, settings: dict, entry: float, stop: float) -> float:
     maximum = min(float(bot.order_qty), _float(settings.get("max_position_qty"), bot.order_qty))
     if str(settings.get("position_sizing") or "risk_capped") != "risk_capped":
         return maximum
-    balance = _wallet_balance(session)
+    balance = _wallet_balance(adapter)
     distance = abs(entry - stop)
     if not balance or distance <= 0:
         return maximum
@@ -1277,10 +1258,10 @@ def _should_tick(bot: TradingBot, settings: dict) -> bool:
     return (utcnow() - last_run).total_seconds() >= _float(settings.get("run_interval_seconds"), 5)
 
 
-def _close(db, bot: TradingBot, session, position: dict, role: str, reason: str, trade: dict | None) -> TradingBotOrder:
+def _close(db, bot: TradingBot, adapter, position: dict, role: str, reason: str, trade: dict | None) -> TradingBotOrder:
     now = utcnow()
     side = "Sell" if position["side"] == "Buy" else "Buy"
-    rules = get_instrument_rules(session, category=bot.category, symbol=bot.symbol)
+    rules = get_instrument_rules(adapter, category=bot.category, symbol=bot.symbol)
     request = normalize_order_request(OrderRequest(
         side=side, order_type="Market", order_role=role,
         order_link_id=f"{get_order_link_prefix(bot)}{role}-{int(now.timestamp() * 1000)}",
@@ -1289,7 +1270,7 @@ def _close(db, bot: TradingBot, session, position: dict, role: str, reason: str,
     validation = validate_order_request(request, rules)
     if validation:
         raise ValueError(validation)
-    response = place_order(session, category=bot.category, symbol=bot.symbol, order=request)
+    response = place_order(adapter, category=bot.category, symbol=bot.symbol, order=request)
     _ensure_accepted(response, "Position close")
     record = _record_order(db, bot, request, response, {"exit_reason": reason, "trade": trade or {}})
     state = _state(bot)
@@ -1313,7 +1294,14 @@ class PatternScalperStrategy:
     def get_effective_settings(self, bot: TradingBot) -> dict:
         return _settings(bot)
 
+    def required_capabilities(self, bot: TradingBot) -> frozenset[Capability]:
+        return COMMON_CAPABILITIES | {
+            Capability.MARKET_ORDERS, Capability.POSITION_READS, Capability.SHORT_SELLING,
+            Capability.WALLET_BALANCE, Capability.CANDLES,
+        }
+
     def validate_start(self, db, bot: TradingBot) -> None:
+        # A product rule, not a capability: the guard already refused a venue without short selling.
         if bot.category != "linear":
             raise ValueError("Pattern Scalper currently supports linear perpetuals only")
         message = ensure_live_trading_allowed(db, bot)
@@ -1360,11 +1348,11 @@ class PatternScalperStrategy:
             if _float(settings.get(key), 0.0) < 0:
                 raise ValueError(f"{key} cannot be negative")
 
-    def sync_orders(self, db, bot: TradingBot) -> list[TradingBotOrder]:
-        return [change["order"] for change in sync_bot_orders(db, bot)]
+    def sync_orders(self, db, bot: TradingBot, *, adapter=None) -> list[TradingBotOrder]:
+        return [change["order"] for change in sync_bot_orders(db, bot, adapter=adapter)]
 
-    def cancel_orders(self, db, bot: TradingBot) -> list[TradingBotOrder]:
-        return cancel_all_bot_orders(db, bot)
+    def cancel_orders(self, db, bot: TradingBot, *, adapter=None) -> list[TradingBotOrder]:
+        return cancel_all_bot_orders(db, bot, adapter=adapter)
 
     def get_runtime_state(self, db, bot: TradingBot) -> tuple[str, str | None]:
         latest = _latest_event(db, bot)
@@ -1375,8 +1363,7 @@ class PatternScalperStrategy:
             return "stopped", risk
         if bot.last_error:
             return "error", risk
-        session = get_bybit_session(bot)
-        if _position(session, bot):
+        if _position_unless_refused(bot):
             return "position_open", risk
         settings = _settings(bot)
         if _cooldown(bot, settings, _state(bot)):
@@ -1385,43 +1372,45 @@ class PatternScalperStrategy:
             return "risk_blocked", risk
         return "waiting_for_signal", None
 
-    def get_position(self, db, bot: TradingBot) -> dict:
-        session = get_bybit_session(bot)
-        ticker = get_ticker_snapshot(session, category=bot.category, symbol=bot.symbol)
-        mark = _float(ticker.get("markPrice") or ticker.get("lastPrice"))
-        position = _position(session, bot)
+    def get_position(self, db, bot: TradingBot, *, adapter=None) -> dict:
+        if adapter is None:
+            adapter = registry.exchange_for(bot)
+        ticker = get_ticker_snapshot(adapter, category=bot.category, symbol=bot.symbol)
+        mark = _float(ticker.mark_price if ticker.mark_price is not None else ticker.last_price)
+        position = _position(adapter, bot)
         if not position:
             return {"symbol": bot.symbol, "category": bot.category, "side": None, "size": "0", "avg_entry_price": None,
                     "mark_price": _fmt(mark), "liq_price": None, "unrealized_pnl": None, "unrealized_pnl_percent": None,
                     "leverage": None, "margin_mode": None, "position_value": None, "take_profit": None}
-        raw, average, size = position["raw"], position["avg_entry_price"], position["size"]
-        unrealized = _float(raw.get("unrealisedPnl") or raw.get("unrealizedPnl"))
+        exchange, average, size = position["position"], position["avg_entry_price"], position["size"]
+        unrealized = _float(exchange.unrealised_pnl)
         if not unrealized and mark and average:
             unrealized = ((mark - average) if position["side"] == "Buy" else (average - mark)) * size
-        value = _float(raw.get("positionValue"), size * mark)
+        value = _float(exchange.position_value, size * mark)
         trade = _state(bot).get("current_trade") or {}
         tp = None
         if trade.get("take_profit") is not None:
             tp = {"order_id": None, "order_link_id": trade.get("entry_order_link_id"), "price": _fmt(trade["take_profit"]),
                   "qty": _fmt(size), "status": "ManagedByStrategy", "reduce_only": True}
         return {"symbol": bot.symbol, "category": bot.category, "side": position["side"], "size": _fmt(size),
-                "avg_entry_price": _fmt(average), "mark_price": _fmt(mark), "liq_price": _fmt(raw.get("liqPrice")),
+                "avg_entry_price": _fmt(average), "mark_price": _fmt(mark), "liq_price": _fmt(exchange.liq_price) or "0",
                 "unrealized_pnl": _fmt(unrealized), "unrealized_pnl_percent": _fmt(unrealized / value * 100 if value else None),
-                "leverage": _fmt(raw.get("leverage")), "margin_mode": raw.get("tradeMode") or raw.get("marginMode"),
+                "leverage": _fmt(exchange.leverage), "margin_mode": exchange.margin_mode,
                 "position_value": _fmt(value), "take_profit": tp}
 
-    def get_risk(self, db, bot: TradingBot) -> dict:
-        session = get_bybit_session(bot)
+    def get_risk(self, db, bot: TradingBot, *, adapter=None) -> dict:
+        if adapter is None:
+            adapter = registry.exchange_for(bot)
         settings = _settings(bot)
-        position = _position(session, bot)
+        position = _position(adapter, bot)
         current_qty = position["size"] if position else 0.0
         active = db.query(TradingBotOrder).filter(
             TradingBotOrder.bot_id == bot.id, TradingBotOrder.status.in_(ACTIVE_ORDER_STATUSES)
         ).all()
-        pending = sum(order.qty for order in active if not bool((order.raw_response or {}).get("reduceOnly")))
-        price = get_last_price(session, category=bot.category, symbol=bot.symbol)
+        pending = sum(order.qty for order in active if not order.is_reduce_only)
+        price = get_last_price(adapter, category=bot.category, symbol=bot.symbol)
         potential = current_qty + pending
-        reason = _risk_reason(session, bot, settings, price, potential or bot.order_qty)
+        reason = _risk_reason(adapter, bot, settings, price, potential or bot.order_qty)
         if not reason and _cooldown(bot, settings, _state(bot)):
             reason = "Cooldown active"
         return {"max_position_qty": _fmt(settings["max_position_qty"]), "current_position_qty": _fmt(current_qty),
@@ -1432,16 +1421,17 @@ class PatternScalperStrategy:
                 "is_live_environment": str(bot.environment).lower() == "live",
                 "blocked": bool(reason and reason != "Cooldown active"), "reason": reason}
 
-    def close_position(self, db, bot: TradingBot) -> dict:
-        session = get_bybit_session(bot)
-        position = _position(session, bot)
+    def close_position(self, db, bot: TradingBot, *, adapter=None) -> dict:
+        if adapter is None:
+            adapter = registry.exchange_for(bot)
+        position = _position(adapter, bot)
         if not position:
             return {"message": "No open position to close", "order": None}
-        order = _close(db, bot, session, position, "scalper_manual_close", "Manual position close requested", _state(bot).get("current_trade"))
+        order = _close(db, bot, adapter, position, "scalper_manual_close", "Manual position close requested", _state(bot).get("current_trade"))
         db.flush()
         return {"message": "Position close order submitted", "order": order}
 
-    def tick(self, db, bot: TradingBot, *, force: bool = False) -> dict:
+    def tick(self, db, bot: TradingBot, *, force: bool = False, adapter=None) -> dict:
         settings = _settings(bot)
         if bot.runtime_status != "running":
             return {"orders": [], "events": 0, "message": "Bot is not running"}
@@ -1457,9 +1447,10 @@ class PatternScalperStrategy:
             return {"orders": [], "events": 1, "message": live_message}
 
         try:
-            synced = sync_bot_orders(db, bot)
-            session = get_bybit_session(bot)
-            position = _position(session, bot)
+            if adapter is None:
+                adapter = registry.exchange_for(bot)
+            synced = sync_bot_orders(db, bot, adapter=adapter)
+            position = _position(adapter, bot)
             state = _state(bot)
             trade = dict(state.get("current_trade") or {})
             created: list[TradingBotOrder] = []
@@ -1487,7 +1478,7 @@ class PatternScalperStrategy:
                 _save_state(db, bot, state)
                 pending_exit = {}
 
-            current_price = get_last_price(session, category=bot.category, symbol=bot.symbol)
+            current_price = get_last_price(adapter, category=bot.category, symbol=bot.symbol)
             if position:
                 exit_is_settling = False
                 if pending_exit:
@@ -1498,7 +1489,7 @@ class PatternScalperStrategy:
                         _save_state(db, bot, state)
                         pending_exit = {}
                 if not trade:
-                    candles = _closed_candles(session, bot, settings)
+                    candles = _closed_candles(adapter, bot, settings)
                     atr = _atr(candles, settings["atr_period"])
                     recovery = Signal(position["side"], 0, position["avg_entry_price"], atr, candles[-1].open_time if candles else 0, ["Recovered open position"], {"atr": atr})
                     stop, take = _levels(recovery, settings, position["avg_entry_price"])
@@ -1515,34 +1506,34 @@ class PatternScalperStrategy:
                 elif position["side"] == "Sell" and take and current_price <= take: role, reason = "scalper_take_profit", "Short take-profit reached"
                 elif held >= _float(settings.get("max_holding_minutes"), 30) * 60: role, reason = "scalper_timeout", "Maximum holding time reached"
                 if role and not exit_is_settling:
-                    created.append(_close(db, bot, session, position, role, reason, trade))
+                    created.append(_close(db, bot, adapter, position, role, reason, trade))
             elif not trade:
                 active_entries = [order for order in db.query(TradingBotOrder).filter(
                     TradingBotOrder.bot_id == bot.id, TradingBotOrder.status.in_(ACTIVE_ORDER_STATUSES)
-                ).all() if not bool((order.raw_response or {}).get("reduceOnly"))]
+                ).all() if not order.is_reduce_only]
                 if not active_entries and not _cooldown(bot, settings, state):
-                    signal = _signal(_closed_candles(session, bot, settings), settings)
+                    signal = _signal(_closed_candles(adapter, bot, settings), settings)
                     if signal and signal.candle_time != state.get("last_signal_candle"):
                         state["last_signal_candle"] = signal.candle_time
                         _save_state(db, bot, state)
                         stop, take = _levels(signal, settings, current_price)
-                        rules = get_instrument_rules(session, category=bot.category, symbol=bot.symbol)
+                        rules = get_instrument_rules(adapter, category=bot.category, symbol=bot.symbol)
                         request = normalize_order_request(OrderRequest(
                             side=signal.side, order_type="Market",
                             order_role="scalper_entry_long" if signal.side == "Buy" else "scalper_entry_short",
                             order_link_id=f"{get_order_link_prefix(bot)}scalper-entry-{signal.side.lower()}-{signal.candle_time}",
-                            qty=_entry_qty(session, bot, settings, current_price, stop), price=None, reduce_only=False,
+                            qty=_entry_qty(adapter, bot, settings, current_price, stop), price=None, reduce_only=False,
                         ), rules)
-                        risk = _risk_reason(session, bot, settings, current_price, request.qty)
+                        risk = _risk_reason(adapter, bot, settings, current_price, request.qty)
                         validation = validate_order_request(request, rules)
                         notional = request.qty * current_price
                         if not validation and rules.min_notional_value > 0 and notional + 1e-12 < rules.min_notional_value:
-                            validation = f"Order notional {notional:.8f} is below Bybit minimum {rules.min_notional_value}"
+                            validation = f"Order notional {notional:.8f} is below the exchange minimum {rules.min_notional_value}"
                         if risk or validation:
                             message = risk or validation or "Entry blocked"
                             log_bot_event(db, bot, "risk_blocked", message, {"side": signal.side, "score": signal.score, "qty": request.qty, "price": current_price})
                         else:
-                            response = place_order(session, category=bot.category, symbol=bot.symbol, order=request)
+                            response = place_order(adapter, category=bot.category, symbol=bot.symbol, order=request)
                             _ensure_accepted(response, "Scalper entry")
                             payload = {"signal_score": signal.score, "signal_reasons": signal.reasons, "signal_pattern": signal.pattern, "indicators": signal.indicators,
                                        "signal_candle_time": signal.candle_time, "entry_price": current_price, "stop_loss": stop, "take_profit": take}
@@ -1563,8 +1554,9 @@ class PatternScalperStrategy:
         except Exception as exc:  # noqa: BLE001
             if not bot.is_backtest:
                 raise
-            bot.last_run_at = utcnow(); bot.last_error = str(exc)
+            error = scrub(str(exc))
+            bot.last_run_at = utcnow(); bot.last_error = error
             if bool(settings.get("stop_bot_on_error", True)):
                 bot.runtime_status = "stopped"
-            log_bot_event(db, bot, "error", str(exc)); db.add(bot); db.commit()
-            return {"orders": [], "events": 1, "message": str(exc)}
+            log_bot_event(db, bot, "error", error); db.add(bot); db.commit()
+            return {"orders": [], "events": 1, "message": error}

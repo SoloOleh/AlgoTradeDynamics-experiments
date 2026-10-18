@@ -15,6 +15,8 @@ from app.bot_engine.grid_runtime import (
     get_runtime_state,
     sync_bot_orders,
 )
+from app.bot_engine.exchange.capabilities import Capability
+from app.bot_engine.strategies.base import COMMON_CAPABILITIES
 from app.models.trading_bot import TradingBot
 
 
@@ -27,26 +29,30 @@ class DcaStrategy:
     def get_runtime_state(self, db, bot: TradingBot) -> tuple[str, str | None]:
         return get_runtime_state(db, bot)
 
+    def required_capabilities(self, bot: TradingBot) -> frozenset[Capability]:
+        # Position reads: every tick reads the long position to size its take-profit.
+        return COMMON_CAPABILITIES | {Capability.MARKET_ORDERS, Capability.POSITION_READS}
+
     def validate_start(self, db, bot: TradingBot) -> None:
         message = ensure_live_trading_allowed(db, bot)
         if message:
             raise ValueError(message)
         validate_dca_configuration(bot)
 
-    def tick(self, db, bot: TradingBot, *, force: bool = False) -> dict:
-        return tick_dca_bot(db, bot, force=force)
+    def tick(self, db, bot: TradingBot, *, force: bool = False, adapter=None) -> dict:
+        return tick_dca_bot(db, bot, force=force, adapter=adapter)
 
-    def sync_orders(self, db, bot: TradingBot) -> list:
-        return [change["order"] for change in sync_bot_orders(db, bot)]
+    def sync_orders(self, db, bot: TradingBot, *, adapter=None) -> list:
+        return [change["order"] for change in sync_bot_orders(db, bot, adapter=adapter)]
 
-    def cancel_orders(self, db, bot: TradingBot) -> list:
-        return cancel_all_bot_orders(db, bot)
+    def cancel_orders(self, db, bot: TradingBot, *, adapter=None) -> list:
+        return cancel_all_bot_orders(db, bot, adapter=adapter)
 
-    def get_position(self, db, bot: TradingBot) -> dict:
-        return get_position_snapshot(db, bot)
+    def get_position(self, db, bot: TradingBot, *, adapter=None) -> dict:
+        return get_position_snapshot(db, bot, adapter=adapter)
 
-    def get_risk(self, db, bot: TradingBot) -> dict:
-        return get_dca_risk_summary(db, bot)
+    def get_risk(self, db, bot: TradingBot, *, adapter=None) -> dict:
+        return get_dca_risk_summary(db, bot, adapter=adapter)
 
-    def close_position(self, db, bot: TradingBot) -> dict:
-        return close_bot_position(db, bot)
+    def close_position(self, db, bot: TradingBot, *, adapter=None) -> dict:
+        return close_bot_position(db, bot, adapter=adapter)

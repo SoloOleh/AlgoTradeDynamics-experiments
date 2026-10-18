@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.bot_engine.events import log_bot_event
+from app.bot_engine.exchange import registry
 from app.bot_engine.error_handling import clear_bot_runtime_error
 from app.bot_engine.strategies import get_strategy
 from app.models.trading_bot import TradingBot
@@ -21,6 +22,8 @@ def run_bot_once(db, bot: TradingBot, current_user: User) -> dict:
     if not bot.is_active:
         raise ValueError("Trading bot is inactive")
     strategy = get_strategy(bot.strategy_type)
+    # Fail closed before anything else: unknown venue or missing capability (ADR-0004).
+    registry.exchange_for(bot)
     strategy.validate_start(db, bot)
     bot.runtime_status = "running"
     bot.started_at = bot.started_at or _utcnow()
@@ -48,10 +51,11 @@ def stop_bot_once(db, bot: TradingBot, current_user: User, *, cancel_open: bool 
     if bot.user_id != current_user.id:
         raise PermissionError("Trading bot access denied")
     strategy = get_strategy(bot.strategy_type)
+    adapter = registry.exchange_for(bot)
     if bool(strategy.get_effective_settings(bot).get("close_position_on_stop", False)):
-        strategy.close_position(db, bot)
+        strategy.close_position(db, bot, adapter=adapter)
     if cancel_open and bool(strategy.get_effective_settings(bot).get("cancel_orders_on_stop", True)):
-        strategy.cancel_orders(db, bot)
+        strategy.cancel_orders(db, bot, adapter=adapter)
     bot.runtime_status = "stopped"; bot.stopped_at = _utcnow(); clear_bot_runtime_error(bot)
     db.add(bot); log_bot_event(db, bot, "bot_stopped", "Bot stopped"); db.commit(); db.refresh(bot)
     return bot
@@ -60,13 +64,16 @@ def stop_bot_once(db, bot: TradingBot, current_user: User, *, cancel_open: bool 
 def sync_bot_orders_once(db, bot: TradingBot, current_user: User) -> list[TradingBotOrder]:
     if bot.user_id != current_user.id:
         raise PermissionError("Trading bot access denied")
-    orders = get_strategy(bot.strategy_type).sync_orders(db, bot)
+    adapter = registry.exchange_for(bot)
+    orders = get_strategy(bot.strategy_type).sync_orders(db, bot, adapter=adapter)
     bot.last_run_at = _utcnow(); bot.last_error = None; db.add(bot); db.commit()
     return orders
 
 
-def tick_bot_once(db, bot: TradingBot, *, force: bool = False) -> dict:
-    return get_strategy(bot.strategy_type).tick(db, bot, force=force)
+def tick_bot_once(db, bot: TradingBot, *, force: bool = False, adapter=None) -> dict:
+    if adapter is None:
+        adapter = registry.exchange_for(bot)
+    return get_strategy(bot.strategy_type).tick(db, bot, force=force, adapter=adapter)
 
 
 run_grid_bot_once = run_bot_once

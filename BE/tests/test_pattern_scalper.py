@@ -313,3 +313,28 @@ def test_v4_detects_triangle_compression_breakout():
     assert signal is not None
     assert signal.side == "Buy"
     assert signal.pattern == "triangle_breakout"
+
+
+def test_start_needs_short_selling_on_the_bots_market_type():
+    """The guard refuses a venue without short selling and names it; validate_start keeps today's text."""
+    import pytest
+
+    from app.bot_engine.exchange import registry
+    from app.bot_engine.exchange.bybit.capabilities import BYBIT_CAPABILITIES
+    from app.bot_engine.exchange.capabilities import Capability, CapabilitySet, MarketType
+    from app.bot_engine.exchange.errors import CapabilityMissing
+
+    no_shorts = CapabilitySet({MarketType.LINEAR: BYBIT_CAPABILITIES.for_market_type("linear") - {Capability.SHORT_SELLING}})
+
+    class Venue:
+        def capabilities(self):
+            return no_shorts
+
+    bot = TradingBot(exchange="stand-in", environment="demo", category="linear", symbol="BTCUSDT",
+                     strategy_type="pattern_scalper", order_qty=0.01, grid_orders_count=1,
+                     grid_step_percent=0, settings={})
+    with registry.registered_venue("stand-in", "demo", lambda account: Venue()):
+        with pytest.raises(CapabilityMissing) as refused:
+            registry.exchange_for(bot)
+    assert refused.value.details["capability"] == "short_selling"
+    assert refused.value.details["market_type"] == "linear"
