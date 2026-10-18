@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/sad.md"]
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18-2"
-status: "todo"
+status: "done"
 ---
 
 # T68 — Mark the deferred rounding-boundary runs and latency check in the SAD

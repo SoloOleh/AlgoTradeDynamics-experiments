@@ -73,7 +73,7 @@
 | T65 | Assert the AC-07 retry time in the placement-timeout test | tests | Oleh Solomko | S | T59 | done |
 | T66 | Make the AC-07 cleared-retry-time check able to fail | tests | Oleh Solomko | S | T65 | done |
 | T67 | Stop the bot as internal on an unrecognised exchange rejection code | infra | Oleh Solomko | S | T65 | done |
-| T68 | Mark the deferred rounding-boundary runs and latency check in the SAD | docs | Oleh Solomko | S | T65 | todo |
+| T68 | Mark the deferred rounding-boundary runs and latency check in the SAD | docs | Oleh Solomko | S | T65 | done |
 | T69 | Cite the spec §8 items by name in T61 and T64 | docs | Oleh Solomko | S | T65 | todo |
 **Total:** 69 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S), plus T41–T47, review follow-ups from `_review/review-2026-10-15-2.md` (7 × S), plus T48–T51, review follow-ups from `_review/review-2026-10-15-3.md` (4 × S), plus T52–T55, review follow-ups from `_review/review-2026-10-17.md` (4 × S), plus T56–T59, review follow-ups from `_review/review-2026-10-17-2.md` (4 × S), plus T60–T65, review follow-ups from `_review/review-2026-10-18.md` (6 × S), plus T66–T69, review follow-ups from `_review/review-2026-10-18-2.md` (4 × S).
 

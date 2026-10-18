@@ -929,6 +929,7 @@ Each top-3 goal from §1 is expanded into a full scenario. QG-4 is the performan
   - Reaction latency (fill → bot reaction): «p95 ≤ pre-refactor baseline + 0.5 s on the emulator (baseline measured before the first PR), measured from the moment the emulator publishes the fill event to the moment the bot sends its next order or saves its new state, whichever comes first».
   - Adapter overhead: «≤ 5 ms added to the p95 duration of a single exchange request, compared with the pre-refactor run on the same emulator».
 - **How verify:** wall-clock timestamps recorded by the golden-run harness (not the simulated clock), pre-refactor vs migrated (ADR-0007).
+- **Deferred, see [spec §8](./spec.md#8-open-questions) (reaction-latency NFR not yet validated):** Momentum and Pattern Scalper record 0 fill→reaction samples, and Grid and DCA ran once per side instead of 3 + 3, so this comparison cannot yet fail. The same deferral is marked in [test-plan.md](test-plan.md) «NFR validation (load)».
 
 ## 11. Risks and technical debt
 
@@ -953,7 +954,7 @@ Each top-3 goal from §1 is expanded into a full scenario. QG-4 is the performan
 | The UI live stream (`api/websockets.py:247-261`) opens `/v5/` WS connections itself with `api_key` in the URL | Medium | Migrated in step (7): it takes its stream endpoints from the adapter through the guard, and its errors pass the scrubber (ADR-0008, ADR-0009) | Oleh Solomko |
 | The scrubber removes only secrets it knows. An unexpected credential (for example a new token type) inside an error text would pass | Low | Pattern masking on top of known-value masking (`api_key=…`, `X-API-Key: …`, `api_secret`). Security review of the scrubber (spec §6.1) | Oleh Solomko |
 | `docs/architecture-map.md` §Conventions goes stale: exchange clients move from `bot_engine/bybit/` to `bot_engine/exchange/<name>/` | Low | Re-run `/sdd:survey` after the last PR of the step | Oleh Solomko |
-| Resolved (spec §8, 2026-10-13 in [test-plan.md](test-plan.md)): which price scenarios the golden runs use, and the mid-cycle starting state for Momentum and Pattern Scalper | Low | Default accepted at `/sdd:plan-tests`. Spec default: one trend-and-range scenario per strategy plus one rounding-boundary scenario. For Momentum and Pattern Scalper, mid-cycle = an open position with its take-profit and stop orders placed | Oleh Solomko |
+| Resolved (spec §8, 2026-10-13 in [test-plan.md](test-plan.md)): which price scenarios the golden runs use, and the mid-cycle starting state for Momentum and Pattern Scalper | Low | Default accepted at `/sdd:plan-tests`. Spec default: one trend-and-range scenario per strategy plus one rounding-boundary scenario. The rounding-boundary recordings are deferred ([spec §8](./spec.md#8-open-questions), rounding-boundary golden runs): only the trend-and-range runs exist. For Momentum and Pattern Scalper, mid-cycle = an open position with its take-profit and stop orders placed | Oleh Solomko |
 | Open question (spec §8): reshape Momentum and Pattern Scalper client tags longer than 36 characters now or in step 1 | Open question | Resolve before the roadmap step 1 spec. The maximum tag length is already a declared capability value (Bybit 36, ADR-0006), and tags stay unchanged in this step | Oleh Solomko |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
