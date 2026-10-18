@@ -102,4 +102,4 @@ Step 7 enters a wave only after its recon pass.
 
 | Step | Shipped | Link |
 |---|---|---|
-| 0 — Exchange adapter | 2026-10-18 | [changelog](features/exchange-adapter/_ship/changelog.md) · PR: pending (branch `experiments`) |
+| 0 — Exchange adapter | 2026-10-18 | [changelog](features/exchange-adapter/_ship/changelog.md) · [PR #1](https://github.com/SoloOleh/AlgoTradeDynamics-experiments/pull/1) |
