@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/contracts/openapi.yaml", "docs/feat
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18-3"
-status: "todo"
+status: "done"
 ---
 
 # T72 — Document how an unclassified failure is reported in the contract and the SAD

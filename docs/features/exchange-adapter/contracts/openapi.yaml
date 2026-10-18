@@ -69,6 +69,8 @@ paths:
             The check ran (or was answered without a network call). `status` says which:
             `connected` (AC-12), `not_configured` (AC-13, no request sent), `failing` with an
             `error_class` (AC-13b), `not_supported` (no adapter for the venue, no request sent).
+            A failure the adapter cannot classify (a transport error or a refusal code it does not
+            map) is reported as `failing` with `error_class: exchange_unavailable` (ADR-0005).
           content:
             application/json:
               schema: { $ref: "#/components/schemas/VenueConnection" }

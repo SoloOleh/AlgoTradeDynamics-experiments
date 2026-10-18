@@ -77,7 +77,7 @@
 | T69 | Cite the spec §8 items by name in T61 and T64 | docs | Oleh Solomko | S | T65 | done |
 | T70 | Pin the stored text of an unclassified placement refusal | tests | Oleh Solomko | S | T69 | done |
 | T71 | Pin the Grid position take-profit on an unclassified refusal and scope the T67 wording | tests | Oleh Solomko | S | T69 | done |
-| T72 | Document how an unclassified failure is reported in the contract and the SAD | docs | Oleh Solomko | S | T69 | todo |
+| T72 | Document how an unclassified failure is reported in the contract and the SAD | docs | Oleh Solomko | S | T69 | done |
 | T73 | Cite the AC-12 test-plan row by name in the ship precondition | docs | Oleh Solomko | S | T69 | todo |
 **Total:** 73 tasks — T01–T20 (~16 person-days) plus T21–T34, review follow-ups from `_review/review-2026-10-14.md` (14 × S ≈ ½ d), plus T35–T40, review follow-ups from `_review/review-2026-10-15.md` (6 × S), plus T41–T47, review follow-ups from `_review/review-2026-10-15-2.md` (7 × S), plus T48–T51, review follow-ups from `_review/review-2026-10-15-3.md` (4 × S), plus T52–T55, review follow-ups from `_review/review-2026-10-17.md` (4 × S), plus T56–T59, review follow-ups from `_review/review-2026-10-17-2.md` (4 × S), plus T60–T65, review follow-ups from `_review/review-2026-10-18.md` (6 × S), plus T66–T69, review follow-ups from `_review/review-2026-10-18-2.md` (4 × S), plus T70–T73, review follow-ups from `_review/review-2026-10-18-3.md` (4 × S).
 
