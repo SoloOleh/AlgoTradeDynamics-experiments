@@ -8,7 +8,7 @@ files_hint: ["docs/features/exchange-adapter/tasks/t61-amend-adr-0003-for-the-de
 owner: "Oleh Solomko"
 estimate: "S"
 origin: "review-2026-10-18-2"
-status: "todo"
+status: "done"
 ---
 
 # T69 — Cite the spec §8 items by name in T61 and T64

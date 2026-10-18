@@ -17,7 +17,7 @@ Follow-up task from the independent review — [`_review/review-2026-10-18.md`](
 
 ## Problem
 
-ADR-0003's consequence (`:46`) still says the code reading `raw_response['reduceOnly']` must move to a neutral source with a fallback, and `test-plan.md:88` describes a neutral accessor; both are deferred (`spec.md:256`) and the accessor reads only `reduceOnly`.
+ADR-0003's consequence (`:46`) still says the code reading `raw_response['reduceOnly']` must move to a neutral source with a fallback, and `test-plan.md:88` describes a neutral accessor; both are deferred ([spec §8](../spec.md#8-open-questions), Bybit field names item) and the accessor reads only `reduceOnly`.
 
 ## Acceptance
 
